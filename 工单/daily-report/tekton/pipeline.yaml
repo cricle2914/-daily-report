@@ -1,0 +1,40 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: daily-report-pipeline
+  namespace: tekton-pipelines
+spec:
+  params:
+  - name: repo-url
+    type: string
+    default: "https://github.com/cricle2914/-daily-report"
+  - name: image
+    type: string
+    default: "11.0.1.128:5000/daily-report"
+  - name: tag
+    type: string
+    default: "latest"
+  workspaces:
+  - name: shared-workspace
+  tasks:
+  - name: clone
+    taskRef:
+      name: git-clone
+    workspaces:
+    - name: output
+      workspace: shared-workspace
+    params:
+    - name: url
+      value: $(params.repo-url)
+  - name: build-push
+    taskRef:
+      name: build-and-push
+    runAfter: [clone]
+    workspaces:
+    - name: source
+      workspace: shared-workspace
+    params:
+    - name: image
+      value: $(params.image)
+    - name: tag
+      value: $(params.tag)

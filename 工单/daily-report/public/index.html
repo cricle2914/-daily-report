@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>实施工程师日报</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container" id="app">
+    <!-- 顶部栏 -->
+    <div class="top-bar">
+      <div class="avatar" id="avatar">-</div>
+      <span class="engineer-name" id="engineerName">请选择工程师</span>
+      <div class="steps">
+        <div class="step active" id="step1">1</div>
+        <div class="step" id="step2">2</div>
+        <div class="step" id="step3">3</div>
+      </div>
+    </div>
+
+    <!-- Page 1: 选工程师 & 选项目 -->
+    <div class="page active" id="page-1">
+      <div style="margin-bottom:16px">
+        <input class="search-box" id="searchInput" type="text" placeholder="搜索工程师姓名..." autocomplete="off">
+        <div class="search-dropdown" id="searchDropdown"></div>
+      </div>
+
+      <div id="selectedEngineerInfo" class="hidden" style="margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 0">
+          <span style="color:#534AB7;font-weight:500">✔ 已选择：</span>
+          <span id="selectedEngineerName"></span>
+        </div>
+      </div>
+
+      <div id="projectList" class="project-list"></div>
+
+      <div id="newProjectArea" class="hidden">
+        <div class="new-project-btn" id="newProjectBtn">＋ 新建项目</div>
+      </div>
+
+      <div id="nextStepArea" class="hidden action-bar" style="position:static;box-shadow:none;padding:16px 0">
+        <button class="btn btn-primary btn-block" id="nextToReportBtn">填写今日日报 →</button>
+      </div>
+    </div>
+
+    <!-- Page 2: 填写日报 -->
+    <div class="page" id="page-2">
+      <div class="collapse-card" id="projectSummary">
+        <div class="collapse-card-header">
+          <div>
+            <div id="reportProjectName" style="font-weight:500"></div>
+            <div id="reportImplDays" style="font-size:14px;color:#999;margin-top:4px"></div>
+          </div>
+          <span class="expand-arrow" style="color:#999">▼</span>
+        </div>
+        <div class="collapse-card-body" id="projectDetailBody"></div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">今日计划 <span style="color:#F44336">*</span></label>
+        <input class="form-input" id="planTitle" placeholder="例：AS7升级验证、文档整理" required>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">工作内容 <span style="color:#F44336">*</span></label>
+        <div id="taskList" class="task-list">
+          <div class="task-item">
+            <input class="form-input task-input" placeholder="输入工作任务">
+            <button class="task-del-btn" onclick="removeTask(this)" style="visibility:hidden">－</button>
+          </div>
+        </div>
+        <button class="add-task-btn" onclick="addTask()">＋ 添加工作项</button>
+      </div>
+
+      <div class="form-group progress-section">
+        <label class="form-label">进度</label>
+        <input class="progress-slider" id="progressSlider" type="range" min="0" max="100" value="0">
+        <div class="progress-value" id="progressValue">0%</div>
+        <div class="status-btns">
+          <button class="status-btn complete" data-status="complete" onclick="selectStatus(this)">✔ 完成</button>
+          <button class="status-btn ongoing" data-status="ongoing" onclick="selectStatus(this)">● 进行中</button>
+          <button class="status-btn blocked" data-status="blocked" onclick="selectStatus(this)">！有阻碍</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">遗留问题</label>
+        <textarea class="form-input" id="issues" placeholder="无" rows="3"></textarea>
+      </div>
+
+      <div class="action-bar">
+        <button class="btn btn-secondary" onclick="showPage('page-1')">← 返回</button>
+        <button class="btn btn-primary" id="submitReportBtn" onclick="submitReport()">提交日报</button>
+      </div>
+    </div>
+
+    <!-- Page 3: 明日去向 -->
+    <div class="page" id="page-3">
+      <div class="success-bar" id="reportSuccessBar">
+        <div style="font-weight:500;font-size:16px">✔ 日报已提交</div>
+        <div class="summary" id="reportSummary"></div>
+      </div>
+
+      <div style="font-size:16px;font-weight:500;margin-bottom:4px">明日去向</div>
+      <div style="font-size:14px;color:#999;margin-bottom:12px">请选择明天的安排</div>
+
+      <div class="grid-2x2" id="destinationGrid">
+        <div class="grid-card purple" data-dest="existing_project" onclick="selectDestination(this)">
+          <div class="icon">📋</div>
+          <div class="label">已有项目</div>
+        </div>
+        <div class="grid-card blue" data-dest="new_project" onclick="selectDestination(this)">
+          <div class="icon">🆕</div>
+          <div class="label">新项目</div>
+        </div>
+        <div class="grid-card green" data-dest="back_to_office" onclick="selectDestination(this)">
+          <div class="icon">🏢</div>
+          <div class="label">回公司</div>
+        </div>
+        <div class="grid-card orange" data-dest="other" onclick="selectDestination(this)">
+          <div class="icon">📝</div>
+          <div class="label">其他</div>
+        </div>
+      </div>
+
+      <!-- 已有项目面板 -->
+      <div class="destination-panel" id="panel-existing_project">
+        <div class="form-label">选择项目</div>
+        <div id="destProjectList"></div>
+      </div>
+
+      <!-- 新项目面板 -->
+      <div class="destination-panel" id="panel-new_project">
+        <div class="form-group">
+          <label class="form-label">客户名 <span style="color:#F44336">*</span></label>
+          <input class="form-input" id="newProjCustomer" placeholder="请输入客户名">
+        </div>
+        <div class="form-group">
+          <label class="form-label">项目名 <span style="color:#F44336">*</span></label>
+          <input class="form-input" id="newProjName" placeholder="请输入项目名">
+        </div>
+        <div class="form-group">
+          <label class="form-label">工单号</label>
+          <input class="form-input" id="newProjOrder" placeholder="可选">
+        </div>
+        <div class="form-group">
+          <label class="form-label">联系人</label>
+          <input class="form-input" id="newProjContact" placeholder="可选">
+        </div>
+        <div class="form-group">
+          <label class="form-label">电话</label>
+          <input class="form-input" id="newProjPhone" placeholder="可选">
+        </div>
+        <div class="form-group">
+          <label class="form-label">版本</label>
+          <input class="form-input" id="newProjVersion" placeholder="可选">
+        </div>
+        <div class="form-group">
+          <label class="form-label">地址</label>
+          <input class="form-input" id="newProjAddress" placeholder="可选">
+        </div>
+      </div>
+
+      <!-- 回公司面板 -->
+      <div class="destination-panel" id="panel-back_to_office">
+        <div style="background:#E8F5E9;border-radius:8px;padding:16px;color:#2E7D32;font-size:15px">
+          ✔ 明日回公司办公，无需额外信息
+        </div>
+      </div>
+
+      <!-- 其他面板 -->
+      <div class="destination-panel" id="panel-other">
+        <div class="form-group">
+          <label class="form-label">说明原因 <span style="color:#F44336">*</span></label>
+          <textarea class="form-input" id="otherReason" placeholder="请输入原因" rows="3"></textarea>
+        </div>
+      </div>
+
+      <div style="margin-top:24px">
+        <button class="btn btn-primary btn-block" id="submitTomorrowBtn" onclick="submitTomorrow()">
+          确认提交并完成
+        </button>
+      </div>
+    </div>
+
+    <!-- 完成界面 -->
+    <div class="page" id="page-complete">
+      <div class="complete-container">
+        <div class="complete-icon">🎉</div>
+        <div class="complete-title">全部完成！</div>
+        <div class="complete-subtitle">感谢提交，领导端已实时更新</div>
+        <div class="stats-grid" id="finalStats"></div>
+        <button class="btn btn-primary btn-block" style="margin-top:24px" onclick="location.reload()">
+          重新开始
+        </button>
+      </div>
+    </div>
+
+    <!-- 新建项目抽屉 -->
+    <div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+    <div class="drawer" id="drawer">
+      <div class="drawer-title">新建项目</div>
+      <div class="form-group">
+        <label class="form-label">客户名 <span style="color:#F44336">*</span></label>
+        <input class="form-input" id="drawerCustomer" placeholder="请输入客户名">
+      </div>
+      <div class="form-group">
+        <label class="form-label">项目名 <span style="color:#F44336">*</span></label>
+        <input class="form-input" id="drawerName" placeholder="请输入项目名">
+      </div>
+      <div class="form-group">
+        <label class="form-label">工单号</label>
+        <input class="form-input" id="drawerOrder" placeholder="可选">
+      </div>
+      <div class="form-group">
+        <label class="form-label">联系人</label>
+        <input class="form-input" id="drawerContact" placeholder="可选">
+      </div>
+      <div class="form-group">
+        <label class="form-label">电话</label>
+        <input class="form-input" id="drawerPhone" placeholder="可选">
+      </div>
+      <div class="form-group">
+        <label class="form-label">版本</label>
+        <input class="form-input" id="drawerVersion" placeholder="可选">
+      </div>
+      <div class="form-group">
+        <label class="form-label">地址</label>
+        <input class="form-input" id="drawerAddress" placeholder="可选">
+      </div>
+      <button class="btn btn-primary btn-block" onclick="createProject()">创建并选择</button>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

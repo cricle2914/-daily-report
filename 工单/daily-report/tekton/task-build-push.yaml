@@ -1,0 +1,24 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: build-and-push
+  namespace: tekton-pipelines
+spec:
+  params:
+  - name: image
+    description: 完整镜像地址，如 11.0.1.128:5000/daily-report
+  - name: tag
+    description: 镜像 tag
+    default: latest
+  workspaces:
+  - name: source
+    description: 代码目录
+  steps:
+  - name: build-push
+    image: gcr.io/kaniko-project/executor:latest
+    args:
+    - --dockerfile=Dockerfile
+    - --context=$(workspaces.source.path)
+    - --destination=$(params.image):$(params.tag)
+    - --insecure
+    - --skip-tls-verify

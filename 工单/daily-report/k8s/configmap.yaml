@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: daily-report-config
+  namespace: daily-report
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  DB_HOST: "mysql-service"
+  DB_PORT: "3306"
+  DB_NAME: "daily_report"

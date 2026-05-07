@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: daily-report-app
+  namespace: daily-report
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: daily-report
+  template:
+    metadata:
+      labels:
+        app: daily-report
+    spec:
+      containers:
+      - name: app
+        image: 11.0.1.128:5000/daily-report:latest
+        ports:
+        - containerPort: 3000
+        envFrom:
+        - configMapRef:
+            name: daily-report-config
+        - secretRef:
+            name: daily-report-secret
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"

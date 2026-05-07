@@ -1,0 +1,61 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: EventListener
+metadata:
+  name: daily-report-listener
+  namespace: tekton-pipelines
+spec:
+  triggers:
+  - name: github-push
+    interceptors:
+    - ref:
+        name: github
+      params:
+      - name: secretRef
+        value:
+          secretName: github-webhook-secret
+          secretKey: secret
+      - name: eventTypes
+        value: [push]
+    bindings:
+    - ref: daily-report-binding
+    template:
+      ref: daily-report-template
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: daily-report-binding
+  namespace: tekton-pipelines
+spec:
+  params:
+  - name: git-repo-url
+    value: $(body.repository.clone_url)
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: daily-report-template
+  namespace: tekton-pipelines
+spec:
+  params:
+  - name: git-repo-url
+  resourcetemplates:
+  - apiVersion: tekton.dev/v1beta1
+    kind: PipelineRun
+    metadata:
+      generateName: daily-report-run-
+      namespace: tekton-pipelines
+    spec:
+      pipelineRef:
+        name: daily-report-pipeline
+      workspaces:
+      - name: shared-workspace
+        volumeClaimTemplate:
+          spec:
+            accessModes: [ReadWriteOnce]
+            resources:
+              requests:
+                storage: 1Gi
+      params:
+      - name: repo-url
+        value: $(tt.params.git-repo-url)
