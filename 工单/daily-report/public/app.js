@@ -691,6 +691,11 @@ async function submitReport(overwriteMode) {
 // ====== 工时弹窗 ======
 
 function showHoursOverlay() {
+  const reportDate = state.customReportDate || new Date().toISOString().split('T')[0];
+  const d = new Date(reportDate + 'T00:00:00');
+  const label = `${d.getMonth()+1}月${d.getDate()}日`;
+  document.getElementById('hoursModalTitle').textContent = label + ' 工时';
+  document.getElementById('hoursModalDesc').textContent = '请填写 ' + label + ' 实际工时';
   document.getElementById('hoursError').classList.add('hidden');
   document.getElementById('hoursInput').value = '';
   document.getElementById('hoursOverlay').classList.remove('hidden');
@@ -732,7 +737,7 @@ document.getElementById('hoursInput').addEventListener('keydown', function(e) {
 
 function initTomorrowPage() {
   const today = new Date();
-  const dateStr = today.toISOString().split('T')[0];
+  const dateStr = state.customReportDate || today.toISOString().split('T')[0];
   state.tomorrowDate = dateStr;
   state.destination = null;
 
@@ -824,8 +829,21 @@ function enterP2Expand() {
     const item = document.createElement('div');
     item.className = 'p2-expand-item';
     item.innerHTML = `
-      <div class="p2-expand-item-name">${p.name}</div>
-      <div class="p2-expand-item-meta">工单：${p.order_no || '-'} · 实施第 ${p.impl_days} 天</div>`;
+      <div class="p2-expand-item-header">${p.name}</div>
+      <div class="p2-expand-item-body">
+        <div class="p2-expand-row"><span class="label">客户</span>${p.customer || '-'}</div>
+        <div class="p2-expand-row"><span class="label">工单</span>${p.order_no || '-'}</div>
+        <div class="p2-expand-row"><span class="label">联系人</span>${p.contact_name || '-'} ${p.contact_phone || ''}</div>
+        <div class="p2-expand-row"><span class="label">版本</span>${p.product_version || '-'}</div>
+        <div class="p2-expand-row"><span class="label">地址</span>${p.install_address || '-'}</div>
+        <div class="p2-expand-row"><span class="label">厂商</span>${p.manufacturer || '-'}</div>
+        <div class="p2-expand-row"><span class="label">代理商</span>${p.agent || '-'}</div>
+        <div class="p2-expand-row"><span class="label">技术负责人</span>${p.tech_lead || '-'}</div>
+        <div class="p2-expand-row"><span class="label">服务经理</span>${p.service_manager || '-'}</div>
+        <div class="p2-expand-row" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">
+          <span class="label">实施天数</span>${p.impl_days} 天
+        </div>
+      </div>`;
     list.appendChild(item);
   });
 }

@@ -31,7 +31,8 @@ router.get('/:id/projects', async (req, res, next) => {
     const [rows] = await pool.query(
       `SELECT p.id, p.name, p.order_no, p.customer,
               p.contact_name, p.contact_phone, p.product_version,
-              p.install_address, ep.impl_days,
+              p.install_address, p.manufacturer, p.agent, p.tech_lead, p.service_manager,
+              ep.impl_days,
               (SELECT MAX(dr.submitted_at) FROM daily_reports dr WHERE dr.project_id = p.id AND dr.engineer_id = ep.engineer_id) AS last_report_date
        FROM projects p
        JOIN engineer_projects ep ON p.id = ep.project_id

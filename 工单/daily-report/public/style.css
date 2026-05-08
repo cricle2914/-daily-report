@@ -1282,17 +1282,33 @@ html, body {
   background: rgba(255,255,255,0.04);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.p2-expand-item-header {
   padding: 14px;
-  margin-bottom: 8px;
-}
-.p2-expand-item-name {
-  font-size: 15px;
   font-weight: 700;
+  font-size: 15px;
   color: var(--text);
-  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
 }
-.p2-expand-item-meta {
+.p2-expand-item-body {
+  padding: 12px 14px;
+}
+.p2-expand-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--text);
+}
+.p2-expand-row .label {
+  min-width: 4.5em;
+  flex-shrink: 0;
   font-size: 12px;
+  font-weight: 600;
   color: var(--text-muted);
 }
 

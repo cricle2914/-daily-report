@@ -33,7 +33,7 @@ router.post('/', async (req, res, next) => {
           await conn.rollback();
           return res.status(400).json({
             success: false,
-            error: '今日已提交过日报',
+            error: '该日期已提交过日报',
             data: { existing: true }
           });
         }
@@ -101,7 +101,7 @@ router.put('/', async (req, res, next) => {
     );
 
     if (existing.length === 0) {
-      return res.status(400).json({ success: false, error: '今日尚无日报可修改' });
+      return res.status(400).json({ success: false, error: '该日期尚无日报可修改' });
     }
 
     await pool.query(
@@ -155,7 +155,7 @@ router.post('/tomorrow', async (req, res, next) => {
           await conn.rollback();
           return res.status(400).json({
             success: false,
-            error: '今日已提交过明日去向',
+            error: '该日期已提交过明日去向',
             data: { existing: true }
           });
         }
