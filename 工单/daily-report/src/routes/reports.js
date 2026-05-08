@@ -182,6 +182,26 @@ router.post('/tomorrow', async (req, res, next) => {
   }
 });
 
+// 获取指定工程师/项目上次日报的进度
+router.get('/last-progress', async (req, res, next) => {
+  try {
+    const { engineer_id, project_id } = req.query;
+    if (!engineer_id || !project_id) {
+      return res.json({ success: true, data: { progress: 0 } });
+    }
+    const [rows] = await pool.query(
+      'SELECT progress FROM daily_reports WHERE engineer_id = ? AND project_id = ? ORDER BY report_date DESC LIMIT 1',
+      [engineer_id, project_id]
+    );
+    res.json({
+      success: true,
+      data: { progress: rows.length > 0 ? rows[0].progress : 0 }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // 次日人员分布统计
 router.get('/stats/tomorrow', async (req, res, next) => {
   try {

@@ -71,7 +71,30 @@ searchInput.addEventListener('input', () => {
     document.getElementById('searchDropdown').classList.remove('show');
     return;
   }
+  // 输入的姓名与已选工程师不同时，重置选择
+  if (state.engineer && searchInput.value !== state.engineer.name) {
+    resetEngineerSelection();
+  }
   searchTimer = setTimeout(() => searchEngineers(val), 300);
+});
+
+// 搜索框聚焦：展开动画 + 磨玻璃背景
+searchInput.addEventListener('focus', function() {
+  const page1 = document.getElementById('page-1');
+  page1.classList.add('search-expanded');
+});
+
+// 搜索框失焦：延迟收起，让点击事件先触发
+searchInput.addEventListener('blur', function() {
+  setTimeout(() => {
+    document.getElementById('page-1').classList.remove('search-expanded');
+  }, 200);
+});
+
+// 点击背景遮罩关闭搜索展开
+document.getElementById('searchBackdrop').addEventListener('click', function() {
+  document.getElementById('page-1').classList.remove('search-expanded');
+  searchInput.blur();
 });
 
 async function searchEngineers(name) {
@@ -107,10 +130,28 @@ function selectEngineer(eng) {
   document.getElementById('selectedEngineerInfo').classList.remove('hidden');
   document.getElementById('selectedEngineerName').textContent = eng.name;
 
+  // 添加 has-selection 隐藏 Good day!，露出项目列表
+  document.getElementById('page-1').classList.add('has-selection');
+  // 退出搜索展开状态
+  document.getElementById('page-1').classList.remove('search-expanded');
+
   // 明确显示已选择的工程师样式
   document.querySelectorAll('.dropdown-item').forEach(el => el.style.display = 'none');
 
   loadProjects(eng.id);
+}
+
+function resetEngineerSelection() {
+  if (!state.engineer) return;
+  state.engineer = null;
+  state.project = null;
+  document.getElementById('selectedEngineerInfo').classList.add('hidden');
+  document.getElementById('nextStepArea').classList.add('hidden');
+  document.getElementById('newProjectArea').classList.add('hidden');
+  document.getElementById('projectList').innerHTML = '';
+  document.getElementById('page-1').classList.remove('has-selection');
+  searchInput.value = '';
+  document.querySelectorAll('.dropdown-item').forEach(el => el.style.display = '');
 }
 
 async function loadProjects(engineerId) {
@@ -227,7 +268,7 @@ async function createProject() {
 
 // ====== 跳转到 Page 2 ======
 
-document.getElementById('nextToReportBtn').onclick = () => {
+document.getElementById('nextToReportBtn').onclick = async () => {
   if (!state.project) {
     showToast('请先选择项目');
     return;
@@ -240,10 +281,12 @@ document.getElementById('nextToReportBtn').onclick = () => {
        <div>工单：${state.project.detail.order_no || '-'}</div>
        <div>版本：${state.project.detail.product_version || '-'}</div>`
     : '';
-  // 进度默认 75
-  progressSlider.value = 75;
-  progressValue.textContent = '75%';
-  progressSlider.style.background = `linear-gradient(to right, #534AB7 0%, #534AB7 75%, var(--text-dim) 75%, var(--text-dim) 100%)`;
+  // 从上次日报获取进度，没有则默认 0
+  const lastData = await request(`/api/reports/last-progress?engineer_id=${state.engineer.id}&project_id=${state.project.id}`);
+  const lastProgress = lastData ? lastData.progress : 0;
+  progressSlider.value = lastProgress;
+  progressValue.textContent = lastProgress + '%';
+  progressSlider.style.background = `linear-gradient(to right, #534AB7 0%, #534AB7 ${lastProgress}%, var(--text-dim) ${lastProgress}%, var(--text-dim) 100%)`;
   showPage('page-2');
 };
 
@@ -515,24 +558,5 @@ async function submitTomorrow() {
 }
 
 async function loadFinalStats() {
-  const data = await request(`/api/reports/stats/tomorrow?date=${state.tomorrowDate}`);
-  if (!data) return;
-  const container = document.getElementById('finalStats');
-  container.innerHTML = `
-    <div class="stat-card">
-      <div class="stat-number">${data.in_project}</div>
-      <div class="stat-label">在项目</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-number">${data.back_to_office}</div>
-      <div class="stat-label">回公司</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-number">${data.unavailable}</div>
-      <div class="stat-label">请假/其他</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-number">${data.pending}</div>
-      <div class="stat-label">未填写</div>
-    </div>`;
+  // CSS 已隐藏 .stats-grid，无需渲染
 }

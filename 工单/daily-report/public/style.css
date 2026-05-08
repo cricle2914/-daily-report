@@ -158,6 +158,66 @@ html, body {
   margin-top: auto;
   padding-top: 40px;
   position: relative;
+  transition: all 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* 搜索展开背景 */
+.search-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 199;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* 搜索展开状态 */
+#page-1.search-expanded.page::before,
+#page-1.search-expanded.page::after { display: none !important; }
+
+#page-1.search-expanded .search-backdrop {
+  display: block;
+  opacity: 1;
+  pointer-events: all;
+}
+
+#page-1.search-expanded .search-wrap {
+  position: fixed;
+  top: 42%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(100% - 40px);
+  max-width: 440px;
+  z-index: 210;
+  padding-top: 0;
+  margin-top: 0;
+  animation: searchExpandIn 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+#page-1.search-expanded .search-box {
+  font-size: 18px;
+  padding: 16px 16px 16px 44px;
+  border-color: var(--border-med);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+#page-1.search-expanded .search-box:focus {
+  border-color: var(--text);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+@keyframes searchExpandIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -58%) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
 }
 
 .search-icon {
@@ -241,9 +301,8 @@ html, body {
 }
 
 /* 已选工程师后，隐藏 Good day */
-#selectedEngineerInfo:not(.hidden) ~ * #page-1::before,
-.has-selection #page-1.page::before,
-.has-selection #page-1.page::after { display: none; }
+#page-1.has-selection.page::before,
+#page-1.has-selection.page::after { display: none; }
 
 /* 已选工程师提示 */
 .selected-info {
