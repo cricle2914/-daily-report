@@ -26,13 +26,6 @@
     .card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:16px; }
     .section-title { font-size:14px; font-weight:600; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
 
-    .split-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-    .rank-item {
-      display:flex; align-items:center; justify-content:space-between;
-      padding:7px 0; border-bottom:1px solid var(--border); font-size:13px;
-    }
-    .rank-item:last-child { border-bottom:none; }
-    .rank-num { color:var(--text-dim); min-width:24px; }
     .nav-date { font-size:12px; color:var(--text-secondary); margin-left:auto; }
 
     /* ===== 图表切换 ===== */
@@ -128,16 +121,6 @@
         <div id="chartContainer"></div>
       </div>
 
-      <div class="split-2">
-        <div class="card">
-          <div class="section-title">按项目排名</div>
-          <div id="projectRank"></div>
-        </div>
-        <div class="card">
-          <div class="section-title">按工程师排名</div>
-          <div id="engineerRank"></div>
-        </div>
-      </div>
     </div>
   </div>
   <script src="/admin/admin.js"></script>
@@ -174,17 +157,14 @@
         document.getElementById('navDate').textContent = `${data.date_from} ~ ${data.date_to}`;
 
         const trend = data.trend || [];
-        const byProject = data.by_project || [];
-        const byEngineer = data.by_engineer || [];
 
         document.getElementById('totalHours').textContent = Math.round(data.grand_total * 10) / 10;
-        document.getElementById('totalEngineers').textContent = byEngineer.length;
+        document.getElementById('totalEngineers').textContent = data.by_engineer ? data.by_engineer.length : 0;
         document.getElementById('totalDays').textContent = trend.length;
         document.getElementById('avgDaily').textContent = trend.length > 0
           ? Math.round((data.grand_total / trend.length) * 10) / 10 : 0;
 
         renderChart(data);
-        renderRanks(byProject, byEngineer);
       } catch (err) {
         showToast(err.message, 'error');
       }
@@ -302,36 +282,13 @@
       if (el) el.style.opacity = '0';
     }
 
-    // ---- 排名 ----
-    function renderRanks(byProject, byEngineer) {
-      const projRank = document.getElementById('projectRank');
-      projRank.innerHTML = byProject.length === 0
-        ? '<div class="empty-state" style="padding:20px">暂无数据</div>'
-        : byProject.map((p, i) =>
-          `<div class="rank-item">
-            <span><span class="rank-num">${i + 1}.</span> ${p.project_name}</span>
-            <span><strong>${Math.round(parseFloat(p.total_hours) * 10) / 10}</strong> h</span>
-          </div>`
-        ).join('');
-
-      const engRank = document.getElementById('engineerRank');
-      engRank.innerHTML = byEngineer.length === 0
-        ? '<div class="empty-state" style="padding:20px">暂无数据</div>'
-        : byEngineer.map((e, i) =>
-          `<div class="rank-item">
-            <span><span class="rank-num">${i + 1}.</span> ${e.engineer_name} (${e.abbr})</span>
-            <span><strong>${Math.round(parseFloat(e.total_hours) * 10) / 10}</strong> h</span>
-          </div>`
-        ).join('');
-    }
-
     // 标签格式化
     function formatLabel(label) {
       if (!label) return '';
       // year: "2026-01" → "1月", quarter/day: "2026-01-05" → "1-5"
       if (currentPeriod === 'year') return label.slice(5, 7) + '月';
-      if (currentPeriod === 'month' || currentPeriod === 'day' || currentPeriod === 'week') return label.slice(5);
-      return label;
+      // quarter label is YYYY-MM-DD (Monday), month/week/day are also dates
+      return label.slice(5);
     }
 
     document.addEventListener('DOMContentLoaded', () => {

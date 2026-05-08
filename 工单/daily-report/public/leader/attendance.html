@@ -26,16 +26,16 @@
 
     /* ===== 工程师行 ===== */
     .eng-row {
-      display:flex; align-items:center; gap:8px;
-      padding:5px 0; border-bottom:1px solid var(--border); min-height:36px;
+      display:flex; align-items:center; gap:6px;
+      padding:4px 0; border-bottom:1px solid var(--border); min-height:30px;
     }
     .eng-row:last-child { border-bottom:none; }
     .eng-label {
-      width:56px; flex-shrink:0; display:flex; align-items:center; gap:4px;
+      width:76px; flex-shrink:0; display:flex; align-items:center; gap:3px;
       font-size:12px; font-weight:600;
     }
     .eng-label .abbr {
-      width:24px; height:24px; border-radius:5px; background:var(--text-primary);
+      width:22px; height:22px; border-radius:4px; background:var(--text-primary);
       color:var(--bg); display:flex; align-items:center; justify-content:center;
       font-size:10px; font-weight:900; flex-shrink:0;
     }
@@ -69,7 +69,7 @@
     /* ==================================================
        周视图：柱状图
        ================================================== */
-    .week-bars { display:flex; gap:3px; flex:1; align-items:flex-end; height:64px; }
+    .week-bars { display:flex; gap:3px; flex:1; align-items:flex-end; height:72px; }
     .bar-cell {
       flex:1; display:flex; flex-direction:column; align-items:center;
       justify-content:flex-end; cursor:pointer;
@@ -83,7 +83,6 @@
     .bar-fill.other { background:#ffaa00; }
     .bar-fill.weekend { background:rgba(255,255,255,.06); }
     .bar-fill.unknown { background:rgba(255,255,255,.03); }
-    .bar-cell .dow { font-size:10px; color:var(--text-dim); margin-top:2px; font-weight:500; }
     .bar-fill::after {
       content:attr(data-tip); position:fixed;
       padding:4px 8px; border-radius:4px; background:#222; color:#fff;
@@ -96,31 +95,16 @@
     .week-header .dow-label { flex:1; text-align:center; font-size:11px; color:var(--text-secondary); font-weight:500; }
 
     /* ==================================================
-       月视图：日历网格
-       ================================================== */
-    .month-grid {
-      flex:1; display:grid; grid-template-columns:repeat(7,1fr); gap:2px;
-    }
-    .month-grid .cal-cell { aspect-ratio:1; min-height:20px; }
-    .dow-header {
-      display:flex; gap:2px; flex:1; margin-bottom:2px;
-    }
-    .dow-header span {
-      flex:1; text-align:center; font-size:10px; color:var(--text-dim);
-      padding:2px 0;
-    }
-
-    /* ==================================================
        季度/年视图：紧凑月历
        ================================================== */
     .compact-months { display:flex; gap:12px; flex:1; flex-wrap:nowrap; }
     .compact-months .month-block { flex:1; min-width:0; }
     .compact-months .month-title { font-size:12px; font-weight:700; color:var(--text-primary); margin-bottom:4px; text-align:center; }
-    .compact-months .month-grid { gap:2px; }
-    .compact-months .month-grid .cal-cell { aspect-ratio:1; min-height:14px; border-radius:2px; }
+    .compact-months .month-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+    .compact-months .month-grid .cal-cell { aspect-ratio:1; min-height:18px; border-radius:2px; }
     .compact-months.year-view { flex-wrap:wrap; }
     .compact-months.year-view .month-block { flex:0 0 calc(100% / 6); }
-    .compact-months.year-view .month-grid .cal-cell { min-height:9px; }
+    .compact-months.year-view .month-grid .cal-cell { min-height:12px; }
   </style>
 </head>
 <body>
@@ -150,8 +134,7 @@
 
       <div class="filter-bar">
         <div class="period-tabs" id="periodTabs">
-          <button class="period-tab" data-period="week">周</button>
-          <button class="period-tab active" data-period="month">月</button>
+          <button class="period-tab active" data-period="week">周</button>
           <button class="period-tab" data-period="quarter">季度</button>
           <button class="period-tab" data-period="year">年</button>
         </div>
@@ -183,12 +166,11 @@
   <script src="/admin/admin.js"></script>
   <script>
     let currentDate = new Date();
-    let currentPeriod = 'month';
+    let currentPeriod = 'week';
     let attendanceData = null;
     let allEngineers = [];
 
     const WEEKDAY_NAMES = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
-    const WEEKDAYS_CN = ['一', '二', '三', '四', '五', '六', '日'];
 
     function formatDate(d) {
       const y = d.getFullYear();
@@ -211,10 +193,6 @@
           to = formatDate(new Date(d.getFullYear(), q + 3, 0));
           break;
         }
-        case 'month':
-          from = formatDate(new Date(d.getFullYear(), d.getMonth(), 1));
-          to = formatDate(new Date(d.getFullYear(), d.getMonth() + 1, 0));
-          break;
         case 'week': {
           const dow = d.getDay();
           const monday = new Date(d);
@@ -225,6 +203,9 @@
           to = formatDate(sunday);
           break;
         }
+        default:
+          from = formatDate(d);
+          to = formatDate(d);
       }
       return { from, to };
     }
@@ -235,11 +216,11 @@
       switch (period) {
         case 'year': return `${y}年`;
         case 'quarter': return `${y}年 Q${Math.floor(d.getMonth() / 3) + 1}`;
-        case 'month': return `${y}年${d.getMonth() + 1}月`;
         case 'week': {
           const range = getDateRange('week', d);
           return `${range.from} ~ ${range.to}`;
         }
+        default: return formatDate(d);
       }
     }
 
@@ -248,7 +229,6 @@
       switch (currentPeriod) {
         case 'year': d.setFullYear(d.getFullYear() + delta); break;
         case 'quarter': d.setMonth(d.getMonth() + delta * 3); break;
-        case 'month': d.setMonth(d.getMonth() + delta); break;
         case 'week': d.setDate(d.getDate() + delta * 7); break;
       }
       currentDate = d;
@@ -301,8 +281,6 @@
 
       if (currentPeriod === 'week') {
         renderWeek(container, engineers, dates, attendance);
-      } else if (currentPeriod === 'month') {
-        renderMonth(container, engineers, dates, attendance);
       } else {
         renderCompact(container, engineers, dates, attendance);
       }
@@ -324,50 +302,11 @@
         dates.forEach(d => {
           const cell = engAtt[d] || { color: 'unknown', report_id: null };
           const isWork = cell.color === 'onsite' || cell.color === 'office';
-          const barH = isWork ? 52 : 10;
+          const barH = isWork ? 60 : 10;
           html += `<div class="bar-cell">
             <div class="bar-fill ${cell.color}" style="height:${barH}px" data-tip="${d}"
               ${cell.report_id ? `onclick="window.open('/admin/report-edit.html?id=${cell.report_id}','_blank')"` : ''}></div>
           </div>`;
-        });
-        html += '</div></div>';
-      });
-      container.innerHTML = html;
-    }
-
-    // ---- 月（日历网格） ----
-    function renderMonth(container, engineers, dates, attendance) {
-      const firstDate = new Date(dates[0]);
-      const year = firstDate.getFullYear();
-      const month = firstDate.getMonth();
-      let startDow = new Date(year, month, 1).getDay();
-      startDow = startDow === 0 ? 6 : startDow - 1;
-      const totalDays = new Date(year, month + 1, 0).getDate();
-
-      const cells = [];
-      for (let i = 0; i < startDow; i++) cells.push(null);
-      for (let day = 1; day <= totalDays; day++) {
-        cells.push(`${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
-      }
-
-      // 星期标题行
-      let html = `<div class="eng-row"><div class="eng-label"></div><div class="dow-header">`;
-      WEEKDAYS_CN.forEach(w => html += `<span>${w}</span>`);
-      html += '</div></div>';
-
-      engineers.forEach(e => {
-        const engAtt = attendance[e.id] || {};
-        html += `<div class="eng-row"><div class="eng-label">
-          <span class="abbr">${e.abbr}</span><span class="name">${e.name}</span>
-        </div><div class="month-grid">`;
-        cells.forEach(dateStr => {
-          if (dateStr) {
-            const cell = engAtt[dateStr] || { color: 'unknown', report_id: null };
-            html += `<div class="cal-cell ${cell.color}" data-tip="${dateStr}"
-              ${cell.report_id ? `onclick="window.open('/admin/report-edit.html?id=${cell.report_id}','_blank')"` : ''}></div>`;
-          } else {
-            html += '<div class="cal-cell empty"></div>';
-          }
         });
         html += '</div></div>';
       });
