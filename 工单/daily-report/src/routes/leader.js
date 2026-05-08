@@ -13,30 +13,30 @@ function viewerOrUser(req, res, next) {
 
 // ==================== Viewer 认证 ====================
 
-// viewer 登录
+// viewer 登录（支持 viewer 或 admin 角色账户）
 router.post('/login', async (req, res, next) => {
   try {
-    const { password } = req.body;
-    if (!password) {
-      return res.json({ success: false, message: '请输入密码' });
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.json({ success: false, message: '请输入用户名和密码' });
     }
 
     const [rows] = await pool.query(
-      'SELECT id, password_hash FROM accounts WHERE role = ? LIMIT 1',
-      ['viewer']
+      'SELECT id, password_hash, role FROM accounts WHERE username = ? AND role IN (?, ?)',
+      [username, 'viewer', 'admin']
     );
 
     if (rows.length === 0) {
-      return res.json({ success: false, message: '查看者账户未配置' });
+      return res.json({ success: false, message: '用户名或密码错误' });
     }
 
     const valid = await bcrypt.compare(password, rows[0].password_hash);
     if (!valid) {
-      return res.json({ success: false, message: '密码错误' });
+      return res.json({ success: false, message: '用户名或密码错误' });
     }
 
-    req.session.viewer = { authed: true, account_id: rows[0].id };
-    res.json({ success: true, data: { message: '登录成功' } });
+    req.session.viewer = { authed: true, account_id: rows[0].id, username, role: rows[0].role };
+    res.json({ success: true, data: { message: '登录成功', username, role: rows[0].role } });
   } catch (err) {
     next(err);
   }
@@ -51,7 +51,7 @@ router.post('/logout', (req, res) => {
 // viewer 状态检查
 router.get('/me', (req, res) => {
   if (req.session?.viewer?.authed) {
-    return res.json({ success: true, data: { role: 'viewer' } });
+    return res.json({ success: true, data: { role: req.session.viewer.role || 'viewer' } });
   }
   if (req.session?.user) {
     return res.json({ success: true, data: { role: req.session.user.role } });
@@ -71,13 +71,24 @@ router.put('/password', async (req, res, next) => {
       return res.json({ success: false, message: '请填写旧密码和新密码' });
     }
 
+    let accountId;
+    if (req.session?.viewer?.authed) {
+      accountId = req.session.viewer.account_id;
+    } else if (req.session?.user) {
+      accountId = req.session.user.id;
+    }
+
+    if (!accountId) {
+      return res.status(401).json({ success: false, message: '未登录' });
+    }
+
     const [rows] = await pool.query(
-      'SELECT id, password_hash FROM accounts WHERE role = ? LIMIT 1',
-      ['viewer']
+      'SELECT id, password_hash FROM accounts WHERE id = ?',
+      [accountId]
     );
 
     if (rows.length === 0) {
-      return res.json({ success: false, message: '查看者账户未配置' });
+      return res.json({ success: false, message: '账户未找到' });
     }
 
     const valid = await bcrypt.compare(old_password, rows[0].password_hash);
@@ -86,7 +97,7 @@ router.put('/password', async (req, res, next) => {
     }
 
     const hash = await bcrypt.hash(new_password, 10);
-    await pool.query('UPDATE accounts SET password_hash = ? WHERE id = ?', [hash, rows[0].id]);
+    await pool.query('UPDATE accounts SET password_hash = ? WHERE id = ?', [hash, accountId]);
 
     res.json({ success: true, data: { message: '密码已修改' } });
   } catch (err) {

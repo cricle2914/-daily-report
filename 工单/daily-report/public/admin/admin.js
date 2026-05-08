@@ -121,23 +121,12 @@ async function api(url, options) {
   return data;
 }
 
-// ====== 统计面板访问（密码弹窗） ======
+// ====== 统计面板访问（账户密码弹窗） ======
 function openStatsPanel() {
-  // 检查是否已有 viewer session（直接用 ajax 检测）
-  fetch('/api/leader/me')
-    .then(r => r.json())
-    .then(d => {
-      if (d.success) {
-        window.location.href = '/leader/';
-        return;
-      }
-      // 未认证，显示密码弹窗
-      showStatsPasswordModal();
-    })
-    .catch(() => showStatsPasswordModal());
+  showStatsLoginModal();
 }
 
-function showStatsPasswordModal() {
+function showStatsLoginModal() {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay show';
   overlay.style.display = 'flex';
@@ -145,9 +134,14 @@ function showStatsPasswordModal() {
     <div class="modal" style="max-width:360px">
       <div class="modal-title">统计面板访问</div>
       <div class="form-group">
-        <label class="form-label">请输入查看密码</label>
-        <input class="form-input" id="statsPassword" type="password" placeholder="请输入密码"
+        <label class="form-label">用户名</label>
+        <input class="form-input" id="statsUsername" type="text" placeholder="请输入用户名"
           style="width:100%" autofocus>
+      </div>
+      <div class="form-group">
+        <label class="form-label">密码</label>
+        <input class="form-input" id="statsPassword" type="password" placeholder="请输入密码"
+          style="width:100%" onkeydown="if(event.key==='Enter')doStatsLogin()">
       </div>
       <div class="modal-actions">
         <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">取消</button>
@@ -158,23 +152,24 @@ function showStatsPasswordModal() {
   overlay.addEventListener('click', function(e) {
     if (e.target === this) this.remove();
   });
-  setTimeout(() => document.getElementById('statsPassword')?.focus(), 100);
+  setTimeout(() => document.getElementById('statsUsername')?.focus(), 100);
 }
 
 async function doStatsLogin() {
+  const username = document.getElementById('statsUsername').value;
   const password = document.getElementById('statsPassword').value;
-  if (!password) { alert('请输入密码'); return; }
+  if (!username || !password) { alert('请输入用户名和密码'); return; }
   const btn = document.getElementById('statsLoginBtn');
   setLoading(btn, true);
   try {
     const res = await fetch('/api/leader/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password })
+      body: JSON.stringify({ username, password })
     });
     const data = await res.json();
     if (!data.success) {
-      alert(data.message || '密码错误');
+      alert(data.message || '登录失败');
       setLoading(btn, false);
       return;
     }

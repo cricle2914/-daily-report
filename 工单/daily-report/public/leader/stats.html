@@ -76,9 +76,11 @@
   <div class="auth-overlay" id="authOverlay">
     <div class="auth-box">
       <h2>统计面板</h2>
-      <p>请输入查看密码</p>
-      <div class="error" id="authError">密码错误</div>
-      <input class="form-input" id="authPassword" type="password" placeholder="请输入密码"
+      <p>请输入账户密码</p>
+      <div class="error" id="authError">用户名或密码错误</div>
+      <input class="form-input" id="authUsername" type="text" placeholder="用户名"
+        style="margin-bottom:8px" autofocus>
+      <input class="form-input" id="authPassword" type="password" placeholder="密码"
         onkeydown="if(event.key==='Enter')doAuth()">
       <button class="btn btn-primary" id="authBtn" onclick="doAuth()">进入</button>
     </div>
@@ -88,12 +90,12 @@
     <div class="sidebar">
       <div class="sidebar-title">统计面板</div>
       <div class="sidebar-nav">
-        <a class="nav-item" href="index.html">📋 今日概览</a>
-        <a class="nav-item" href="attendance.html">📅 出勤格子</a>
-        <a class="nav-item active" href="stats.html">📊 工时统计</a>
+        <a class="nav-item" href="index.html">今日概览</a>
+        <a class="nav-item" href="attendance.html">出勤格子</a>
+        <a class="nav-item active" href="stats.html">工时统计</a>
       </div>
       <div style="padding:12px 20px;border-top:1px solid var(--border)">
-        <a class="nav-item" href="/admin/" style="padding:8px 0">⚙ 管理后台</a>
+        <span style="font-size:11px;color:var(--text-dim)">统计面板 v1.0</span>
       </div>
     </div>
     <div class="main">
@@ -216,21 +218,25 @@
       container.innerHTML = html;
     }
 
-    // ---- K线（折线图） ----
+    // ---- K线（折线图）- 使用固定坐标系，消除缩放抖动 ----
     function renderKLine(container, trend) {
       const values = trend.map(t => parseFloat(t.total_hours));
       const maxVal = Math.max(...values, 1);
       const minVal = Math.min(...values, 0);
       const range = maxVal - minVal || 1;
-      const padding = 20;
-      const dotGap = Math.max(6, Math.min(60, (container.clientWidth || 800) / trend.length - 2));
-
-      const w = Math.max(trend.length * (dotGap + 2) + padding * 2, container.clientWidth || 800);
+      const padding = 40;
       const h = 200;
+      // 固定坐标宽度：用容器宽度，避免不同数据量导致 viewBox 变化
+      const cw = Math.max(container.clientWidth || 800, 600);
+      const chartW = cw - padding * 2;
+      const svgW = cw;
+
+      // 根据数据点数量决定是否跳过部分标签
+      const step = trend.length > 1 ? chartW / (trend.length - 1) : chartW;
 
       // 生成折线坐标
       const points = values.map((v, i) => {
-        const x = padding + i * (dotGap + 2) + dotGap / 2;
+        const x = padding + i * step;
         const y = h - padding - ((v - minVal) / range) * (h - padding * 2);
         return { x, y, v, label: trend[i].period_label };
       });
@@ -243,37 +249,45 @@
       for (let i = 0; i <= gridLines; i++) {
         const y = padding + (h - padding * 2) * (i / gridLines);
         const val = maxVal - (range * i / gridLines);
-        gridHtml += `<line x1="${padding}" y1="${y}" x2="${w - padding}" y2="${y}" stroke="rgba(255,255,255,.06)" stroke-width="1"/>`;
+        gridHtml += `<line x1="${padding}" y1="${y}" x2="${svgW - padding}" y2="${y}" stroke="rgba(255,255,255,.06)" stroke-width="1"/>`;
         gridHtml += `<text x="${padding - 4}" y="${y + 3}" text-anchor="end" fill="var(--text-dim)" font-size="9">${Math.round(val * 10) / 10}</text>`;
       }
 
+      // X轴标签（固定最大显示 12 个，避免重叠）
+      const labelInterval = Math.max(1, Math.floor(trend.length / 12));
+
       let html = `<div class="line-chart-wrap">
-        <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:${h}px">
+        <svg viewBox="0 0 ${svgW} ${h}" style="width:100%;height:${h}px">
           ${gridHtml}
           <!-- 填充区域 -->
           <polygon points="${padding},${h - padding} ${lineStr} ${points[points.length-1].x},${h - padding}" fill="rgba(79,142,247,.1)" />
           <!-- 折线 -->
           <polyline points="${lineStr}" fill="none" stroke="#4f8ef7" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
           <!-- 数据点 -->
-          ${points.map(p =>
+          ${points.map((p, i) =>
             `<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="#4f8ef7" stroke="var(--bg-card)" stroke-width="1.5"
               data-tip="${p.label} | ${Math.round(p.v * 10) / 10}h"
               onmouseenter="showChartTip(event, '${p.label} | ${Math.round(p.v * 10) / 10}h')"
               onmouseleave="hideChartTip()" style="cursor:pointer"/>`
           ).join('')}
           <!-- X轴标签 -->
-          ${points.filter((_, i) => {
-            if (trend.length <= 10) return true;
-            if (trend.length <= 20) return i % 2 === 0;
-            if (trend.length <= 40) return i % 3 === 0;
-            return i % Math.ceil(trend.length / 12) === 0;
-          }).map(p =>
-            `<text x="${p.x}" y="${h - 4}" text-anchor="middle" fill="var(--text-dim)" font-size="9">${formatLabel(p.label)}</text>`
+          ${points.filter((_, i) => i % labelInterval === 0 || i === points.length - 1).map(p =>
+            `<text x="${p.x}" y="${h - 4}" text-anchor="middle" fill="var(--text-dim)" font-size="9">${formatLabelKline(p.label)}</text>`
           ).join('')}
         </svg>
       </div>`;
 
       container.innerHTML = html;
+    }
+
+    // K线图专用标签格式化（不依赖 currentPeriod）
+    function formatLabelKline(label) {
+      if (!label) return '';
+      // label 格式为 YYYY-MM-DD 或 YYYY-MM
+      const parts = label.split('-');
+      if (parts.length === 3) return parts[1] + '-' + parts[2];
+      if (parts.length === 2) return parts[1] + '月';
+      return label;
     }
 
     // 图表 tooltip
@@ -326,12 +340,13 @@
         }
       } catch(e) {}
       document.getElementById('authOverlay').style.display = '';
-      document.getElementById('authPassword').focus();
+      document.getElementById('authUsername').focus();
     }
 
     async function doAuth() {
+      const username = document.getElementById('authUsername').value;
       const pw = document.getElementById('authPassword').value;
-      if (!pw) return;
+      if (!username || !pw) return;
       const btn = document.getElementById('authBtn');
       btn.textContent = '验证中...';
       btn.disabled = true;
@@ -339,7 +354,7 @@
         const res = await fetch('/api/leader/login', {
           method: 'POST',
           headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({password: pw})
+          body: JSON.stringify({username, password: pw})
         });
         const data = await res.json();
         if (data.success) {

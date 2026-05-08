@@ -18,9 +18,11 @@
   <div class="auth-overlay" id="authOverlay">
     <div class="auth-box">
       <h2>统计面板</h2>
-      <p>请输入查看密码</p>
-      <div class="error" id="authError">密码错误</div>
-      <input class="form-input" id="authPassword" type="password" placeholder="请输入密码"
+      <p>请输入账户密码</p>
+      <div class="error" id="authError">用户名或密码错误</div>
+      <input class="form-input" id="authUsername" type="text" placeholder="用户名"
+        style="margin-bottom:8px" autofocus>
+      <input class="form-input" id="authPassword" type="password" placeholder="密码"
         onkeydown="if(event.key==='Enter')doAuth()">
       <button class="btn btn-primary" id="authBtn" onclick="doAuth()">进入</button>
     </div>
@@ -30,12 +32,12 @@
     <div class="sidebar">
       <div class="sidebar-title">统计面板</div>
       <div class="sidebar-nav">
-        <a class="nav-item active" href="index.html">📋 今日概览</a>
-        <a class="nav-item" href="attendance.html">📅 出勤格子</a>
-        <a class="nav-item" href="stats.html">📊 工时统计</a>
+        <a class="nav-item active" href="index.html">今日概览</a>
+        <a class="nav-item" href="attendance.html">出勤格子</a>
+        <a class="nav-item" href="stats.html">工时统计</a>
       </div>
       <div style="padding:12px 20px;border-top:1px solid var(--border)">
-        <a class="nav-item" href="/admin/" style="padding:8px 0">⚙ 管理后台</a>
+        <span style="font-size:11px;color:var(--text-dim)">统计面板 v1.0</span>
       </div>
     </div>
     <div class="main">
@@ -95,12 +97,13 @@
         }
       } catch(e) {}
       document.getElementById('authOverlay').style.display = '';
-      document.getElementById('authPassword').focus();
+      document.getElementById('authUsername').focus();
     }
 
     async function doAuth() {
+      const username = document.getElementById('authUsername').value;
       const pw = document.getElementById('authPassword').value;
-      if (!pw) return;
+      if (!username || !pw) return;
       const btn = document.getElementById('authBtn');
       btn.textContent = '验证中...';
       btn.disabled = true;
@@ -108,7 +111,7 @@
         const res = await fetch('/api/leader/login', {
           method: 'POST',
           headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({password: pw})
+          body: JSON.stringify({username, password: pw})
         });
         const data = await res.json();
         if (data.success) {
