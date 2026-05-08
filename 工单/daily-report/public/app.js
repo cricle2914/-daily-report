@@ -85,11 +85,11 @@ async function searchEngineers(name) {
   }
   data.forEach(eng => {
     const item = document.createElement('div');
-    item.className = 'search-dropdown-item';
-    item.innerHTML = `<div class="abbr-badge">${eng.abbr}</div>
+    item.className = 'dropdown-item';
+    item.innerHTML = `<div class="dropdown-avatar">${eng.abbr}</div>
       <div>
-        <div style="font-weight:500">${eng.name}</div>
-        <div style="font-size:13px;color:#999">${eng.project_count} 个项目</div>
+        <div class="dropdown-name">${eng.name}</div>
+        <div class="dropdown-sub">${eng.project_count} 个项目</div>
       </div>`;
     item.onclick = () => selectEngineer(eng);
     dropdown.appendChild(item);
@@ -108,7 +108,7 @@ function selectEngineer(eng) {
   document.getElementById('selectedEngineerName').textContent = eng.name;
 
   // 明确显示已选择的工程师样式
-  document.querySelectorAll('.search-dropdown-item').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('.dropdown-item').forEach(el => el.style.display = 'none');
 
   loadProjects(eng.id);
 }
@@ -134,22 +134,27 @@ function renderProjectList(projects) {
     card.dataset.projectId = p.id;
     card.innerHTML = `
       <div class="project-card-header">
-        <div>
-          <div class="project-name">${p.name}</div>
-          <div class="project-meta">工单：${p.order_no || '-'} · 实施第 ${p.impl_days} 天</div>
+        <div class="project-info">
+          <div class="project-radio"></div>
+          <div style="flex:1;min-width:0">
+            <div class="project-name">${p.name}</div>
+            <div class="project-meta">工单：${p.order_no || '-'} · 实施第 ${p.impl_days} 天</div>
+          </div>
         </div>
-        <span class="expand-arrow">▼</span>
+        <button class="expand-btn">▼</button>
       </div>
       <div class="project-detail">
-        <div>客户：${p.customer}</div>
-        <div>联系人：${p.contact_name || '-'} ${p.contact_phone || ''}</div>
-        <div>版本：${p.product_version || '-'}</div>
-        <div>地址：${p.install_address || '-'}</div>
+        <div><span class="label">客户</span>${p.customer}</div>
+        <div><span class="label">联系人</span>${p.contact_name || '-'} ${p.contact_phone || ''}</div>
+        <div><span class="label">版本</span>${p.product_version || '-'}</div>
+        <div><span class="label">地址</span>${p.install_address || '-'}</div>
       </div>`;
     card.onclick = (e) => {
-      // 点击展开箭头时不切换选中
-      if (e.target.classList.contains('expand-arrow')) {
-        card.classList.toggle('expanded');
+      // 点击展开按钮时切换详情
+      if (e.target.classList.contains('expand-btn')) {
+        const detail = card.querySelector('.project-detail');
+        detail.classList.toggle('open');
+        card.querySelector('.expand-btn').classList.toggle('open');
         return;
       }
       // 切换选中
@@ -166,10 +171,12 @@ function renderProjectList(projects) {
 
 // ====== 新建项目抽屉 ======
 
-document.getElementById('newProjectBtn').onclick = () => {
+function openDrawer() {
   document.getElementById('drawerOverlay').classList.add('show');
   document.getElementById('drawer').classList.add('show');
-};
+}
+
+document.getElementById('newProjectBtn').onclick = openDrawer;
 
 function closeDrawer() {
   document.getElementById('drawerOverlay').classList.remove('show');
@@ -233,24 +240,28 @@ document.getElementById('nextToReportBtn').onclick = () => {
        <div>工单：${state.project.detail.order_no || '-'}</div>
        <div>版本：${state.project.detail.product_version || '-'}</div>`
     : '';
+  // 进度默认 75
+  progressSlider.value = 75;
+  progressValue.textContent = '75%';
+  progressSlider.style.background = `linear-gradient(to right, #534AB7 0%, #534AB7 75%, var(--text-dim) 75%, var(--text-dim) 100%)`;
   showPage('page-2');
 };
 
 // ====== Page 2: 日报折叠卡片 ======
 
-document.getElementById('projectSummary').onclick = function(e) {
-  if (e.target.closest('.collapse-card-header') || e.target.closest('.expand-arrow')) {
-    this.classList.toggle('expanded');
-  }
+document.getElementById('projectSummary').onclick = function() {
+  this.classList.toggle('open');
 };
 
 // ====== 工作内容动态列表 ======
 
 function addTask(value = '') {
   const list = document.getElementById('taskList');
+  const num = list.children.length + 1;
   const item = document.createElement('div');
   item.className = 'task-item';
   item.innerHTML = `
+    <span class="task-num">${num}</span>
     <input class="form-input task-input" placeholder="输入工作任务" value="${value}">
     <button class="task-del-btn" onclick="removeTask(this)">－</button>`;
   list.appendChild(item);
@@ -263,6 +274,10 @@ function removeTask(btn) {
     return;
   }
   btn.closest('.task-item').remove();
+  // 重新编号
+  document.querySelectorAll('.task-item .task-num').forEach((el, i) => {
+    el.textContent = i + 1;
+  });
 }
 
 // ====== 进度控制 ======
@@ -287,7 +302,7 @@ document.querySelector('.status-btn.ongoing').classList.add('active');
 
 // ====== 提交日报 ======
 
-async function submitReport() {
+async function submitReport(overwriteMode) {
   const planTitle = document.getElementById('planTitle').value.trim();
   if (!planTitle) {
     showToast('请填写今日计划');
@@ -311,29 +326,52 @@ async function submitReport() {
   btn.disabled = true;
   btn.textContent = '提交中...';
 
-  const data = await request('/api/reports', {
-    method: 'POST',
-    body: {
-      engineer_id: state.engineer.id,
-      project_id: state.project.id,
-      plan_title: planTitle,
-      tasks,
-      progress: parseInt(progressSlider.value),
-      status: selectedStatus,
-      issues
+  const body = {
+    engineer_id: state.engineer.id,
+    project_id: state.project.id,
+    plan_title: planTitle,
+    tasks,
+    progress: parseInt(progressSlider.value),
+    status: selectedStatus,
+    issues
+  };
+  if (overwriteMode) body.overwrite = true;
+
+  try {
+    const res = await fetch('/api/reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const result = await res.json();
+
+    if (!result.success) {
+      btn.disabled = false;
+      btn.textContent = '提交日报';
+      // 重复提交：询问是否覆盖
+      if (result.data && result.data.existing) {
+        if (confirm('今日已提交，是否查看/修改？')) {
+          submitReport(true);
+        }
+      } else {
+        showToast(result.error || '提交失败');
+      }
+      return;
     }
-  });
 
-  btn.disabled = false;
-  btn.textContent = '提交日报';
+    btn.disabled = false;
+    btn.textContent = '提交日报';
 
-  if (!data) return;
-
-  // 跳转到 Page 3
-  document.getElementById('reportSummary').textContent =
-    `${state.project.name} · 实施第 ${state.project.impl_days} 天 · 进度 ${progressSlider.value}%`;
-  showPage('page-3');
-  initTomorrowPage();
+    // 跳转到 Page 3
+    document.getElementById('reportSummary').textContent =
+      `${state.project.name} · 实施第 ${state.project.impl_days} 天 · 进度 ${progressSlider.value}%`;
+    showPage('page-3');
+    initTomorrowPage();
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = '提交日报';
+    showToast('网络错误: ' + err.message);
+  }
 }
 
 // ====== Page 3: 明日去向 ======
@@ -366,9 +404,12 @@ async function loadProjectsForDest(engineerId) {
     card.dataset.projectId = p.id;
     card.innerHTML = `
       <div class="project-card-header">
-        <div>
-          <div class="project-name">${p.name}</div>
-          <div class="project-meta">实施第 ${p.impl_days || 0} 天</div>
+        <div class="project-info">
+          <div class="project-radio"></div>
+          <div style="flex:1;min-width:0">
+            <div class="project-name">${p.name}</div>
+            <div class="project-meta">实施第 ${p.impl_days || 0} 天</div>
+          </div>
         </div>
       </div>`;
     card.onclick = () => {

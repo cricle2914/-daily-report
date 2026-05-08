@@ -2,10 +2,10 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../database');
 
-// 提交日报
+// 提交日报（支持 upsert：已存在则覆盖）
 router.post('/', async (req, res, next) => {
   try {
-    const { engineer_id, project_id, plan_title, tasks, progress, status, issues } = req.body;
+    const { engineer_id, project_id, plan_title, tasks, progress, status, issues, overwrite } = req.body;
 
     // 必填校验
     if (!engineer_id || !project_id || !plan_title || !tasks || progress === undefined || !status) {
@@ -19,28 +19,44 @@ router.post('/', async (req, res, next) => {
     try {
       await conn.beginTransaction();
 
-      // 检查当日是否已提交
       const today = new Date().toISOString().split('T')[0];
+
+      // 检查当日是否已提交
       const [existing] = await conn.query(
-        'SELECT id FROM daily_reports WHERE engineer_id = ? AND project_id = ? AND report_date = ?',
+        'SELECT id, impl_day FROM daily_reports WHERE engineer_id = ? AND project_id = ? AND report_date = ?',
         [engineer_id, project_id, today]
       );
+
       if (existing.length > 0) {
-        await conn.rollback();
-        return res.status(400).json({
-          success: false,
-          error: '今日已提交过日报'
+        if (!overwrite) {
+          // 未携带 overwrite 标记，返回冲突让前端确认
+          await conn.rollback();
+          return res.status(400).json({
+            success: false,
+            error: '今日已提交过日报',
+            data: { existing: true }
+          });
+        }
+        // 覆盖模式：UPDATE 已有记录，不增加实施天数
+        await conn.query(
+          `UPDATE daily_reports SET plan_title = ?, tasks = ?, progress = ?, status = ?, issues = ?, submitted_at = NOW()
+           WHERE id = ?`,
+          [plan_title, JSON.stringify(tasks), progress, status, issues || null, existing[0].id]
+        );
+        await conn.commit();
+        return res.json({
+          success: true,
+          data: { impl_day: existing[0].impl_day, overwritten: true, message: '日报已更新' }
         });
       }
 
-      // 计算该工程师在该项目的实施天数
+      // 新记录：计算实施天数并插入
       const [history] = await conn.query(
         'SELECT COUNT(*) AS cnt FROM daily_reports WHERE engineer_id = ? AND project_id = ?',
         [engineer_id, project_id]
       );
       const implDay = history[0].cnt + 1;
 
-      // 插入日报
       await conn.query(
         `INSERT INTO daily_reports (engineer_id, project_id, report_date, impl_day, plan_title, tasks, progress, status, issues)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
