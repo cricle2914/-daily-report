@@ -36,7 +36,7 @@ function showPage(pageId) {
   const page = document.getElementById(pageId);
   if (page) page.classList.add('active');
 
-  // 更新进度条
+  // 更新进度条（5 步）
   const steps = document.querySelectorAll('.top-bar-prog-step');
   steps.forEach(s => s.classList.remove('active'));
   if (pageId === 'page-1') {
@@ -47,7 +47,13 @@ function showPage(pageId) {
   } else if (pageId === 'page-3') {
     steps[0]?.classList.add('active');
     steps[1]?.classList.add('active');
-  } else if (pageId === 'page-complete') {
+    steps[2]?.classList.add('active');
+  } else if (pageId === 'page-4') {
+    steps[0]?.classList.add('active');
+    steps[1]?.classList.add('active');
+    steps[2]?.classList.add('active');
+    steps[3]?.classList.add('active');
+  } else if (pageId === 'page-5') {
     steps.forEach(s => s.classList.add('active'));
   }
 }
@@ -222,7 +228,7 @@ async function searchEngineers(name) {
   dropdown.classList.add('show');
 }
 
-function selectEngineer(eng) {
+async function selectEngineer(eng) {
   state.engineer = eng;
   state.project = null;
   searchInput.value = eng.name;
@@ -241,7 +247,10 @@ function selectEngineer(eng) {
 
   document.querySelectorAll('.dropdown-item').forEach(el => el.style.display = 'none');
 
-  loadProjects(eng.id);
+  await loadProjects(eng.id);
+
+  // 跳转到 page-2 选择项目
+  showPage('page-2');
 }
 
 function resetEngineerSelection() {
@@ -250,8 +259,6 @@ function resetEngineerSelection() {
   state.project = null;
   document.getElementById('nextStepArea').classList.add('hidden');
   document.getElementById('projectList').innerHTML = '';
-  document.getElementById('expandAllBtn').classList.add('hidden');
-  exitProjectExpand();
   document.getElementById('page-1').classList.remove('has-selection');
 
   // 恢复初始问候语 + 打字动画
@@ -281,7 +288,6 @@ function renderProjectList(projects) {
 
   if (projects.length === 0) {
     container.innerHTML = '<div style="text-align:center;color:#999;padding:20px">暂无项目</div>';
-    document.getElementById('expandAllBtn').classList.add('hidden');
     return;
   }
 
@@ -306,17 +312,6 @@ function renderProjectList(projects) {
     container.appendChild(card);
   });
 
-  // 超出限制时显示"展开全部"
-  const MAX_VISIBLE = 4;
-  const cards = container.querySelectorAll('.project-card');
-  if (cards.length > MAX_VISIBLE) {
-    cards.forEach((c, i) => {
-      if (i >= MAX_VISIBLE) c.style.display = 'none';
-    });
-    document.getElementById('expandAllBtn').classList.remove('hidden');
-  } else {
-    document.getElementById('expandAllBtn').classList.add('hidden');
-  }
 }
 
 function buildProjectCard(p) {
@@ -364,111 +359,6 @@ function openDrawer() {
 function closeDrawer() {
   document.getElementById('drawerOverlay').classList.remove('show');
   document.getElementById('drawer').classList.remove('show');
-}
-
-// ====== 项目展开（类似搜索展开动画） ======
-
-document.getElementById('expandAllBtn').onclick = enterProjectExpand;
-document.getElementById('projectExpandBackdrop').onclick = exitProjectExpand;
-
-function enterProjectExpand() {
-  const page1 = document.getElementById('page-1');
-  page1.classList.add('project-expanded');
-  document.getElementById('projectExpandBackdrop').classList.remove('hidden');
-  document.getElementById('projectExpandBackdrop').classList.add('show');
-
-  // 清空搜索
-  const searchInput = document.getElementById('projectExpandSearch');
-  searchInput.value = '';
-  searchInput.focus();
-
-  // 显示所有项目卡片（撤销隐藏）
-  document.querySelectorAll('#projectList .project-card').forEach(c => c.style.display = '');
-
-  // 转换卡片详情为可编辑模式
-  document.querySelectorAll('#projectList .project-card').forEach(card => {
-    const pid = card.dataset.projectId;
-    const p = state.projects.find(x => x.id == pid);
-    const detail = card.querySelector('.project-detail');
-    if (!p || !detail) return;
-    // 保存原始 HTML 以便恢复
-    card.dataset.origDetail = detail.innerHTML;
-    // 替换为可编辑字段
-    detail.innerHTML = `
-      <div class="detail-row">
-        <span class="label">客户</span>
-        <input class="form-input detail-input" value="${escHtml(p.customer || '')}" data-field="customer">
-      </div>
-      <div class="detail-row">
-        <span class="label">联系人</span>
-        <input class="form-input detail-input" value="${escHtml(p.contact_name || '')}" data-field="contact_name">
-      </div>
-      <div class="detail-row">
-        <span class="label">电话</span>
-        <input class="form-input detail-input" value="${escHtml(p.contact_phone || '')}" data-field="contact_phone">
-      </div>
-      <div class="detail-row">
-        <span class="label">版本</span>
-        <input class="form-input detail-input" value="${escHtml(p.product_version || '')}" data-field="product_version">
-      </div>
-      <div class="detail-row">
-        <span class="label">地址</span>
-        <input class="form-input detail-input" value="${escHtml(p.install_address || '')}" data-field="install_address">
-      </div>
-      <button class="btn btn-primary save-detail-btn" style="margin-top:10px;width:100%">保存修改</button>`;
-    // 自动展开详情
-    detail.classList.add('open');
-    // 不再需要▼展开按钮点击切换
-    const expandBtn = card.querySelector('.expand-btn');
-    if (expandBtn) expandBtn.style.display = 'none';
-    // 保存按钮
-    detail.querySelector('.save-detail-btn').onclick = async function() {
-      const inputs = detail.querySelectorAll('.detail-input');
-      const body = {};
-      inputs.forEach(inp => { body[inp.dataset.field] = inp.value.trim() || null; });
-      const result = await request(`/api/projects/${pid}`, { method: 'PUT', body });
-      if (result) {
-        showToast('项目信息已更新');
-        if (p) Object.assign(p, body);
-      }
-    };
-  });
-}
-
-function exitProjectExpand() {
-  const page1 = document.getElementById('page-1');
-  page1.classList.remove('project-expanded');
-  document.getElementById('projectExpandBackdrop').classList.remove('show');
-  document.getElementById('projectExpandBackdrop').classList.add('hidden');
-
-  // 恢复卡片详情为只读模式
-  document.querySelectorAll('#projectList .project-card').forEach(card => {
-    const detail = card.querySelector('.project-detail');
-    if (detail && card.dataset.origDetail) {
-      detail.innerHTML = card.dataset.origDetail;
-      delete card.dataset.origDetail;
-      detail.classList.remove('open');
-    }
-    const expandBtn = card.querySelector('.expand-btn');
-    if (expandBtn) expandBtn.style.display = '';
-  });
-
-  // 重新应用限制显示
-  renderProjectList(state.projects);
-}
-
-// 展开模式中搜索项目
-document.getElementById('projectExpandSearch').addEventListener('input', function() {
-  const val = this.value.trim().toLowerCase();
-  document.querySelectorAll('#projectList .project-card').forEach(card => {
-    const name = card.querySelector('.project-name')?.textContent.toLowerCase() || '';
-    card.style.display = name.includes(val) ? '' : 'none';
-  });
-});
-
-// HTML 转义辅助
-function escHtml(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 async function createProject() {
@@ -545,7 +435,7 @@ document.getElementById('nextToReportBtn').onclick = async () => {
   selectedStatus = 'ongoing';
   document.getElementById('nextPlanCard').style.display = 'block';
   document.getElementById('issuesCard').style.display = 'none';
-  showPage('page-2');
+  showPage('page-3');
 };
 
 // ====== Page 2: 日报折叠卡片 ======
@@ -694,10 +584,10 @@ async function submitReport(overwriteMode) {
     document.getElementById('reportSuccessTitle').textContent =
       result.data && result.data.overwritten ? '日报已修改' : '日报已提交';
 
-    // 跳转到 Page 3
+    // 跳转到 Page 4
     document.getElementById('reportSummary').textContent =
       `${state.project.name} · 实施第 ${state.project.impl_days} 天 · 进度 ${progressSlider.value}%`;
-    showPage('page-3');
+    showPage('page-4');
     initTomorrowPage();
   } catch (err) {
     btn.disabled = false;
@@ -784,6 +674,117 @@ function selectDestination(el) {
   }
 }
 
+// ====== Page 2: 展开全部（浏览） ======
+
+document.getElementById('expandAllBtn').onclick = enterP2Expand;
+document.getElementById('p2ExpandBackdrop').onclick = exitP2Expand;
+document.getElementById('p2ExpandClose').onclick = exitP2Expand;
+
+function enterP2Expand() {
+  document.getElementById('p2ExpandBackdrop').classList.remove('hidden');
+  document.getElementById('p2ExpandBackdrop').classList.add('show');
+  document.getElementById('p2ExpandContainer').classList.remove('hidden');
+  document.getElementById('p2ExpandContainer').classList.add('show');
+
+  const list = document.getElementById('p2ExpandList');
+  list.innerHTML = '';
+  state.projects.forEach(p => {
+    const item = document.createElement('div');
+    item.className = 'p2-expand-item';
+    item.innerHTML = `
+      <div class="p2-expand-item-name">${p.name}</div>
+      <div class="p2-expand-item-meta">工单：${p.order_no || '-'} · 实施第 ${p.impl_days} 天</div>`;
+    list.appendChild(item);
+  });
+}
+
+function exitP2Expand() {
+  document.getElementById('p2ExpandBackdrop').classList.remove('show');
+  document.getElementById('p2ExpandBackdrop').classList.add('hidden');
+  document.getElementById('p2ExpandContainer').classList.remove('show');
+  document.getElementById('p2ExpandContainer').classList.add('hidden');
+}
+
+// ====== Page 3: 项目信息编辑展开 ======
+
+document.getElementById('editProjBtn').onclick = enterP3Expand;
+document.getElementById('p3ExpandBackdrop').onclick = exitP3Expand;
+document.getElementById('p3ExpandClose').onclick = exitP3Expand;
+
+function enterP3Expand() {
+  document.getElementById('p3ExpandBackdrop').classList.remove('hidden');
+  document.getElementById('p3ExpandBackdrop').classList.add('show');
+  document.getElementById('p3ExpandContainer').classList.remove('hidden');
+  document.getElementById('p3ExpandContainer').classList.add('show');
+
+  const list = document.getElementById('p3ExpandList');
+  list.innerHTML = '';
+
+  state.projects.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'proj-expand-card';
+    card.innerHTML = `
+      <div class="proj-expand-card-header">${p.name}</div>
+      <div class="proj-expand-card-body">
+        <div class="proj-expand-detail-row">
+          <span class="label">客户</span>
+          <input class="proj-expand-detail-input" value="${String(p.customer || '').replace(/"/g,'&quot;')}" data-field="customer">
+        </div>
+        <div class="proj-expand-detail-row">
+          <span class="label">联系人</span>
+          <input class="proj-expand-detail-input" value="${String(p.contact_name || '').replace(/"/g,'&quot;')}" data-field="contact_name">
+        </div>
+        <div class="proj-expand-detail-row">
+          <span class="label">电话</span>
+          <input class="proj-expand-detail-input" value="${String(p.contact_phone || '').replace(/"/g,'&quot;')}" data-field="contact_phone">
+        </div>
+        <div class="proj-expand-detail-row">
+          <span class="label">版本</span>
+          <input class="proj-expand-detail-input" value="${String(p.product_version || '').replace(/"/g,'&quot;')}" data-field="product_version">
+        </div>
+        <div class="proj-expand-detail-row">
+          <span class="label">地址</span>
+          <input class="proj-expand-detail-input" value="${String(p.install_address || '').replace(/"/g,'&quot;')}" data-field="install_address">
+        </div>
+        <div class="proj-expand-detail-row">
+          <span class="label">厂商</span>
+          <input class="proj-expand-detail-input" value="${String(p.manufacturer || '').replace(/"/g,'&quot;')}" data-field="manufacturer">
+        </div>
+        <div class="proj-expand-detail-row">
+          <span class="label">代理商</span>
+          <input class="proj-expand-detail-input" value="${String(p.agent || '').replace(/"/g,'&quot;')}" data-field="agent">
+        </div>
+        <div class="proj-expand-detail-row">
+          <span class="label">技术负责人</span>
+          <input class="proj-expand-detail-input" value="${String(p.tech_lead || '').replace(/"/g,'&quot;')}" data-field="tech_lead">
+        </div>
+        <div class="proj-expand-detail-row">
+          <span class="label">服务经理</span>
+          <input class="proj-expand-detail-input" value="${String(p.service_manager || '').replace(/"/g,'&quot;')}" data-field="service_manager">
+        </div>
+        <button class="btn btn-primary save-detail-btn" style="margin-top:10px;width:100%">保存修改</button>
+      </div>`;
+    card.querySelector('.save-detail-btn').onclick = async function() {
+      const inputs = card.querySelectorAll('.proj-expand-detail-input');
+      const body = {};
+      inputs.forEach(inp => { body[inp.dataset.field] = inp.value.trim() || null; });
+      const result = await request(`/api/projects/${p.id}`, { method: 'PUT', body });
+      if (result) {
+        showToast('项目信息已更新');
+        if (p) Object.assign(p, body);
+      }
+    };
+    list.appendChild(card);
+  });
+}
+
+function exitP3Expand() {
+  document.getElementById('p3ExpandBackdrop').classList.remove('show');
+  document.getElementById('p3ExpandBackdrop').classList.add('hidden');
+  document.getElementById('p3ExpandContainer').classList.remove('show');
+  document.getElementById('p3ExpandContainer').classList.add('hidden');
+}
+
 // ====== 提交明日去向 ======
 
 async function submitTomorrow(overwriteMode) {
@@ -818,6 +819,10 @@ async function submitTomorrow(overwriteMode) {
     body.new_project_phone = document.getElementById('newProjPhone').value.trim() || undefined;
     body.new_project_version = document.getElementById('newProjVersion').value.trim() || undefined;
     body.new_project_address = document.getElementById('newProjAddress').value.trim() || undefined;
+    body.new_project_manufacturer = document.getElementById('newProjManufacturer').value.trim() || undefined;
+    body.new_project_agent = document.getElementById('newProjAgent').value.trim() || undefined;
+    body.new_project_tech_lead = document.getElementById('newProjTechLead').value.trim() || undefined;
+    body.new_project_service_manager = document.getElementById('newProjServiceManager').value.trim() || undefined;
   } else if (state.destination === 'other') {
     const reason = document.getElementById('otherReason').value.trim();
     if (!reason) {
@@ -855,7 +860,7 @@ async function submitTomorrow(overwriteMode) {
     }
 
     await loadFinalStats();
-    showPage('page-complete');
+    showPage('page-5');
   } catch (err) {
     btn.disabled = false;
     btn.textContent = '确认提交并完成';

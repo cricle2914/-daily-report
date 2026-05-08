@@ -16,6 +16,8 @@
         <div class="top-bar-prog-step active"></div>
         <div class="top-bar-prog-step"></div>
         <div class="top-bar-prog-step"></div>
+        <div class="top-bar-prog-step"></div>
+        <div class="top-bar-prog-step"></div>
       </div>
     </div>
 
@@ -36,21 +38,6 @@
         </p>
       </div>
 
-      <!-- 项目展开毛玻璃背景 -->
-      <div class="project-expand-backdrop hidden" id="projectExpandBackdrop"></div>
-
-      <!-- 项目列表 -->
-      <div id="projectList" class="project-list"></div>
-      <div class="project-expand-header" id="projectExpandHeader">
-        <input class="search-box" id="projectExpandSearch" placeholder="搜索项目…" autocomplete="off">
-      </div>
-      <button class="expand-all-btn hidden" id="expandAllBtn">展开全部 ▾</button>
-
-      <!-- 下一步 -->
-      <div id="nextStepArea" class="hidden next-step-area">
-        <button class="btn btn-primary btn-block" id="nextToReportBtn">填写今日日报</button>
-      </div>
-
       <!-- 搜索 -->
       <div class="search-wrap">
         <input class="search-box" id="searchInput" type="text" placeholder="哪位天才呀！？" autocomplete="off">
@@ -58,8 +45,31 @@
       </div>
     </div>
 
-    <!-- ====== Page 2: 填写日报 ====== -->
+    <!-- ====== Page 2: 选择项目 ====== -->
     <div class="page" id="page-2">
+      <!-- 项目列表 -->
+      <div id="projectList" class="project-list"></div>
+
+      <button class="expand-all-btn" id="expandAllBtn">展开全部 ▾</button>
+
+      <!-- 下一步 -->
+      <div id="nextStepArea" class="hidden next-step-area">
+        <button class="btn btn-primary btn-block" id="nextToReportBtn">填写今日日报</button>
+      </div>
+    </div>
+
+    <!-- ====== Page-2 展开遮罩（仅浏览项目名称、工单号） ====== -->
+    <div class="p2-expand-backdrop hidden" id="p2ExpandBackdrop"></div>
+    <div class="p2-expand-container hidden" id="p2ExpandContainer">
+      <div class="p2-expand-header">
+        <span class="p2-expand-title">全部项目</span>
+        <button class="p2-expand-close" id="p2ExpandClose">✕</button>
+      </div>
+      <div id="p2ExpandList"></div>
+    </div>
+
+    <!-- ====== Page 3: 编辑日报 ====== -->
+    <div class="page" id="page-3">
       <!-- 项目概要 -->
       <div class="collapse-card" id="projectSummary">
         <div class="collapse-card-header">
@@ -73,10 +83,12 @@
       </div>
 
       <!-- 今日计划 -->
+      <button class="edit-proj-btn" id="editProjBtn">编辑项目信息 ▾</button>
+
       <div class="form-card">
         <div class="form-group" style="margin-bottom:0">
           <label class="form-label">今日计划</label>
-          <div class="task-item" style="gap:0">
+          <div class="task-item">
             <span class="task-num" style="opacity:0">0</span>
             <input class="form-input task-input" id="planTitle" placeholder="例：AS7升级验证、文档整理" required>
           </div>
@@ -136,8 +148,8 @@
       </div>
     </div>
 
-    <!-- ====== Page 3: 明日去向 ====== -->
-    <div class="page" id="page-3">
+    <!-- ====== Page 4: 明日去向 ====== -->
+    <div class="page" id="page-4">
       <!-- 成功提示 -->
       <div class="success-bar" id="reportSuccessBar">
         <div>
@@ -147,7 +159,7 @@
         <div class="summary" id="reportSummary"></div>
       </div>
 
-      <h1 class="page3-title">Done.<br>Nice!</h1>
+      <h1 class="page4-title">Done.<br>Nice!</h1>
 
       <!-- 去向选择 -->
       <div style="margin-top:4px">
@@ -210,6 +222,22 @@
           <label class="form-label">地址</label>
           <input class="form-input" id="newProjAddress" placeholder="可选">
         </div>
+        <div class="form-group">
+          <label class="form-label">厂商名称</label>
+          <input class="form-input" id="newProjManufacturer" placeholder="可选">
+        </div>
+        <div class="form-group">
+          <label class="form-label">代理商</label>
+          <input class="form-input" id="newProjAgent" placeholder="可选">
+        </div>
+        <div class="form-group">
+          <label class="form-label">技术负责人</label>
+          <input class="form-input" id="newProjTechLead" placeholder="可选">
+        </div>
+        <div class="form-group">
+          <label class="form-label">服务经理</label>
+          <input class="form-input" id="newProjServiceManager" placeholder="可选">
+        </div>
       </div>
 
       <!-- 回公司 -->
@@ -235,8 +263,18 @@
       </div>
     </div>
 
-    <!-- ====== 完成页面 ====== -->
-    <div class="page" id="page-complete">
+    <!-- ====== Page-3 项目编辑遮罩 ====== -->
+    <div class="proj-expand-backdrop hidden" id="p3ExpandBackdrop"></div>
+    <div class="proj-expand-container hidden" id="p3ExpandContainer">
+      <div class="proj-expand-header">
+        <span class="proj-expand-title">编辑项目信息</span>
+        <button class="proj-expand-close" id="p3ExpandClose">✕</button>
+      </div>
+      <div id="p3ExpandList"></div>
+    </div>
+
+    <!-- ====== Page 5: 完成 ====== -->
+    <div class="page" id="page-5">
       <div class="complete-container">
         <div class="complete-icon">🎉</div>
         <div class="complete-title">全部完成！</div>

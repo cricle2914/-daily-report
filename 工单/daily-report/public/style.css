@@ -488,7 +488,7 @@ html, body {
 /* 新建项目按钮 */
 .new-project-btn {
   width: 100%;
-  padding: 12px;
+  padding: 12px 14px;
   border: 1px dashed var(--border-med);
   border-radius: var(--r-md);
   background: transparent;
@@ -498,6 +498,7 @@ html, body {
   cursor: pointer;
   transition: all 0.2s;
   margin-bottom: 10px;
+  text-align: left;
 }
 
 .new-project-btn:hover {
@@ -542,7 +543,7 @@ html, body {
 /* ════════════════════════════════
    PAGE 2 — 填写日报
    ════════════════════════════════ */
-#page-2.page { padding: 0; }
+#page-3.page { padding: 0; }
 
 .collapse-card {
   background: var(--bg-card);
@@ -576,16 +577,16 @@ html, body {
 .collapse-card.open .collapse-card-body { display: block; }
 
 /* 表单 */
-#page-2 > .form-card,
-#page-2 > .task-section,
-#page-2 > .progress-section {
+#page-3 > .form-card,
+#page-3 > .task-section,
+#page-3 > .progress-section {
   margin: 14px 18px 0;
   background: transparent;
   border: none;
   padding: 0;
 }
 
-#page-2 > .form-card:last-of-type { margin-bottom: 14px; }
+#page-3 > .form-card:last-of-type { margin-bottom: 14px; }
 
 .form-card {
   background: var(--bg-card);
@@ -789,9 +790,9 @@ html, body {
 /* ════════════════════════════════
    PAGE 3 — Done. Nice! 布局
    ════════════════════════════════ */
-#page-3.page { padding: 20px 20px 24px; }
+#page-4.page { padding: 20px 20px 24px; }
 
-.page3-title {
+.page4-title {
   font-size: 56px;
   font-weight: 900;
   letter-spacing: -.04em;
@@ -1034,7 +1035,7 @@ html, body {
 /* 删除 section-icon 相关（已移除 emoji） */
 .section-icon { display: none !important; }
 
-/* 展开全部按钮 */
+/* 展开全部按钮（page-2） */
 .expand-all-btn {
   width: 100%;
   padding: 12px;
@@ -1053,9 +1054,8 @@ html, body {
   color: var(--text);
 }
 
-/* ＝＝＝ 项目展开遮罩 ＝＝＝ */
-/* ＝＝＝ 项目展开状态（类似搜索展开动画） ＝＝＝ */
-.project-expand-backdrop {
+/* page-2 展开遮罩（浏览模式） */
+.p2-expand-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.7);
@@ -1066,49 +1066,227 @@ html, body {
   pointer-events: none;
   transition: opacity 0.3s ease;
 }
-.project-expand-backdrop.show {
+.p2-expand-backdrop.show {
+  opacity: 1;
+  pointer-events: all;
+}
+.p2-expand-container {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  height: 100vh;
+  z-index: 210;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.p2-expand-container.show {
+  opacity: 1;
+  pointer-events: all;
+}
+.p2-expand-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.p2-expand-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text);
+}
+.p2-expand-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border-med);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.p2-expand-close:hover {
+  border-color: var(--text);
+  color: var(--text);
+}
+#p2ExpandList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 20px 30px;
+}
+.p2-expand-item {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 14px;
+  margin-bottom: 8px;
+}
+.p2-expand-item-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.p2-expand-item-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* 编辑项目信息按钮（page-3） */
+.edit-proj-btn {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border-med);
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 14px;
+  margin-top: 14px;
+}
+.edit-proj-btn:hover {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+/* 项目展开遮罩（page-3 编辑模式） */
+.proj-expand-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  z-index: 199;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.proj-expand-backdrop.show {
   opacity: 1;
   pointer-events: all;
 }
 
-.project-expand-header { display: none; }
-#page-1.project-expanded .project-expand-backdrop { display: block; }
-#page-1.project-expanded .project-expand-header {
-  display: block;
+.proj-expand-container {
   position: fixed;
-  top: 16px;
+  top: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: calc(100% - 36px);
-  max-width: 444px;
+  width: 100%;
+  max-width: 480px;
+  height: 100vh;
   z-index: 210;
-  animation: expandIn 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
 }
-#page-1.project-expanded #projectList {
-  position: fixed;
-  top: 80px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: calc(100% - 36px);
-  max-width: 444px;
-  bottom: 0;
-  z-index: 210;
+.proj-expand-container.show {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.proj-expand-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.proj-expand-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text);
+}
+.proj-expand-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border-med);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.proj-expand-close:hover {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+#projExpandList {
+  flex: 1;
   overflow-y: auto;
-  padding-bottom: 30px;
-  animation: expandIn 0.3s ease;
-  gap: 6px;
+  padding: 12px 20px 30px;
 }
-#page-1.project-expanded .page1-hero,
-#page-1.project-expanded #nextStepArea,
-#page-1.project-expanded .search-wrap,
-#page-1.project-expanded .expand-all-btn { display: none !important; }
+
+/* 展开中的项目卡片 */
+.proj-expand-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.proj-expand-card-header {
+  padding: 14px;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+}
+.proj-expand-card-body {
+  padding: 12px 14px;
+}
+
+/* 展开中的详情行 */
+.proj-expand-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.proj-expand-detail-row .label {
+  min-width: 4.5em;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.proj-expand-detail-input {
+  flex: 1;
+  padding: 8px 10px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.proj-expand-detail-input:focus { border-color: var(--text); }
 
 @keyframes expandIn {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
-}
-  gap: 6px;
-  padding-bottom: 30px;
 }
 
 /* 工具类 */
@@ -1122,9 +1300,9 @@ html, body {
 /* 移动端适配 */
 @media (max-width: 480px) {
   #page-1.page { min-height: calc(100vh - 63px); }
-  #page-3.page { padding: 24px 16px 24px; }
+  #page-4.page { padding: 24px 16px 24px; }
   .page1-greeting { font-size: 60px; }
-  .page3-title { font-size: 48px; }
+  .page4-title { font-size: 48px; }
   .progress-value { font-size: 36px; }
   .complete-title { font-size: 48px; }
 }

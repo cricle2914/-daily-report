@@ -60,11 +60,14 @@ router.post('/', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { customer, contact_name, contact_phone, product_version, install_address } = req.body;
+    const { customer, contact_name, contact_phone, product_version, install_address,
+            manufacturer, agent, tech_lead, service_manager } = req.body;
 
     await pool.query(
-      `UPDATE projects SET customer = ?, contact_name = ?, contact_phone = ?, product_version = ?, install_address = ? WHERE id = ?`,
-      [customer || null, contact_name || null, contact_phone || null, product_version || null, install_address || null, id]
+      `UPDATE projects SET customer = ?, contact_name = ?, contact_phone = ?, product_version = ?, install_address = ?,
+        manufacturer = ?, agent = ?, tech_lead = ?, service_manager = ? WHERE id = ?`,
+      [customer || null, contact_name || null, contact_phone || null, product_version || null, install_address || null,
+       manufacturer || null, agent || null, tech_lead || null, service_manager || null, id]
     );
 
     res.json({ success: true, data: { message: '项目信息已更新' } });
