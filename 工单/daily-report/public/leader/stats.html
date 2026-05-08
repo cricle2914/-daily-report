@@ -6,35 +6,75 @@
   <title>工时统计 - 领导看板</title>
   <link rel="stylesheet" href="leader.css">
   <style>
-    .period-tabs { display:flex; gap:4px; margin-bottom:20px; }
+    .period-tabs { display:flex; gap:4px; margin-bottom:16px; }
     .period-tab {
-      padding:6px 18px; border-radius:6px; border:1px solid var(--border);
+      padding:6px 16px; border-radius:6px; border:1px solid var(--border);
       background:transparent; color:var(--text-secondary); font-size:13px;
       font-family:inherit; cursor:pointer; transition:all .15s; font-weight:500;
     }
     .period-tab:hover { border-color:var(--text-primary); color:var(--text-primary); }
     .period-tab.active { background:var(--text-primary); color:var(--bg); border-color:var(--text-primary); }
-    .stat-row { display:flex; gap:16px; margin-bottom:24px; }
+
+    .stat-row { display:flex; gap:16px; margin-bottom:20px; }
     .stat-box {
       flex:1; background:var(--bg-card); border:1px solid var(--border);
-      border-radius:var(--radius); padding:20px; text-align:center;
+      border-radius:var(--radius); padding:18px; text-align:center;
     }
-    .stat-box .num { font-size:36px; font-weight:800; }
-    .stat-box .lbl { font-size:12px; color:var(--text-secondary); margin-top:4px; }
-    .section-title { font-size:15px; font-weight:600; margin-bottom:12px; }
-    .mini-chart { display:flex; align-items:flex-end; gap:3px; height:180px; padding:10px 0; }
-    .mini-bar { flex:1; min-width:6px; border-radius:3px 3px 0 0; position:relative; }
-    .mini-bar .bar-label { font-size:10px; color:var(--text-dim); margin-top:6px; transform:rotate(-45deg); white-space:nowrap; }
-    .mini-bar .bar-tip { font-size:10px; color:var(--text-secondary); margin-bottom:4px; }
+    .stat-box .num { font-size:30px; font-weight:800; }
+    .stat-box .lbl { font-size:12px; color:var(--text-secondary); margin-top:2px; }
+
+    .card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:16px; }
+    .section-title { font-size:14px; font-weight:600; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+
     .split-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
     .rank-item {
       display:flex; align-items:center; justify-content:space-between;
-      padding:8px 0; border-bottom:1px solid var(--border); font-size:13px;
+      padding:7px 0; border-bottom:1px solid var(--border); font-size:13px;
     }
     .rank-item:last-child { border-bottom:none; }
     .rank-num { color:var(--text-dim); min-width:24px; }
-    .card { margin-bottom:16px; }
     .nav-date { font-size:12px; color:var(--text-secondary); margin-left:auto; }
+
+    /* ===== 图表切换 ===== */
+    .chart-toggle {
+      display:inline-flex; gap:2px; background:rgba(255,255,255,.06);
+      border-radius:6px; padding:2px; margin-left:auto;
+    }
+    .chart-toggle button {
+      padding:4px 12px; border:none; border-radius:5px; background:transparent;
+      color:var(--text-secondary); font-size:12px; font-family:inherit;
+      cursor:pointer; transition:all .15s; font-weight:500;
+    }
+    .chart-toggle button.active { background:var(--text-primary); color:var(--bg); }
+    .chart-toggle button:hover:not(.active) { color:var(--text-primary); }
+
+    /* ===== 柱状图 ===== */
+    .bar-chart { display:flex; align-items:flex-end; gap:3px; height:200px; padding:8px 0 24px; position:relative; }
+    .bar-chart .bar-group { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; min-width:4px; }
+    .bar-chart .bar {
+      width:100%; border-radius:3px 3px 0 0; transition:height .3s;
+      background:var(--accent);
+    }
+    .bar-chart .bar-val { font-size:9px; color:var(--text-secondary); margin-bottom:2px; }
+    .bar-chart .bar-label {
+      font-size:9px; color:var(--text-dim); margin-top:3px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:50px;
+    }
+
+    /* ===== K线图（折线图） ===== */
+    .line-chart-wrap { position:relative; width:100%; height:220px; padding:8px 0; }
+    .line-chart-wrap svg { width:100%; height:100%; }
+    .line-chart-wrap .y-label {
+      position:absolute; right:100%; top:0; font-size:9px; color:var(--text-dim);
+      transform:translateY(-50%); padding-right:4px;
+    }
+    .chart-tooltip {
+      position:fixed; padding:6px 10px; border-radius:6px; background:#222; color:#fff;
+      font-size:12px; white-space:nowrap; pointer-events:none; z-index:999;
+      border:1px solid #444; opacity:0; transition:opacity .12s;
+    }
+
+    .empty-state { text-align:center; padding:60px 20px; color:var(--text-secondary); font-size:14px; }
   </style>
 </head>
 <body>
@@ -59,10 +99,10 @@
 
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
         <div class="page-title" style="margin-bottom:0">工时统计</div>
-        <span class="nav-date" id="navDate"></span>
+        <span id="navDate" style="font-size:13px;color:var(--text-secondary)"></span>
       </div>
 
-      <div class="period-tabs">
+      <div class="period-tabs" id="periodTabs">
         <button class="period-tab" data-period="year">年度</button>
         <button class="period-tab" data-period="quarter">季度</button>
         <button class="period-tab active" data-period="month">月度</button>
@@ -71,27 +111,21 @@
       </div>
 
       <div class="stat-row">
-        <div class="stat-box">
-          <div class="num" id="totalHours">-</div>
-          <div class="lbl">总工时</div>
-        </div>
-        <div class="stat-box">
-          <div class="num" id="totalEngineers">-</div>
-          <div class="lbl">参与工程师</div>
-        </div>
-        <div class="stat-box">
-          <div class="num" id="totalDays">-</div>
-          <div class="lbl">统计天数</div>
-        </div>
-        <div class="stat-box">
-          <div class="num" id="avgDaily">-</div>
-          <div class="lbl">日均工时</div>
-        </div>
+        <div class="stat-box"><div class="num" id="totalHours">-</div><div class="lbl">总工时</div></div>
+        <div class="stat-box"><div class="num" id="totalEngineers">-</div><div class="lbl">参与工程师</div></div>
+        <div class="stat-box"><div class="num" id="totalDays">-</div><div class="lbl">统计天数</div></div>
+        <div class="stat-box"><div class="num" id="avgDaily">-</div><div class="lbl">日均工时</div></div>
       </div>
 
       <div class="card">
-        <div class="section-title">工时趋势</div>
-        <div class="mini-chart" id="trendChart"></div>
+        <div class="section-title">
+          <span>工时趋势</span>
+          <div class="chart-toggle" id="chartToggle">
+            <button class="active" data-mode="kline">K线</button>
+            <button data-mode="bar">柱状图</button>
+          </div>
+        </div>
+        <div id="chartContainer"></div>
       </div>
 
       <div class="split-2">
@@ -109,75 +143,195 @@
   <script src="/admin/admin.js"></script>
   <script>
     let currentPeriod = 'month';
+    let chartMode = 'kline'; // kline | bar
+    let trendData = null;
 
-    document.querySelectorAll('.period-tab').forEach(tab => {
+    // ====== 周期切换 ======
+    document.querySelectorAll('#periodTabs .period-tab').forEach(tab => {
       tab.addEventListener('click', function() {
-        document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('#periodTabs .period-tab').forEach(t => t.classList.remove('active'));
         this.classList.add('active');
         currentPeriod = this.dataset.period;
         loadData();
       });
     });
 
+    // ====== 图表模式切换 ======
+    document.querySelectorAll('#chartToggle button').forEach(btn => {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('#chartToggle button').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        chartMode = this.dataset.mode;
+        renderChart(trendData);
+      });
+    });
+
+    // ====== 加载数据 ======
     async function loadData() {
       try {
         const data = (await api(`/api/leader/hours/trend?period=${currentPeriod}`)).data;
+        trendData = data;
+        document.getElementById('navDate').textContent = `${data.date_from} ~ ${data.date_to}`;
+
         const trend = data.trend || [];
         const byProject = data.by_project || [];
         const byEngineer = data.by_engineer || [];
 
-        document.getElementById('navDate').textContent = `${data.date_from} ~ ${data.date_to}`;
-
-        // 总计
         document.getElementById('totalHours').textContent = Math.round(data.grand_total * 10) / 10;
         document.getElementById('totalEngineers').textContent = byEngineer.length;
         document.getElementById('totalDays').textContent = trend.length;
         document.getElementById('avgDaily').textContent = trend.length > 0
           ? Math.round((data.grand_total / trend.length) * 10) / 10 : 0;
 
-        // 趋势图
-        const chart = document.getElementById('trendChart');
-        if (trend.length === 0) {
-          chart.innerHTML = '<div style="text-align:center;width:100%;padding-top:60px;color:var(--text-dim)">暂无数据</div>';
-          return;
-        }
-        const maxVal = Math.max(...trend.map(t => parseFloat(t.total_hours)), 1);
-        chart.innerHTML = trend.map(t => {
-          const h = (parseFloat(t.total_hours) / maxVal) * 160;
-          const label = currentPeriod === 'year'
-            ? t.period_label.slice(5, 7) + '月'
-            : t.period_label.slice(5);
-          return `<div style="flex:1;min-width:6px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end">
-            <span style="font-size:10px;color:var(--text-secondary);margin-bottom:2px">${Math.round(parseFloat(t.total_hours) * 10) / 10}</span>
-            <div style="height:${Math.max(h, 4)}px;width:100%;background:var(--accent);border-radius:3px 3px 0 0"></div>
-            <span style="font-size:10px;color:var(--text-dim);margin-top:6px;transform:rotate(-45deg);white-space:nowrap">${label}</span>
-          </div>`;
-        }).join('');
-
-        // 项目排名
-        const projRank = document.getElementById('projectRank');
-        projRank.innerHTML = byProject.length === 0
-          ? '<div class="empty-state">暂无数据</div>'
-          : byProject.map((p, i) =>
-            `<div class="rank-item">
-              <span><span class="rank-num">${i + 1}.</span> ${p.project_name}</span>
-              <span><strong>${Math.round(parseFloat(p.total_hours) * 10) / 10}</strong> h</span>
-            </div>`
-          ).join('');
-
-        // 工程师排名
-        const engRank = document.getElementById('engineerRank');
-        engRank.innerHTML = byEngineer.length === 0
-          ? '<div class="empty-state">暂无数据</div>'
-          : byEngineer.map((e, i) =>
-            `<div class="rank-item">
-              <span><span class="rank-num">${i + 1}.</span> ${e.engineer_name} (${e.abbr})</span>
-              <span><strong>${Math.round(parseFloat(e.total_hours) * 10) / 10}</strong> h</span>
-            </div>`
-          ).join('');
+        renderChart(data);
+        renderRanks(byProject, byEngineer);
       } catch (err) {
         showToast(err.message, 'error');
       }
+    }
+
+    // ====== 渲染图表 ======
+    function renderChart(data) {
+      const container = document.getElementById('chartContainer');
+      const trend = data.trend || [];
+      if (trend.length === 0) {
+        container.innerHTML = '<div class="empty-state" style="padding:40px 20px">暂无数据</div>';
+        return;
+      }
+      if (chartMode === 'bar') {
+        renderBarChart(container, trend);
+      } else {
+        renderKLine(container, trend);
+      }
+    }
+
+    // ---- 柱状图 ----
+    function renderBarChart(container, trend) {
+      const maxVal = Math.max(...trend.map(t => parseFloat(t.total_hours)), 1);
+      let html = '<div class="bar-chart">';
+      trend.forEach(t => {
+        const h = (parseFloat(t.total_hours) / maxVal) * 170;
+        const label = formatLabel(t.period_label);
+        html += `<div class="bar-group">
+          <span class="bar-val">${Math.round(parseFloat(t.total_hours) * 10) / 10}</span>
+          <div class="bar" style="height:${Math.max(h, 6)}px"></div>
+          <span class="bar-label">${label}</span>
+        </div>`;
+      });
+      html += '</div>';
+      container.innerHTML = html;
+    }
+
+    // ---- K线（折线图） ----
+    function renderKLine(container, trend) {
+      const values = trend.map(t => parseFloat(t.total_hours));
+      const maxVal = Math.max(...values, 1);
+      const minVal = Math.min(...values, 0);
+      const range = maxVal - minVal || 1;
+      const padding = 20;
+      const dotGap = Math.max(6, Math.min(60, (container.clientWidth || 800) / trend.length - 2));
+
+      const w = Math.max(trend.length * (dotGap + 2) + padding * 2, container.clientWidth || 800);
+      const h = 200;
+
+      // 生成折线坐标
+      const points = values.map((v, i) => {
+        const x = padding + i * (dotGap + 2) + dotGap / 2;
+        const y = h - padding - ((v - minVal) / range) * (h - padding * 2);
+        return { x, y, v, label: trend[i].period_label };
+      });
+
+      const lineStr = points.map(p => `${p.x},${p.y}`).join(' ');
+
+      // 背景网格线
+      const gridLines = 4;
+      let gridHtml = '';
+      for (let i = 0; i <= gridLines; i++) {
+        const y = padding + (h - padding * 2) * (i / gridLines);
+        const val = maxVal - (range * i / gridLines);
+        gridHtml += `<line x1="${padding}" y1="${y}" x2="${w - padding}" y2="${y}" stroke="rgba(255,255,255,.06)" stroke-width="1"/>`;
+        gridHtml += `<text x="${padding - 4}" y="${y + 3}" text-anchor="end" fill="var(--text-dim)" font-size="9">${Math.round(val * 10) / 10}</text>`;
+      }
+
+      let html = `<div class="line-chart-wrap">
+        <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:${h}px">
+          ${gridHtml}
+          <!-- 填充区域 -->
+          <polygon points="${padding},${h - padding} ${lineStr} ${points[points.length-1].x},${h - padding}" fill="rgba(79,142,247,.1)" />
+          <!-- 折线 -->
+          <polyline points="${lineStr}" fill="none" stroke="#4f8ef7" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+          <!-- 数据点 -->
+          ${points.map(p =>
+            `<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="#4f8ef7" stroke="var(--bg-card)" stroke-width="1.5"
+              data-tip="${p.label} | ${Math.round(p.v * 10) / 10}h"
+              onmouseenter="showChartTip(event, '${p.label} | ${Math.round(p.v * 10) / 10}h')"
+              onmouseleave="hideChartTip()" style="cursor:pointer"/>`
+          ).join('')}
+          <!-- X轴标签 -->
+          ${points.filter((_, i) => {
+            if (trend.length <= 10) return true;
+            if (trend.length <= 20) return i % 2 === 0;
+            if (trend.length <= 40) return i % 3 === 0;
+            return i % Math.ceil(trend.length / 12) === 0;
+          }).map(p =>
+            `<text x="${p.x}" y="${h - 4}" text-anchor="middle" fill="var(--text-dim)" font-size="9">${formatLabel(p.label)}</text>`
+          ).join('')}
+        </svg>
+      </div>`;
+
+      container.innerHTML = html;
+    }
+
+    // 图表 tooltip
+    function showChartTip(e, text) {
+      let el = document.getElementById('chartTip');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'chartTip';
+        el.style.cssText = 'position:fixed;padding:4px 8px;border-radius:4px;background:#222;color:#fff;font-size:11px;white-space:nowrap;pointer-events:none;z-index:999;border:1px solid #444';
+        document.body.appendChild(el);
+      }
+      el.textContent = text;
+      el.style.left = (e.clientX + 10) + 'px';
+      el.style.top = (e.clientY - 10) + 'px';
+      el.style.opacity = '1';
+    }
+
+    function hideChartTip() {
+      const el = document.getElementById('chartTip');
+      if (el) el.style.opacity = '0';
+    }
+
+    // ---- 排名 ----
+    function renderRanks(byProject, byEngineer) {
+      const projRank = document.getElementById('projectRank');
+      projRank.innerHTML = byProject.length === 0
+        ? '<div class="empty-state" style="padding:20px">暂无数据</div>'
+        : byProject.map((p, i) =>
+          `<div class="rank-item">
+            <span><span class="rank-num">${i + 1}.</span> ${p.project_name}</span>
+            <span><strong>${Math.round(parseFloat(p.total_hours) * 10) / 10}</strong> h</span>
+          </div>`
+        ).join('');
+
+      const engRank = document.getElementById('engineerRank');
+      engRank.innerHTML = byEngineer.length === 0
+        ? '<div class="empty-state" style="padding:20px">暂无数据</div>'
+        : byEngineer.map((e, i) =>
+          `<div class="rank-item">
+            <span><span class="rank-num">${i + 1}.</span> ${e.engineer_name} (${e.abbr})</span>
+            <span><strong>${Math.round(parseFloat(e.total_hours) * 10) / 10}</strong> h</span>
+          </div>`
+        ).join('');
+    }
+
+    // 标签格式化
+    function formatLabel(label) {
+      if (!label) return '';
+      // year: "2026-01" → "1月", quarter/day: "2026-01-05" → "1-5"
+      if (currentPeriod === 'year') return label.slice(5, 7) + '月';
+      if (currentPeriod === 'month' || currentPeriod === 'day' || currentPeriod === 'week') return label.slice(5);
+      return label;
     }
 
     document.addEventListener('DOMContentLoaded', () => {

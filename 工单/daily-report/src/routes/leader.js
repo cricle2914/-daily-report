@@ -156,9 +156,13 @@ router.get('/attendance', auth(), async (req, res, next) => {
         if (plan && plan.destination === 'other') {
           color = 'other';
         }
-        // 出勤：有日报 或 有工作计划（去现场/回公司/新项目）
-        else if (report || (plan && ['existing_project', 'new_project', 'back_to_office'].includes(plan.destination))) {
+        // 在外实施：计划去项目现场
+        else if (plan && ['existing_project', 'new_project'].includes(plan.destination)) {
           color = 'onsite';
+        }
+        // 在公司：回公司 或 有日报但没有外勤计划
+        else if (report || (plan && plan.destination === 'back_to_office')) {
+          color = 'office';
         }
         // 周末无记录
         else if (isWeekend) {
