@@ -214,9 +214,8 @@ router.get('/hours/trend', auth(), async (req, res, next) => {
         const qEnd = new Date(d.getFullYear(), q + 3, 0);
         dateFrom = qStart.toISOString().split('T')[0];
         dateTo = qEnd.toISOString().split('T')[0];
-        // 按周聚合（周一为周起始）
-        groupFormat = `DATE_SUB(report_date, INTERVAL WEEKDAY(report_date) DAY)`;
-        labelFormat = 'week';
+        groupFormat = `DATE_FORMAT(report_date, '%Y-%m-%d')`;
+        labelFormat = 'day';
         break;
       }
       case 'week': {
