@@ -508,6 +508,22 @@ html, body {
 
 .project-detail.open { display: block; }
 
+.project-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--text);
+}
+.project-detail-row .label {
+  min-width: 4.5em;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
 /* 遮罩层项目编辑详情 */
 .overlay-detail { padding: 12px 14px; }
 .detail-row {

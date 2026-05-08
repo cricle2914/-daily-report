@@ -326,18 +326,28 @@ function buildProjectCard(p) {
           <div class="project-meta">工单：${p.order_no || '-'} · 实施第 ${p.impl_days} 天</div>
         </div>
       </div>
-      <button class="expand-btn">▼</button>
+      <button class="expand-btn">▶</button>
     </div>
     <div class="project-detail">
-      <div><span class="label">客户</span>${p.customer}</div>
-      <div><span class="label">联系人</span>${p.contact_name || '-'} ${p.contact_phone || ''}</div>
-      <div><span class="label">版本</span>${p.product_version || '-'}</div>
-      <div><span class="label">地址</span>${p.install_address || '-'}</div>
+      <div class="project-detail-row"><span class="label">客户</span>${p.customer || '-'}</div>
+      <div class="project-detail-row"><span class="label">工单</span>${p.order_no || '-'}</div>
+      <div class="project-detail-row"><span class="label">联系人</span>${p.contact_name || '-'} ${p.contact_phone || ''}</div>
+      <div class="project-detail-row"><span class="label">版本</span>${p.product_version || '-'}</div>
+      <div class="project-detail-row"><span class="label">地址</span>${p.install_address || '-'}</div>
+      <div class="project-detail-row"><span class="label">厂商</span>${p.manufacturer || '-'}</div>
+      <div class="project-detail-row"><span class="label">代理商</span>${p.agent || '-'}</div>
+      <div class="project-detail-row"><span class="label">技术负责人</span>${p.tech_lead || '-'}</div>
+      <div class="project-detail-row"><span class="label">服务经理</span>${p.service_manager || '-'}</div>
+      <div class="project-detail-row" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">
+        <span class="label">实施天数</span>${p.impl_days} 天
+      </div>
     </div>`;
   card.onclick = (e) => {
-    if (e.target.classList.contains('expand-btn')) {
+    const btn = e.target.closest('.expand-btn');
+    if (btn) {
       const detail = card.querySelector('.project-detail');
-      detail.classList.toggle('open');
+      const isOpen = detail.classList.toggle('open');
+      btn.textContent = isOpen ? '▼' : '▶';
       return;
     }
     document.querySelectorAll('.project-card').forEach(c => c.classList.remove('selected'));
@@ -811,49 +821,22 @@ function selectDestination(el) {
   }
 }
 
-// ====== Page 2: 展开全部（浏览） ======
+// ====== Page 2: 展开全部 ======
 
-document.getElementById('expandAllBtn').onclick = enterP2Expand;
-document.getElementById('p2ExpandBackdrop').onclick = exitP2Expand;
-document.getElementById('p2ExpandClose').onclick = exitP2Expand;
-
-function enterP2Expand() {
-  document.getElementById('p2ExpandBackdrop').classList.remove('hidden');
-  document.getElementById('p2ExpandBackdrop').classList.add('show');
-  document.getElementById('p2ExpandContainer').classList.remove('hidden');
-  document.getElementById('p2ExpandContainer').classList.add('show');
-
-  const list = document.getElementById('p2ExpandList');
-  list.innerHTML = '';
-  state.projects.forEach(p => {
-    const item = document.createElement('div');
-    item.className = 'p2-expand-item';
-    item.innerHTML = `
-      <div class="p2-expand-item-header">${p.name}</div>
-      <div class="p2-expand-item-body">
-        <div class="p2-expand-row"><span class="label">客户</span>${p.customer || '-'}</div>
-        <div class="p2-expand-row"><span class="label">工单</span>${p.order_no || '-'}</div>
-        <div class="p2-expand-row"><span class="label">联系人</span>${p.contact_name || '-'} ${p.contact_phone || ''}</div>
-        <div class="p2-expand-row"><span class="label">版本</span>${p.product_version || '-'}</div>
-        <div class="p2-expand-row"><span class="label">地址</span>${p.install_address || '-'}</div>
-        <div class="p2-expand-row"><span class="label">厂商</span>${p.manufacturer || '-'}</div>
-        <div class="p2-expand-row"><span class="label">代理商</span>${p.agent || '-'}</div>
-        <div class="p2-expand-row"><span class="label">技术负责人</span>${p.tech_lead || '-'}</div>
-        <div class="p2-expand-row"><span class="label">服务经理</span>${p.service_manager || '-'}</div>
-        <div class="p2-expand-row" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">
-          <span class="label">实施天数</span>${p.impl_days} 天
-        </div>
-      </div>`;
-    list.appendChild(item);
+document.getElementById('expandAllBtn').onclick = function() {
+  const details = document.querySelectorAll('.project-detail');
+  const btns = document.querySelectorAll('.expand-btn');
+  if (details.length === 0) return;
+  const allOpen = Array.from(details).every(d => d.classList.contains('open'));
+  details.forEach(d => {
+    if (allOpen) d.classList.remove('open');
+    else d.classList.add('open');
   });
-}
-
-function exitP2Expand() {
-  document.getElementById('p2ExpandBackdrop').classList.remove('show');
-  document.getElementById('p2ExpandBackdrop').classList.add('hidden');
-  document.getElementById('p2ExpandContainer').classList.remove('show');
-  document.getElementById('p2ExpandContainer').classList.add('hidden');
-}
+  btns.forEach(btn => {
+    btn.textContent = allOpen ? '▶' : '▼';
+  });
+  this.textContent = allOpen ? '展开全部 ▾' : '收起全部 ▴';
+};
 
 // ====== Page 3: 项目信息编辑展开 ======
 

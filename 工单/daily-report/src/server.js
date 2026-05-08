@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const session = require('express-session');
+const MySQLStore = require('express-mysql-session')(session);
 
 // 数据库连接检查（触发 database.js 中的 ping）
 require('./database');
@@ -16,9 +17,27 @@ const adminRouter = require('./routes/admin');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Session 配置
+// Session 配置（使用 MySQL 持久化存储，pod 重启不丢失）
+const sessionStore = new MySQLStore({
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT || 3306,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  createDatabaseTable: true,
+  schema: {
+    tableName: 'sessions',
+    columnNames: {
+      session_id: 'session_id',
+      expires: 'expires',
+      data: 'data'
+    }
+  }
+});
+
 app.use(session({
   secret: process.env.SESSION_SECRET || 'daily-report-secret',
+  store: sessionStore,
   resave: false,
   saveUninitialized: false,
   cookie: { maxAge: 8 * 60 * 60 * 1000 } // 8小时
