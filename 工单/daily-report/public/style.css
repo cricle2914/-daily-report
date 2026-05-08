@@ -1054,46 +1054,59 @@ html, body {
 }
 
 /* ＝＝＝ 项目展开遮罩 ＝＝＝ */
-.project-overlay {
+/* ＝＝＝ 项目展开状态（类似搜索展开动画） ＝＝＝ */
+.project-expand-backdrop {
   position: fixed;
-  inset: 0;
-  z-index: 300;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s ease;
-}
-.project-overlay.show {
-  opacity: 1;
-  pointer-events: all;
-}
-.project-overlay-backdrop {
-  position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
+  z-index: 199;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
 }
-.project-overlay-content {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 60px 18px 20px;
-  animation: overlayIn 0.3s ease;
+.project-expand-backdrop.show {
+  opacity: 1;
+  pointer-events: all;
 }
-@keyframes overlayIn {
-  from { opacity: 0; transform: translateY(16px); }
+
+.project-expand-header { display: none; }
+#page-1.project-expanded .project-expand-backdrop { display: block; }
+#page-1.project-expanded .project-expand-header {
+  display: block;
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 36px);
+  max-width: 444px;
+  z-index: 210;
+  animation: expandIn 0.3s ease;
+}
+#page-1.project-expanded #projectList {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 36px);
+  max-width: 444px;
+  bottom: 0;
+  z-index: 210;
+  overflow-y: auto;
+  padding-bottom: 30px;
+  animation: expandIn 0.3s ease;
+  gap: 6px;
+}
+#page-1.project-expanded .page1-hero,
+#page-1.project-expanded #nextStepArea,
+#page-1.project-expanded .search-wrap,
+#page-1.project-expanded .expand-all-btn { display: none !important; }
+
+@keyframes expandIn {
+  from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.project-overlay-header {
-  padding-bottom: 14px;
-}
-.project-overlay-list {
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
   gap: 6px;
   padding-bottom: 30px;
 }

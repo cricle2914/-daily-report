@@ -251,7 +251,7 @@ function resetEngineerSelection() {
   document.getElementById('nextStepArea').classList.add('hidden');
   document.getElementById('projectList').innerHTML = '';
   document.getElementById('expandAllBtn').classList.add('hidden');
-  closeProjectOverlay();
+  exitProjectExpand();
   document.getElementById('page-1').classList.remove('has-selection');
 
   // 恢复初始问候语 + 打字动画
@@ -366,107 +366,110 @@ function closeDrawer() {
   document.getElementById('drawer').classList.remove('show');
 }
 
-// ====== 项目展开遮罩 ======
+// ====== 项目展开（类似搜索展开动画） ======
 
-document.getElementById('expandAllBtn').onclick = openProjectOverlay;
+document.getElementById('expandAllBtn').onclick = enterProjectExpand;
+document.getElementById('projectExpandBackdrop').onclick = exitProjectExpand;
 
-function openProjectOverlay() {
-  const overlay = document.getElementById('projectOverlay');
-  // 清空搜索框
-  document.getElementById('projectSearchInput').value = '';
-  overlay.classList.add('show');
-  renderAllProjectsInOverlay();
-}
+function enterProjectExpand() {
+  const page1 = document.getElementById('page-1');
+  page1.classList.add('project-expanded');
+  document.getElementById('projectExpandBackdrop').classList.remove('hidden');
+  document.getElementById('projectExpandBackdrop').classList.add('show');
 
-function closeProjectOverlay() {
-  document.getElementById('projectOverlay').classList.remove('show');
-}
+  // 清空搜索
+  const searchInput = document.getElementById('projectExpandSearch');
+  searchInput.value = '';
+  searchInput.focus();
 
-document.getElementById('projectOverlayBackdrop').onclick = closeProjectOverlay;
+  // 显示所有项目卡片（撤销隐藏）
+  document.querySelectorAll('#projectList .project-card').forEach(c => c.style.display = '');
 
-function renderAllProjectsInOverlay() {
-  const list = document.getElementById('projectOverlayList');
-  list.innerHTML = '';
-  state.projects.forEach(p => {
-    const card = document.createElement('div');
-    card.className = 'project-card overlay-edit-card';
-    card.dataset.projectId = p.id;
-    card.innerHTML = `
-      <div class="project-card-header" style="cursor:pointer">
-        <div class="project-info">
-          <div style="flex:1;min-width:0">
-            <div class="project-name">${p.name}</div>
-            <div class="project-meta">工单：${p.order_no || '-'} · 实施第 ${p.impl_days} 天</div>
-          </div>
-        </div>
-        <button class="expand-btn">▼</button>
+  // 转换卡片详情为可编辑模式
+  document.querySelectorAll('#projectList .project-card').forEach(card => {
+    const pid = card.dataset.projectId;
+    const p = state.projects.find(x => x.id == pid);
+    const detail = card.querySelector('.project-detail');
+    if (!p || !detail) return;
+    // 保存原始 HTML 以便恢复
+    card.dataset.origDetail = detail.innerHTML;
+    // 替换为可编辑字段
+    detail.innerHTML = `
+      <div class="detail-row">
+        <span class="label">客户</span>
+        <input class="form-input detail-input" value="${escHtml(p.customer || '')}" data-field="customer">
       </div>
-      <div class="project-detail overlay-detail">
-        <div class="detail-row">
-          <span class="label">客户</span>
-          <input class="form-input detail-input" value="${p.customer || ''}" data-field="customer" data-pid="${p.id}">
-        </div>
-        <div class="detail-row">
-          <span class="label">联系人</span>
-          <input class="form-input detail-input" value="${p.contact_name || ''}" data-field="contact_name" data-pid="${p.id}">
-        </div>
-        <div class="detail-row">
-          <span class="label">电话</span>
-          <input class="form-input detail-input" value="${p.contact_phone || ''}" data-field="contact_phone" data-pid="${p.id}">
-        </div>
-        <div class="detail-row">
-          <span class="label">版本</span>
-          <input class="form-input detail-input" value="${p.product_version || ''}" data-field="product_version" data-pid="${p.id}">
-        </div>
-        <div class="detail-row">
-          <span class="label">地址</span>
-          <input class="form-input detail-input" value="${p.install_address || ''}" data-field="install_address" data-pid="${p.id}">
-        </div>
-        <button class="btn btn-primary save-detail-btn" data-pid="${p.id}" style="margin-top:10px;width:100%">保存修改</button>
-      </div>`;
-
-    // 展开/收起详情
-    card.querySelector('.project-card-header').onclick = (e) => {
-      if (!e.target.closest('.expand-btn')) return;
-      card.querySelector('.project-detail').classList.toggle('open');
-    };
-
-    // 保存修改
-    card.querySelector('.save-detail-btn').onclick = async function() {
-      const pid = this.dataset.pid;
-      const inputs = card.querySelectorAll('.detail-input');
+      <div class="detail-row">
+        <span class="label">联系人</span>
+        <input class="form-input detail-input" value="${escHtml(p.contact_name || '')}" data-field="contact_name">
+      </div>
+      <div class="detail-row">
+        <span class="label">电话</span>
+        <input class="form-input detail-input" value="${escHtml(p.contact_phone || '')}" data-field="contact_phone">
+      </div>
+      <div class="detail-row">
+        <span class="label">版本</span>
+        <input class="form-input detail-input" value="${escHtml(p.product_version || '')}" data-field="product_version">
+      </div>
+      <div class="detail-row">
+        <span class="label">地址</span>
+        <input class="form-input detail-input" value="${escHtml(p.install_address || '')}" data-field="install_address">
+      </div>
+      <button class="btn btn-primary save-detail-btn" style="margin-top:10px;width:100%">保存修改</button>`;
+    // 自动展开详情
+    detail.classList.add('open');
+    // 不再需要▼展开按钮点击切换
+    const expandBtn = card.querySelector('.expand-btn');
+    if (expandBtn) expandBtn.style.display = 'none';
+    // 保存按钮
+    detail.querySelector('.save-detail-btn').onclick = async function() {
+      const inputs = detail.querySelectorAll('.detail-input');
       const body = {};
-      inputs.forEach(inp => {
-        body[inp.dataset.field] = inp.value.trim() || null;
-      });
-      const result = await request(`/api/projects/${pid}`, {
-        method: 'PUT',
-        body
-      });
+      inputs.forEach(inp => { body[inp.dataset.field] = inp.value.trim() || null; });
+      const result = await request(`/api/projects/${pid}`, { method: 'PUT', body });
       if (result) {
         showToast('项目信息已更新');
-        // 同步更新 state.projects
-        const proj = state.projects.find(x => x.id == pid);
-        if (proj) Object.assign(proj, body);
+        if (p) Object.assign(p, body);
       }
     };
-
-    list.appendChild(card);
   });
 }
 
-// 遮罩中搜索项目
-document.getElementById('projectSearchInput').addEventListener('input', function() {
-  const val = this.value.trim().toLowerCase();
-  const items = document.querySelectorAll('#projectOverlayList .project-card');
-  items.forEach(item => {
-    const nameEl = item.querySelector('.project-name');
-    if (nameEl) {
-      const match = nameEl.textContent.toLowerCase().includes(val);
-      item.style.display = match ? '' : 'none';
+function exitProjectExpand() {
+  const page1 = document.getElementById('page-1');
+  page1.classList.remove('project-expanded');
+  document.getElementById('projectExpandBackdrop').classList.remove('show');
+  document.getElementById('projectExpandBackdrop').classList.add('hidden');
+
+  // 恢复卡片详情为只读模式
+  document.querySelectorAll('#projectList .project-card').forEach(card => {
+    const detail = card.querySelector('.project-detail');
+    if (detail && card.dataset.origDetail) {
+      detail.innerHTML = card.dataset.origDetail;
+      delete card.dataset.origDetail;
+      detail.classList.remove('open');
     }
+    const expandBtn = card.querySelector('.expand-btn');
+    if (expandBtn) expandBtn.style.display = '';
+  });
+
+  // 重新应用限制显示
+  renderProjectList(state.projects);
+}
+
+// 展开模式中搜索项目
+document.getElementById('projectExpandSearch').addEventListener('input', function() {
+  const val = this.value.trim().toLowerCase();
+  document.querySelectorAll('#projectList .project-card').forEach(card => {
+    const name = card.querySelector('.project-name')?.textContent.toLowerCase() || '';
+    card.style.display = name.includes(val) ? '' : 'none';
   });
 });
+
+// HTML 转义辅助
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
 async function createProject() {
   const name = document.getElementById('drawerName').value.trim();

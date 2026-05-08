@@ -36,8 +36,14 @@
         </p>
       </div>
 
+      <!-- 项目展开毛玻璃背景 -->
+      <div class="project-expand-backdrop hidden" id="projectExpandBackdrop"></div>
+
       <!-- 项目列表 -->
       <div id="projectList" class="project-list"></div>
+      <div class="project-expand-header" id="projectExpandHeader">
+        <input class="search-box" id="projectExpandSearch" placeholder="搜索项目…" autocomplete="off">
+      </div>
       <button class="expand-all-btn hidden" id="expandAllBtn">展开全部 ▾</button>
 
       <!-- 下一步 -->
@@ -70,7 +76,10 @@
       <div class="form-card">
         <div class="form-group" style="margin-bottom:0">
           <label class="form-label">今日计划</label>
-          <input class="form-input" id="planTitle" placeholder="例：AS7升级验证、文档整理" required>
+          <div class="task-item" style="gap:0">
+            <span class="task-num" style="opacity:0">0</span>
+            <input class="form-input task-input" id="planTitle" placeholder="例：AS7升级验证、文档整理" required>
+          </div>
         </div>
       </div>
 
@@ -293,17 +302,6 @@
 
     <!-- Toast -->
     <div class="toast" id="toast"></div>
-  </div>
-
-  <!-- ====== 项目展开遮罩 ====== -->
-  <div class="project-overlay" id="projectOverlay">
-    <div class="project-overlay-backdrop" id="projectOverlayBackdrop"></div>
-    <div class="project-overlay-content">
-      <div class="project-overlay-header">
-        <input class="search-box" id="projectSearchInput" placeholder="搜索项目…" autocomplete="off">
-      </div>
-      <div class="project-overlay-list" id="projectOverlayList"></div>
-    </div>
   </div>
 
   <script src="app.js"></script>
