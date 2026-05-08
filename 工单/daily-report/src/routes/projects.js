@@ -25,12 +25,10 @@ router.post('/', async (req, res, next) => {
 
       // 创建项目
       const [result] = await conn.query(
-        `INSERT INTO projects (name, order_no, customer, contact_name, contact_phone, product_version, install_address, created_by,
-          manufacturer, agent, tech_lead, service_manager)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO projects (name, order_no, customer, contact_name, contact_phone, product_version, install_address, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [name, order_no || null, customer, contact_name || null,
-         contact_phone || null, product_version || null, install_address || null, engineer_id,
-         manufacturer || null, agent || null, tech_lead || null, service_manager || null]
+         contact_phone || null, product_version || null, install_address || null, engineer_id]
       );
 
       const projectId = result.insertId;
