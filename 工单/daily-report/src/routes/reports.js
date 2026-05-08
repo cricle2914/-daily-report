@@ -86,6 +86,36 @@ router.post('/', async (req, res, next) => {
   }
 });
 
+// 修改已有日报（PUT）
+router.put('/', async (req, res, next) => {
+  try {
+    const { engineer_id, project_id, plan_title, tasks, progress, status, issues } = req.body;
+    if (!engineer_id || !project_id || !plan_title || !tasks || progress === undefined || !status) {
+      return res.status(400).json({ success: false, error: '必填字段缺失' });
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const [existing] = await pool.query(
+      'SELECT id FROM daily_reports WHERE engineer_id = ? AND project_id = ? AND report_date = ?',
+      [engineer_id, project_id, today]
+    );
+
+    if (existing.length === 0) {
+      return res.status(400).json({ success: false, error: '今日尚无日报可修改' });
+    }
+
+    await pool.query(
+      `UPDATE daily_reports SET plan_title = ?, tasks = ?, progress = ?, status = ?, issues = ?, submitted_at = NOW()
+       WHERE id = ?`,
+      [plan_title, JSON.stringify(tasks), progress, status, issues || null, existing[0].id]
+    );
+
+    res.json({ success: true, data: { overwritten: true, message: '日报已修改' } });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // 提交明日去向
 router.post('/tomorrow', async (req, res, next) => {
   try {

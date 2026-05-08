@@ -59,6 +59,58 @@ function showToast(msg) {
   toast._timer = setTimeout(() => toast.classList.remove('show'), 2000);
 }
 
+// ====== 打字动画 ======
+function startTypingAnimation() {
+  const el = document.getElementById('typingSub');
+  if (!el) return;
+  const text = '今天辛苦啦，让我帮你提交日报吧。';
+  const boldStart = 9, boldEnd = 13; // "提交日报" 范围
+  let stopped = false, timer = null;
+
+  function buildHtml(len) {
+    let html = '';
+    for (let i = 0; i < len && i < text.length; i++) {
+      if (i === boldStart) html += '<b>';
+      html += text[i];
+      if (i === boldEnd - 1) html += '</b>';
+    }
+    return html;
+  }
+
+  function typeStep(idx, cb) {
+    if (stopped) return;
+    el.innerHTML = buildHtml(idx);
+    if (idx < text.length) timer = setTimeout(() => typeStep(idx + 1, cb), 65);
+    else timer = setTimeout(cb, 2000);
+  }
+
+  function deleteStep(idx, target, cb) {
+    if (stopped) return;
+    el.innerHTML = buildHtml(idx);
+    if (idx > target) timer = setTimeout(() => deleteStep(idx - 1, target, cb), 40);
+    else timer = setTimeout(cb, 500);
+  }
+
+  function loop() {
+    if (stopped) return;
+    typeStep(0, () => {
+      deleteStep(text.length, boldStart, () => {
+        typeStep(boldStart, () => {
+          timer = setTimeout(loop, 2000);
+        });
+      });
+    });
+  }
+
+  // 启动先等 1 秒
+  timer = setTimeout(loop, 1000);
+
+  return () => { stopped = true; if (timer) clearTimeout(timer); };
+}
+
+// 页面加载后启动打字动画
+document.addEventListener('DOMContentLoaded', startTypingAnimation);
+
 // ====== Page 1: 搜索工程师 ======
 
 const searchInput = document.getElementById('searchInput');
@@ -189,6 +241,10 @@ function renderProjectList(projects) {
         <div><span class="label">联系人</span>${p.contact_name || '-'} ${p.contact_phone || ''}</div>
         <div><span class="label">版本</span>${p.product_version || '-'}</div>
         <div><span class="label">地址</span>${p.install_address || '-'}</div>
+        <div><span class="label">厂商</span>${p.manufacturer || '-'}</div>
+        <div><span class="label">代理商</span>${p.agent || '-'}</div>
+        <div><span class="label">技术负责人</span>${p.tech_lead || '-'}</div>
+        <div><span class="label">服务经理</span>${p.service_manager || '-'}</div>
       </div>`;
     card.onclick = (e) => {
       // 点击展开按钮时切换详情
@@ -241,7 +297,11 @@ async function createProject() {
       contact_name: document.getElementById('drawerContact').value.trim() || undefined,
       contact_phone: document.getElementById('drawerPhone').value.trim() || undefined,
       product_version: document.getElementById('drawerVersion').value.trim() || undefined,
-      install_address: document.getElementById('drawerAddress').value.trim() || undefined
+      install_address: document.getElementById('drawerAddress').value.trim() || undefined,
+      manufacturer: document.getElementById('drawerManufacturer').value.trim() || undefined,
+      agent: document.getElementById('drawerAgent').value.trim() || undefined,
+      tech_lead: document.getElementById('drawerTechLead').value.trim() || undefined,
+      service_manager: document.getElementById('drawerServiceManager').value.trim() || undefined
     }
   });
   if (!data) return;
@@ -279,7 +339,12 @@ document.getElementById('nextToReportBtn').onclick = async () => {
   document.getElementById('projectDetailBody').innerHTML = state.project.detail
     ? `<div>客户：${state.project.detail.customer || '-'}</div>
        <div>工单：${state.project.detail.order_no || '-'}</div>
-       <div>版本：${state.project.detail.product_version || '-'}</div>`
+       <div>版本：${state.project.detail.product_version || '-'}</div>
+       <div>地址：${state.project.detail.install_address || '-'}</div>
+       <div>厂商：${state.project.detail.manufacturer || '-'}</div>
+       <div>代理商：${state.project.detail.agent || '-'}</div>
+       <div>技术负责人：${state.project.detail.tech_lead || '-'}</div>
+       <div>服务经理：${state.project.detail.service_manager || '-'}</div>`
     : '';
   // 从上次日报获取进度，没有则默认 0
   const lastData = await request(`/api/reports/last-progress?engineer_id=${state.engineer.id}&project_id=${state.project.id}`);
@@ -306,7 +371,7 @@ function addTask(value = '') {
   item.innerHTML = `
     <span class="task-num">${num}</span>
     <input class="form-input task-input" placeholder="输入工作任务" value="${value}">
-    <button class="task-del-btn" onclick="removeTask(this)">－</button>`;
+    <button class="task-del-btn" onclick="removeTask(this)">删除</button>`;
   list.appendChild(item);
 }
 
@@ -381,19 +446,29 @@ async function submitReport(overwriteMode) {
   if (overwriteMode) body.overwrite = true;
 
   try {
-    const res = await fetch('/api/reports', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
+    let res;
+    if (overwriteMode) {
+      // 修改模式走 PUT
+      res = await fetch('/api/reports', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+    } else {
+      res = await fetch('/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+    }
     const result = await res.json();
 
     if (!result.success) {
       btn.disabled = false;
       btn.textContent = '提交日报';
-      // 重复提交：询问是否覆盖
+      // 重复提交：询问是否修改
       if (result.data && result.data.existing) {
-        if (confirm('今日已提交，是否查看/修改？')) {
+        if (confirm('今日已提交，是否修改？')) {
           submitReport(true);
         }
       } else {
@@ -404,6 +479,10 @@ async function submitReport(overwriteMode) {
 
     btn.disabled = false;
     btn.textContent = '提交日报';
+
+    // 设置成功标题
+    document.getElementById('reportSuccessTitle').textContent =
+      result.data && result.data.overwritten ? '日报已修改' : '日报已提交';
 
     // 跳转到 Page 3
     document.getElementById('reportSummary').textContent =

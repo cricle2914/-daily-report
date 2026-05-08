@@ -24,11 +24,10 @@
       <!-- 搜索展开背景 -->
       <div class="search-backdrop" id="searchBackdrop"></div>
 
-      <!-- 搜索 -->
-      <div class="search-wrap">
-        <span class="search-icon">🔍</span>
-        <input class="search-box" id="searchInput" type="text" placeholder="搜索工程师姓名..." autocomplete="off">
-        <div class="search-dropdown" id="searchDropdown"></div>
+      <!-- 页面英雄区域 -->
+      <div class="page1-hero">
+        <h1 class="page1-greeting">Good<br>day!</h1>
+        <p class="page1-sub" id="typingSub"></p>
       </div>
 
       <!-- 已选工程师 -->
@@ -50,6 +49,13 @@
       <!-- 下一步 -->
       <div id="nextStepArea" class="hidden next-step-area">
         <button class="btn btn-primary btn-block" id="nextToReportBtn">填写今日日报 →</button>
+      </div>
+
+      <!-- 搜索 -->
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-box" id="searchInput" type="text" placeholder="哪位天才呀！？" autocomplete="off">
+        <div class="search-dropdown" id="searchDropdown"></div>
       </div>
     </div>
 
@@ -89,7 +95,7 @@
           <div class="task-item">
             <span class="task-num">1</span>
             <input class="form-input task-input" placeholder="输入工作任务">
-            <button class="task-del-btn" onclick="removeTask(this)" style="visibility:hidden">－</button>
+            <button class="task-del-btn" onclick="removeTask(this)">删除</button>
           </div>
         </div>
         <button class="add-task-btn" onclick="addTask()">＋ 添加工作项</button>
@@ -139,10 +145,12 @@
       <div class="success-bar" id="reportSuccessBar">
         <div>
           <span class="success-icon">✔</span>
-          <span class="success-title">日报已提交</span>
+          <span class="success-title" id="reportSuccessTitle">日报已提交</span>
         </div>
         <div class="summary" id="reportSummary"></div>
       </div>
+
+      <h1 class="page3-title">Done.<br>Nice!</h1>
 
       <!-- 去向选择 -->
       <div style="margin-top:4px">
@@ -275,6 +283,22 @@
       <div class="form-group">
         <label class="form-label">地址</label>
         <input class="form-input" id="drawerAddress" placeholder="可选">
+      </div>
+      <div class="form-group">
+        <label class="form-label">厂商名称</label>
+        <input class="form-input" id="drawerManufacturer" placeholder="可选">
+      </div>
+      <div class="form-group">
+        <label class="form-label">代理商</label>
+        <input class="form-input" id="drawerAgent" placeholder="可选">
+      </div>
+      <div class="form-group">
+        <label class="form-label">技术负责人</label>
+        <input class="form-input" id="drawerTechLead" placeholder="可选">
+      </div>
+      <div class="form-group">
+        <label class="form-label">服务经理</label>
+        <input class="form-input" id="drawerServiceManager" placeholder="可选">
       </div>
       <button class="btn btn-primary btn-block" style="margin-top:8px" onclick="createProject()">创建并选择</button>
     </div>
