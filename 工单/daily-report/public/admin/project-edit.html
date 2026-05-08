@@ -27,6 +27,7 @@
         <a class="nav-item" href="engineers.html">👤 员工管理</a>
         <a class="nav-item" href="projects.html">📁 项目管理</a>
         <a class="nav-item" href="reports.html">📋 日报管理</a>
+        <a class="nav-item" href="hours.html">⏱ 工时管理</a>
         <a class="nav-item" href="accounts.html">🔐 账户管理</a>
       </div>
     </div>
@@ -282,11 +283,15 @@
     }
 
     async function deleteProject() {
-      if (!confirm('确认删除该项目？此操作不可恢复。')) return;
-      if (!confirm('二次确认：是否确定删除？')) return;
+      const password = prompt('请输入管理员密码确认删除项目及其所有关联数据：');
+      if (!password) return;
+
       try {
-        await api(`/api/admin/projects/${editId}`, { method: 'DELETE' });
-        showToast('已删除');
+        await api(`/api/admin/projects/${editId}`, {
+          method: 'DELETE',
+          body: JSON.stringify({ password })
+        });
+        showToast('项目及关联数据已全部删除');
         setTimeout(() => { location.href = 'projects.html'; }, 500);
       } catch (err) {
         showToast(err.message, 'error');

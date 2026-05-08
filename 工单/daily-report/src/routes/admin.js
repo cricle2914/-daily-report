@@ -216,18 +216,39 @@ router.delete('/engineers/:id', auth(), async (req, res, next) => {
 
 // ==================== 项目管理 ====================
 
-// 项目列表
+// 项目列表（支持搜索）
 router.get('/projects', auth(), async (req, res, next) => {
   try {
-    const [rows] = await pool.query(
-      `SELECT p.*,
-              GROUP_CONCAT(DISTINCT CONCAT(e.id, ':', e.name, ':', e.abbr) SEPARATOR ',') AS engineers
-       FROM projects p
-       LEFT JOIN engineer_projects ep ON p.id = ep.project_id
-       LEFT JOIN engineers e ON ep.engineer_id = e.id
-       GROUP BY p.id
-       ORDER BY p.created_at DESC`
-    );
+    const { keyword, order_no, engineer } = req.query;
+    let sql = `
+      SELECT p.*,
+             GROUP_CONCAT(DISTINCT CONCAT(e.id, ':', e.name, ':', e.abbr) SEPARATOR ',') AS engineers
+      FROM projects p
+      LEFT JOIN engineer_projects ep ON p.id = ep.project_id
+      LEFT JOIN engineers e ON ep.engineer_id = e.id`;
+    const params = [];
+    const conditions = [];
+
+    if (keyword) {
+      conditions.push('p.name LIKE ?');
+      params.push(`%${keyword}%`);
+    }
+    if (order_no) {
+      conditions.push('p.order_no LIKE ?');
+      params.push(`%${order_no}%`);
+    }
+    if (engineer) {
+      conditions.push('(e.name LIKE ? OR e.abbr LIKE ?)');
+      params.push(`%${engineer}%`, `%${engineer}%`);
+    }
+
+    if (conditions.length > 0) {
+      sql += ' WHERE ' + conditions.join(' AND ');
+    }
+
+    sql += ` GROUP BY p.id ORDER BY p.created_at DESC`;
+
+    const [rows] = await pool.query(sql, params);
 
     // 解析工程师字符串为数组
     const data = rows.map(r => {
@@ -362,28 +383,36 @@ router.delete('/projects/:id/engineers/:eid', auth(), async (req, res, next) => 
   }
 });
 
-// 删除项目
+// 删除项目（递归删除，需验证密码）
 router.delete('/projects/:id', auth(), async (req, res, next) => {
   try {
     const { id } = req.params;
+    const { password } = req.body;
 
-    // 检查是否有日报关联
-    const [reports] = await pool.query(
-      'SELECT COUNT(*) AS cnt FROM daily_reports WHERE project_id = ?', [id]
-    );
-    if (reports[0].cnt > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `该项目已有 ${reports[0].cnt} 条日报记录，无法删除`
-      });
+    if (!password) {
+      return res.status(400).json({ success: false, message: '请输入管理员密码确认删除' });
     }
 
-    // 解除工程师关联
+    // 验证当前用户密码
+    const [accounts] = await pool.query(
+      'SELECT password_hash FROM accounts WHERE id = ?',
+      [req.session.user.id]
+    );
+    if (accounts.length === 0) {
+      return res.status(400).json({ success: false, message: '账户异常' });
+    }
+    const valid = await bcrypt.compare(password, accounts[0].password_hash);
+    if (!valid) {
+      return res.status(400).json({ success: false, message: '密码错误' });
+    }
+
+    // 递归删除：日报 → 工时 → 工程师关联 → 项目
+    await pool.query('DELETE FROM daily_reports WHERE project_id = ?', [id]);
+    await pool.query('DELETE FROM work_hours WHERE project_id = ?', [id]);
     await pool.query('DELETE FROM engineer_projects WHERE project_id = ?', [id]);
-    // 删除项目
     await pool.query('DELETE FROM projects WHERE id = ?', [id]);
 
-    res.json({ success: true, data: { message: '已删除' } });
+    res.json({ success: true, data: { message: '项目及关联数据已全部删除' } });
   } catch (err) {
     next(err);
   }
@@ -582,6 +611,50 @@ router.delete('/accounts/:id', auth('admin'), async (req, res, next) => {
 
     await pool.query('DELETE FROM accounts WHERE id = ?', [id]);
     res.json({ success: true, data: { message: '已删除' } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ==================== 工时管理 ====================
+
+// 工时列表
+router.get('/hours', auth(), async (req, res, next) => {
+  try {
+    const { engineer_id, project_id, date_from, date_to } = req.query;
+    let sql = `
+      SELECT wh.*, e.name AS engineer_name, e.abbr AS engineer_abbr, p.name AS project_name
+      FROM work_hours wh
+      JOIN engineers e ON wh.engineer_id = e.id
+      JOIN projects p ON wh.project_id = p.id
+      WHERE 1=1`;
+    const params = [];
+
+    if (engineer_id) {
+      sql += ' AND wh.engineer_id = ?';
+      params.push(engineer_id);
+    }
+    if (project_id) {
+      sql += ' AND wh.project_id = ?';
+      params.push(project_id);
+    }
+    if (date_from) {
+      sql += ' AND wh.report_date >= ?';
+      params.push(date_from);
+    }
+    if (date_to) {
+      sql += ' AND wh.report_date <= ?';
+      params.push(date_to);
+    }
+
+    sql += ' ORDER BY wh.report_date DESC, e.name ASC';
+
+    const [rows] = await pool.query(sql, params);
+
+    // 计算总计
+    const total = rows.reduce((sum, r) => sum + parseFloat(r.hours || 0), 0);
+
+    res.json({ success: true, data: { list: rows, total: Math.round(total * 10) / 10 } });
   } catch (err) {
     next(err);
   }

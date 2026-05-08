@@ -15,6 +15,7 @@
         <a class="nav-item" href="engineers.html">👤 员工管理</a>
         <a class="nav-item" href="projects.html">📁 项目管理</a>
         <a class="nav-item" href="reports.html">📋 日报管理</a>
+        <a class="nav-item" href="hours.html">⏱ 工时管理</a>
         <a class="nav-item" href="accounts.html">🔐 账户管理</a>
       </div>
     </div>
@@ -28,6 +29,25 @@
       <div class="action-bar">
         <div class="page-title" style="margin-bottom:0">项目管理</div>
         <button class="btn btn-primary" onclick="location.href='project-edit.html'">+ 新建项目</button>
+      </div>
+
+      <div class="filter-bar">
+        <div class="form-group">
+          <label class="form-label">项目名</label>
+          <input class="form-input" id="searchKeyword" placeholder="模糊搜索" onkeydown="if(event.key==='Enter')loadProjects()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">工单号</label>
+          <input class="form-input" id="searchOrder" placeholder="工单号" onkeydown="if(event.key==='Enter')loadProjects()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">工程师</label>
+          <input class="form-input" id="searchEngineer" placeholder="姓名或缩写" onkeydown="if(event.key==='Enter')loadProjects()">
+        </div>
+        <div class="form-group">
+          <button class="btn btn-primary" onclick="loadProjects()" style="margin-top:22px">查询</button>
+          <button class="btn btn-secondary" onclick="clearSearch()" style="margin-top:22px;margin-left:6px">重置</button>
+        </div>
       </div>
 
       <div class="table-wrap">
@@ -50,7 +70,16 @@
   <script>
     async function loadProjects() {
       try {
-        const data = (await api('/api/admin/projects')).data;
+        const params = new URLSearchParams();
+        const kw = document.getElementById('searchKeyword').value.trim();
+        const ord = document.getElementById('searchOrder').value.trim();
+        const eng = document.getElementById('searchEngineer').value.trim();
+        if (kw) params.set('keyword', kw);
+        if (ord) params.set('order_no', ord);
+        if (eng) params.set('engineer', eng);
+
+        const qs = params.toString();
+        const data = (await api(`/api/admin/projects${qs ? '?' + qs : ''}`)).data;
         const tbody = document.getElementById('projectTableBody');
         if (data.length === 0) {
           tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">暂无项目</div></td></tr>';
@@ -75,6 +104,13 @@
       } catch (err) {
         showToast(err.message, 'error');
       }
+    }
+
+    function clearSearch() {
+      document.getElementById('searchKeyword').value = '';
+      document.getElementById('searchOrder').value = '';
+      document.getElementById('searchEngineer').value = '';
+      loadProjects();
     }
 
     loadProjects();
