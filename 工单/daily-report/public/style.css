@@ -137,7 +137,6 @@ html, body {
 }
 
 .page1-greeting {
-  font-size: 72px;
   font-weight: 900;
   line-height: .9;
   letter-spacing: -.04em;
@@ -145,37 +144,46 @@ html, body {
   margin-bottom: 16px;
 }
 
+.greeting-good { font-size: 84px; }
+.greeting-day { font-size: 72px; }
+
 .page1-sub {
   font-size: 14px;
   color: var(--text-muted);
-  line-height: 1.7;
-  min-height: 1.7em;
+  line-height: 1.8;
+  min-height: 1.8em;
+}
+
+.sub-line1 {
+  font-size: 16px;
+  color: var(--text-muted);
+}
+
+.sub-line2 {
+  font-size: 14px;
+  color: var(--text-muted);
 }
 
 .page1-sub b {
   color: var(--text);
-  font-weight: 600;
+  font-weight: 700;
 }
 
-/* 已选工程师后，隐藏 hero */
-#page-1.has-selection .page1-hero { display: none; }
-#page-1.search-expanded .page1-hero { display: none; }
-
 /* 打字光标 */
-.typing-cursor::after {
-  content: '|';
+.type-cursor {
   animation: blink 0.7s step-end infinite;
   color: var(--text);
   font-weight: 300;
+  margin-left: 1px;
 }
 
 @keyframes blink {
   50% { opacity: 0; }
 }
 
-/* 搜索区域沉底 — 初始在 80% 位置，选中后沉底 */
+/* 搜索区域沉底 — 初始在 60% 位置，选中后沉底 */
 #page-1 .search-wrap {
-  margin-top: 60vh;
+  margin-top: 40vh;
   padding: 20px 20px 0;
   position: relative;
   transition: all 0.35s cubic-bezier(0.32, 0.72, 0, 1);
@@ -218,7 +226,7 @@ html, body {
 
 #page-1.search-expanded .search-box {
   font-size: 18px;
-  padding: 16px 16px 16px 44px;
+  padding: 16px;
   border-color: var(--border-med);
   background: rgba(255, 255, 255, 0.06);
 }
@@ -239,19 +247,11 @@ html, body {
   }
 }
 
-.search-icon {
-  position: absolute;
-  left: 14px;
-  bottom: 17px;
-  font-size: 16px;
-  color: var(--text-dim);
-  pointer-events: none;
-  z-index: 1;
-}
+.search-icon { display: none; }
 
 .search-box {
   width: 100%;
-  padding: 14px 16px 14px 42px;
+  padding: 14px 16px;
   background: var(--bg-card);
   border: 1.5px solid var(--border-med);
   border-radius: var(--r-md);
@@ -268,14 +268,14 @@ html, body {
 /* 下拉 */
 .search-dropdown {
   position: absolute;
-  bottom: calc(100% + 6px);
+  top: calc(100% + 6px);
   left: 0; right: 0;
   background: var(--bg-card);
   border: 1px solid var(--border-med);
   border-radius: var(--r-md);
   z-index: 200;
   overflow: hidden;
-  box-shadow: 0 -8px 32px rgba(0,0,0,0.8);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.8);
 }
 
 .search-dropdown:empty { display: none; }

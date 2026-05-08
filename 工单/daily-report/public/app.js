@@ -59,52 +59,64 @@ function showToast(msg) {
   toast._timer = setTimeout(() => toast.classList.remove('show'), 2000);
 }
 
-// ====== 打字动画 ======
+// ====== 打字动画（两行） ======
 function startTypingAnimation() {
-  const el = document.getElementById('typingSub');
-  if (!el) return;
-  const text = '今天辛苦啦，让我帮你提交日报吧。';
-  const boldStart = 9, boldEnd = 13; // "提交日报" 范围
+  const l1 = document.getElementById('typingLine1');
+  const l2 = document.getElementById('typingLine2');
+  if (!l1 || !l2) return;
+
+  const line1 = '今天辛苦啦，';
+  const line2 = '让我帮你提交日报吧。';
+  const bs = 4, be = 8; // "提交日报" 在 line2 中的起止索引
   let stopped = false, timer = null;
 
-  function buildHtml(len) {
-    let html = '';
-    for (let i = 0; i < len && i < text.length; i++) {
-      if (i === boldStart) html += '<b>';
-      html += text[i];
-      if (i === boldEnd - 1) html += '</b>';
+  function build2(len) {
+    if (len <= 0) return '';
+    let h = '', ib = false;
+    for (let i = 0; i < len && i < line2.length; i++) {
+      if (i === bs) { h += '<b>'; ib = true; }
+      h += line2[i];
     }
-    return html;
+    if (ib && len < be) h += '</b>';
+    if (len >= be) h += '</b>';
+    return h;
   }
 
-  function typeStep(idx, cb) {
+  function t1(idx, cb) {
     if (stopped) return;
-    el.innerHTML = buildHtml(idx);
-    if (idx < text.length) timer = setTimeout(() => typeStep(idx + 1, cb), 65);
+    l1.textContent = line1.substring(0, idx);
+    if (idx < line1.length) timer = setTimeout(() => t1(idx + 1, cb), 65);
+    else timer = setTimeout(cb, 300);
+  }
+
+  function t2(idx, cb) {
+    if (stopped) return;
+    l2.innerHTML = build2(idx);
+    if (idx < line2.length) timer = setTimeout(() => t2(idx + 1, cb), 65);
     else timer = setTimeout(cb, 2000);
   }
 
-  function deleteStep(idx, target, cb) {
+  function d2(idx, cb) {
     if (stopped) return;
-    el.innerHTML = buildHtml(idx);
-    if (idx > target) timer = setTimeout(() => deleteStep(idx - 1, target, cb), 40);
+    l2.innerHTML = build2(idx);
+    if (idx > bs) timer = setTimeout(() => d2(idx - 1, cb), 40);
     else timer = setTimeout(cb, 500);
   }
 
   function loop() {
     if (stopped) return;
-    typeStep(0, () => {
-      deleteStep(text.length, boldStart, () => {
-        typeStep(boldStart, () => {
-          timer = setTimeout(loop, 2000);
+    t1(0, () => {
+      t2(0, () => {
+        d2(line2.length, () => {
+          t2(bs, () => {
+            timer = setTimeout(loop, 2000);
+          });
         });
       });
     });
   }
 
-  // 启动先等 1 秒
   timer = setTimeout(loop, 1000);
-
   return () => { stopped = true; if (timer) clearTimeout(timer); };
 }
 

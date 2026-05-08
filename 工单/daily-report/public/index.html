@@ -26,8 +26,14 @@
 
       <!-- 页面英雄区域 -->
       <div class="page1-hero">
-        <h1 class="page1-greeting">Good<br>day!</h1>
-        <p class="page1-sub" id="typingSub"></p>
+        <h1 class="page1-greeting">
+          <span class="greeting-good">Good</span><br>
+          <span class="greeting-day">day!</span>
+        </h1>
+        <p class="page1-sub" id="typingSub">
+          <span class="sub-line1" id="typingLine1"></span><br>
+          <span class="sub-line2" id="typingLine2"></span><span class="type-cursor">|</span>
+        </p>
       </div>
 
       <!-- 已选工程师 -->
@@ -53,7 +59,6 @@
 
       <!-- 搜索 -->
       <div class="search-wrap">
-        <span class="search-icon">🔍</span>
         <input class="search-box" id="searchInput" type="text" placeholder="哪位天才呀！？" autocomplete="off">
         <div class="search-dropdown" id="searchDropdown"></div>
       </div>
