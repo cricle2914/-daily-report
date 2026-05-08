@@ -124,11 +124,59 @@ html, body {
   margin-top: auto;
   padding-top: 16px;
   border-top: 1px solid var(--border);
+  position: relative;
+  z-index: 1;
 }
 .page2-search-hint {
   font-size: 11px;
   color: var(--text-dim);
   margin-bottom: 8px;
+}
+
+/* page-2 搜索毛玻璃背景 */
+.page2-search-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 199;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* page-2 搜索展开状态 */
+#page-2.search-expanded .page2-search-backdrop {
+  display: block;
+  opacity: 1;
+  pointer-events: all;
+}
+#page-2.search-expanded .page2-search-area {
+  position: fixed;
+  top: 15%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(100% - 40px);
+  max-width: 440px;
+  z-index: 210;
+  padding-top: 0;
+  margin-top: 0;
+  border-top: none;
+  animation: searchExpandIn 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+}
+#page-2.search-expanded .search-box {
+  font-size: 18px;
+  padding: 16px;
+  border-color: var(--border-med);
+  background: rgba(255, 255, 255, 0.06);
+}
+#page-2.search-expanded .search-box:focus {
+  border-color: var(--text);
+  background: rgba(255, 255, 255, 0.09);
+}
+#page-2.search-expanded .page2-search-hint {
+  display: none;
 }
 
 /* ════════════════════════════════
@@ -715,7 +763,7 @@ html, body {
 .add-task-btn:hover { border-color: var(--text); color: var(--text); }
 
 /* 进度 */
-.progress-slider-wrap { padding: 10px 0 6px; }
+.progress-slider-wrap { padding: 10px 0 30px; position: relative; }
 
 .progress-slider {
   -webkit-appearance: none;
@@ -727,6 +775,16 @@ html, body {
   cursor: pointer;
 }
 
+.progress-marker {
+  position: absolute;
+  bottom: 4px;
+  font-size: 10px;
+  color: var(--text);
+  transform: translateX(-50%);
+  pointer-events: none;
+  transition: left 0.08s ease;
+  line-height: 1;
+}
 .progress-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 16px;

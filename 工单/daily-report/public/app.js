@@ -364,7 +364,18 @@ searchInput2.addEventListener('input', () => {
 });
 
 searchInput2.addEventListener('focus', function() {
-  // page-2 search focus: no backdrop needed
+  document.getElementById('page-2').classList.add('search-expanded');
+});
+
+searchInput2.addEventListener('blur', function() {
+  setTimeout(() => {
+    document.getElementById('page-2').classList.remove('search-expanded');
+  }, 200);
+});
+
+document.getElementById('searchBackdrop2').addEventListener('click', function() {
+  document.getElementById('page-2').classList.remove('search-expanded');
+  searchInput2.blur();
 });
 
 async function searchEngineers2(name) {
@@ -489,7 +500,7 @@ document.getElementById('nextToReportBtn').onclick = async () => {
   const lastData = await request(`/api/reports/last-progress?engineer_id=${state.engineer.id}&project_id=${state.project.id}`);
   const lastProgress = lastData ? lastData.progress : 0;
   progressSlider.value = lastProgress;
-  progressValue.textContent = lastProgress;
+  updateProgressUI(lastProgress);
 
   // 初始化条件卡片显示（默认进行中 → 下一步计划）
   document.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
@@ -545,9 +556,16 @@ const progressSlider = document.getElementById('progressSlider');
 const progressValue = document.getElementById('progressValue');
 let selectedStatus = 'ongoing';
 
+function updateProgressUI(val) {
+  progressValue.textContent = val;
+  progressSlider.style.background = `linear-gradient(to right, #534AB7 0%, #534AB7 ${val}%, #ddd ${val}%, #ddd 100%)`;
+  // 倒三角跟随滑块
+  const pct = parseInt(val);
+  document.getElementById('progressMarker').style.left = pct + '%';
+}
+
 progressSlider.addEventListener('input', () => {
-  progressValue.textContent = progressSlider.value;
-  progressSlider.style.background = `linear-gradient(to right, #534AB7 0%, #534AB7 ${progressSlider.value}%, #ddd ${progressSlider.value}%, #ddd 100%)`;
+  updateProgressUI(progressSlider.value);
 });
 
 function selectStatus(btn) {
@@ -775,7 +793,6 @@ function exitP2Expand() {
 
 // ====== Page 3: 项目信息编辑展开 ======
 
-document.getElementById('editProjBtn').onclick = enterP3Expand;
 document.getElementById('p3ExpandBackdrop').onclick = exitP3Expand;
 document.getElementById('p3ExpandClose').onclick = exitP3Expand;
 
