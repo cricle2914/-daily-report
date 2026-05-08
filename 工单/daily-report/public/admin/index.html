@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>仪表盘 - 日报管理系统</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <div class="layout">
+    <div class="sidebar">
+      <div class="sidebar-title">日报管理</div>
+      <div class="sidebar-nav">
+        <a class="nav-item" href="index.html">📊 仪表盘</a>
+        <a class="nav-item" href="engineers.html">👤 员工管理</a>
+        <a class="nav-item" href="projects.html">📁 项目管理</a>
+        <a class="nav-item" href="reports.html">📋 日报管理</a>
+        <a class="nav-item" href="accounts.html">🔐 账户管理</a>
+      </div>
+    </div>
+    <div class="main">
+      <div class="topbar">
+        <span class="topbar-user" id="topbarUser"></span>
+        <span class="topbar-user" id="topbarRole"></span>
+        <button class="topbar-btn" onclick="logout()">退出</button>
+      </div>
+
+      <div class="page-title">仪表盘</div>
+
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-card">
+          <div class="stat-value" id="statSubmitted">-</div>
+          <div class="stat-label">今日已提交</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statNotSubmitted">-</div>
+          <div class="stat-label">今日未提交</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statInField">-</div>
+          <div class="stat-label">在外实施</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statMonthHours">-</div>
+          <div class="stat-label">本月累计工时</div>
+        </div>
+      </div>
+
+      <div class="form-card" id="notSubmittedSection" style="display:none">
+        <div class="form-card-title">未提交日报名单</div>
+        <div class="name-list" id="notSubmittedList"></div>
+      </div>
+
+      <div class="form-card">
+        <div class="form-card-title">近 7 天提交趋势</div>
+        <div class="bar-chart" id="barChart"></div>
+      </div>
+    </div>
+  </div>
+  <script src="admin.js"></script>
+  <script>
+    async function loadDashboard() {
+      try {
+        const data = (await api('/api/admin/dashboard')).data;
+
+        document.getElementById('statSubmitted').textContent = data.submitted;
+        document.getElementById('statNotSubmitted').textContent = data.notSubmitted.length;
+        document.getElementById('statInField').textContent = data.inField;
+        document.getElementById('statMonthHours').textContent = data.monthHours;
+
+        // 未提交名单
+        const notSubmittedSection = document.getElementById('notSubmittedSection');
+        const notSubmittedList = document.getElementById('notSubmittedList');
+        if (data.notSubmitted.length > 0) {
+          notSubmittedSection.style.display = 'block';
+          notSubmittedList.innerHTML = data.notSubmitted.map(e =>
+            `<span class="name-tag danger">${e.name} (${e.abbr})</span>`
+          ).join('');
+        } else {
+          notSubmittedSection.style.display = 'none';
+        }
+
+        // 柱状图
+        const barChart = document.getElementById('barChart');
+        const maxCount = Math.max(...data.weekly.map(w => w.count), 1);
+        barChart.innerHTML = data.weekly.map(w => {
+          const h = (w.count / maxCount) * 100;
+          return `<div class="bar-item">
+            <div class="bar-value">${w.count}</div>
+            <div class="bar" style="height:${Math.max(h, 4)}px"></div>
+            <div class="bar-label">${w.date.slice(5)}</div>
+          </div>`;
+        }).join('');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadDashboard);
+  </script>
+</body>
+</html>

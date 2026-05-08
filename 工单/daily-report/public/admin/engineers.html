@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>员工管理 - 日报管理系统</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <div class="layout">
+    <div class="sidebar">
+      <div class="sidebar-title">日报管理</div>
+      <div class="sidebar-nav">
+        <a class="nav-item" href="index.html">📊 仪表盘</a>
+        <a class="nav-item" href="engineers.html">👤 员工管理</a>
+        <a class="nav-item" href="projects.html">📁 项目管理</a>
+        <a class="nav-item" href="reports.html">📋 日报管理</a>
+        <a class="nav-item" href="accounts.html">🔐 账户管理</a>
+      </div>
+    </div>
+    <div class="main">
+      <div class="topbar">
+        <span class="topbar-user" id="topbarUser"></span>
+        <span class="topbar-user" id="topbarRole"></span>
+        <button class="topbar-btn" onclick="logout()">退出</button>
+      </div>
+
+      <div class="action-bar">
+        <div class="page-title" style="margin-bottom:0">员工管理</div>
+        <button class="btn btn-primary" onclick="location.href='engineer-edit.html'">+ 新建员工</button>
+      </div>
+
+      <div class="filter-bar">
+        <div class="form-group">
+          <select class="form-select" id="statusFilter" onchange="loadEngineers()">
+            <option value="all">全部状态</option>
+            <option value="active">在职</option>
+            <option value="inactive">离职</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>姓名</th>
+              <th>缩写</th>
+              <th>电话</th>
+              <th>邮箱</th>
+              <th>状态</th>
+              <th>项目数</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="engineerTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <script src="admin.js"></script>
+  <script>
+    async function loadEngineers() {
+      const status = document.getElementById('statusFilter').value;
+      try {
+        const data = (await api(`/api/admin/engineers?status=${status}`)).data;
+        const tbody = document.getElementById('engineerTableBody');
+        if (data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state">暂无数据</div></td></tr>';
+          return;
+        }
+        tbody.innerHTML = data.map(e => `
+          <tr>
+            <td><strong>${e.name}</strong></td>
+            <td>${e.abbr}</td>
+            <td>${e.phone || '-'}</td>
+            <td>${e.email || '-'}</td>
+            <td><span class="badge ${e.status === 'active' ? 'badge-active' : 'badge-inactive'}">${e.status === 'active' ? '在职' : '离职'}</span></td>
+            <td>${e.project_count}</td>
+            <td>
+              <div class="btn-group">
+                <button class="btn btn-secondary btn-sm" onclick="location.href='engineer-edit.html?id=${e.id}'">编辑</button>
+                ${e.status === 'active' ? `<button class="btn btn-danger btn-sm" onclick="deleteEngineer(${e.id},'${e.name}')">删除</button>` : ''}
+              </div>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function deleteEngineer(id, name) {
+      if (!confirm(`确认将 ${name} 设为离职？`)) return;
+      try {
+        await api(`/api/admin/engineers/${id}`, { method: 'DELETE' });
+        showToast('已设为离职');
+        loadEngineers();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    loadEngineers();
+  </script>
+</body>
+</html>

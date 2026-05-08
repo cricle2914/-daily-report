@@ -1,0 +1,124 @@
+:root {
+  --bg: #000000;
+  --bg-card: #1a1a1a;
+  --bg-hover: #222222;
+  --text-primary: #ffffff;
+  --text-secondary: #888888;
+  --accent: #4f8ef7;
+  --danger: #ff4444;
+  --success: #44cc77;
+  --warning: #ffaa00;
+  --border: #333333;
+  --radius: 12px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: 'SF Pro Display', 'PingFang SC', system-ui, sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-container {
+  width: 360px;
+  padding: 40px;
+}
+
+.login-title {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  letter-spacing: -0.3px;
+}
+
+.login-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 32px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: 15px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.form-input:focus {
+  border-color: var(--accent);
+}
+
+.form-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.login-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--text-primary);
+  color: var(--bg);
+  border: none;
+  border-radius: var(--radius);
+  font-size: 15px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  margin-top: 8px;
+}
+
+.login-btn:hover {
+  opacity: 0.9;
+}
+
+.login-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error-msg {
+  color: var(--danger);
+  font-size: 13px;
+  margin-top: 16px;
+  text-align: center;
+  display: none;
+}
+
+.error-msg.show {
+  display: block;
+}
+
+.loading-text {
+  display: none;
+}
+
+.login-btn.loading .btn-text {
+  display: none;
+}
+
+.login-btn.loading .loading-text {
+  display: inline;
+}

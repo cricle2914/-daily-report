@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>账户管理 - 日报管理系统</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <div class="layout">
+    <div class="sidebar">
+      <div class="sidebar-title">日报管理</div>
+      <div class="sidebar-nav">
+        <a class="nav-item" href="index.html">📊 仪表盘</a>
+        <a class="nav-item" href="engineers.html">👤 员工管理</a>
+        <a class="nav-item" href="projects.html">📁 项目管理</a>
+        <a class="nav-item" href="reports.html">📋 日报管理</a>
+        <a class="nav-item" href="accounts.html">🔐 账户管理</a>
+      </div>
+    </div>
+    <div class="main">
+      <div class="topbar">
+        <span class="topbar-user" id="topbarUser"></span>
+        <span class="topbar-user" id="topbarRole"></span>
+        <button class="topbar-btn" onclick="logout()">退出</button>
+      </div>
+
+      <div class="action-bar">
+        <div class="page-title" style="margin-bottom:0">账户管理</div>
+        <button class="btn btn-primary" onclick="showCreateModal()">+ 新建账户</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>用户名</th>
+              <th>角色</th>
+              <th>创建时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="accountTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 新建账户弹窗 -->
+  <div class="modal-overlay" id="createModal">
+    <div class="modal">
+      <div class="modal-title">新建账户</div>
+      <div class="form-group">
+        <label class="form-label">用户名</label>
+        <input class="form-input" id="newUsername" placeholder="请输入用户名">
+      </div>
+      <div class="form-group">
+        <label class="form-label">密码</label>
+        <input class="form-input" id="newPassword" type="password" placeholder="请输入密码">
+      </div>
+      <div class="form-group">
+        <label class="form-label">角色</label>
+        <select class="form-select" id="newRole">
+          <option value="leader">领导</option>
+          <option value="admin">管理员</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeCreateModal()">取消</button>
+        <button class="btn btn-primary" id="createBtn" onclick="createAccount()">创建</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 重置密码弹窗 -->
+  <div class="modal-overlay" id="passwordModal">
+    <div class="modal">
+      <div class="modal-title">重置密码</div>
+      <div class="form-group">
+        <label class="form-label">新密码</label>
+        <input class="form-input" id="resetPassword" type="password" placeholder="请输入新密码">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closePasswordModal()">取消</button>
+        <button class="btn btn-primary" id="resetBtn" onclick="resetPassword()">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="admin.js"></script>
+  <script>
+    let resetAccountId = null;
+
+    async function loadAccounts() {
+      try {
+        const data = (await api('/api/admin/accounts')).data;
+        const tbody = document.getElementById('accountTableBody');
+        if (data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state">暂无账户</div></td></tr>';
+          return;
+        }
+        tbody.innerHTML = data.map(a => `
+          <tr>
+            <td><strong>${a.username}</strong></td>
+            <td><span class="badge ${a.role === 'admin' ? 'badge-active' : 'badge-ongoing'}">${a.role === 'admin' ? '管理员' : '领导'}</span></td>
+            <td>${formatDateTime(a.created_at)}</td>
+            <td>
+              <div class="btn-group">
+                <button class="btn btn-secondary btn-sm" onclick="showPasswordModal(${a.id})">重置密码</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteAccount(${a.id}, '${a.username}')">删除</button>
+              </div>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    function showCreateModal() {
+      document.getElementById('createModal').classList.add('show');
+      document.getElementById('newUsername').value = '';
+      document.getElementById('newPassword').value = '';
+    }
+
+    function closeCreateModal() {
+      document.getElementById('createModal').classList.remove('show');
+    }
+
+    async function createAccount() {
+      const username = document.getElementById('newUsername').value.trim();
+      const password = document.getElementById('newPassword').value;
+      const role = document.getElementById('newRole').value;
+
+      if (!username || !password) {
+        showToast('用户名和密码不能为空', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('createBtn');
+      setLoading(btn, true);
+      try {
+        await api('/api/admin/accounts', {
+          method: 'POST',
+          body: JSON.stringify({ username, password, role })
+        });
+        showToast('账户已创建');
+        closeCreateModal();
+        loadAccounts();
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        setLoading(btn, false);
+      }
+    }
+
+    function showPasswordModal(id) {
+      resetAccountId = id;
+      document.getElementById('passwordModal').classList.add('show');
+      document.getElementById('resetPassword').value = '';
+    }
+
+    function closePasswordModal() {
+      resetAccountId = null;
+      document.getElementById('passwordModal').classList.remove('show');
+    }
+
+    async function resetPassword() {
+      const password = document.getElementById('resetPassword').value;
+      if (!password) {
+        showToast('密码不能为空', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('resetBtn');
+      setLoading(btn, true);
+      try {
+        await api(`/api/admin/accounts/${resetAccountId}/password`, {
+          method: 'PUT',
+          body: JSON.stringify({ password })
+        });
+        showToast('密码已重置');
+        closePasswordModal();
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        setLoading(btn, false);
+      }
+    }
+
+    async function deleteAccount(id, username) {
+      if (!confirm(`确认删除账户 "${username}"？`)) return;
+      try {
+        await api(`/api/admin/accounts/${id}`, { method: 'DELETE' });
+        showToast('已删除');
+        loadAccounts();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // 点击遮罩关闭弹窗
+    document.querySelectorAll('.modal-overlay').forEach(el => {
+      el.addEventListener('click', function(e) {
+        if (e.target === this) {
+          this.classList.remove('show');
+        }
+      });
+    });
+
+    loadAccounts();
+  </script>
+</body>
+</html>

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>日报编辑 - 日报管理系统</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <div class="layout">
+    <div class="sidebar">
+      <div class="sidebar-title">日报管理</div>
+      <div class="sidebar-nav">
+        <a class="nav-item" href="index.html">📊 仪表盘</a>
+        <a class="nav-item" href="engineers.html">👤 员工管理</a>
+        <a class="nav-item" href="projects.html">📁 项目管理</a>
+        <a class="nav-item" href="reports.html">📋 日报管理</a>
+        <a class="nav-item" href="accounts.html">🔐 账户管理</a>
+      </div>
+    </div>
+    <div class="main">
+      <div class="topbar">
+        <span class="topbar-user" id="topbarUser"></span>
+        <span class="topbar-user" id="topbarRole"></span>
+        <button class="topbar-btn" onclick="logout()">退出</button>
+      </div>
+
+      <div class="page-title">编辑日报</div>
+
+      <!-- 只读信息 -->
+      <div class="info-section">
+        <div class="info-grid">
+          <span class="info-key">工程师</span>
+          <span class="info-val" id="reportEngineer">-</span>
+          <span class="info-key">项目</span>
+          <span class="info-val" id="reportProject">-</span>
+          <span class="info-key">日期</span>
+          <span class="info-val" id="reportDate">-</span>
+          <span class="info-key">实施天数</span>
+          <span class="info-val" id="reportImplDay">-</span>
+        </div>
+      </div>
+
+      <!-- 可编辑字段 -->
+      <div class="form-card">
+        <div class="form-group">
+          <label class="form-label">今日计划标题</label>
+          <input class="form-input" id="planTitle" placeholder="请输入计划标题">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">工作内容</label>
+          <div id="taskList" class="task-list-admin"></div>
+          <button class="btn btn-secondary btn-sm" onclick="addTask()">+ 添加工作项</button>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">进度</label>
+          <div class="slider-group">
+            <input class="slider" id="progressSlider" type="range" min="0" max="100" value="0" oninput="document.getElementById('progressValue').textContent=this.value">
+            <span class="slider-value" id="progressValue">0</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">状态</label>
+          <div class="status-btn-group">
+            <button class="status-btn" data-status="complete" onclick="selectStatus(this)">完成</button>
+            <button class="status-btn" data-status="ongoing" onclick="selectStatus(this)">进行中</button>
+            <button class="status-btn" data-status="blocked" onclick="selectStatus(this)">受阻</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">问题与风险</label>
+          <textarea class="form-textarea" id="issues" placeholder="描述遇到的问题和风险"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">下一步计划</label>
+          <textarea class="form-textarea" id="nextPlan" placeholder="描述下一步计划"></textarea>
+        </div>
+
+        <div class="btn-group">
+          <button class="btn btn-primary" id="saveBtn" onclick="saveReport()">保存</button>
+          <button class="btn btn-secondary" onclick="location.href='reports.html'">返回</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="admin.js"></script>
+  <script>
+    const reportId = new URLSearchParams(window.location.search).get('id');
+    let selectedStatus = '';
+
+    async function loadReport() {
+      if (!reportId) {
+        showToast('缺少日报 ID', 'error');
+        return;
+      }
+      try {
+        const data = (await api(`/api/admin/reports/${reportId}`)).data;
+        document.getElementById('reportEngineer').textContent = data.engineer_name;
+        document.getElementById('reportProject').textContent = data.project_name;
+        document.getElementById('reportDate').textContent = formatDate(data.report_date);
+        document.getElementById('reportImplDay').textContent = `第 ${data.impl_day} 天`;
+
+        document.getElementById('planTitle').value = data.plan_title || '';
+        document.getElementById('issues').value = data.issues || '';
+        document.getElementById('nextPlan').value = data.next_plan || '';
+        document.getElementById('progressSlider').value = data.progress;
+        document.getElementById('progressValue').textContent = data.progress;
+
+        // 任务列表
+        const tasks = typeof data.tasks === 'string' ? JSON.parse(data.tasks) : (data.tasks || []);
+        renderTasks(tasks);
+
+        // 状态
+        selectedStatus = data.status;
+        document.querySelectorAll('.status-btn').forEach(btn => {
+          if (btn.dataset.status === data.status) {
+            btn.classList.add(`active-${data.status}`);
+          }
+        });
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    function renderTasks(tasks) {
+      const container = document.getElementById('taskList');
+      container.innerHTML = tasks.map((t, i) =>
+        `<div class="task-item-admin">
+          <span class="task-num">${i + 1}</span>
+          <input class="form-input task-input" value="${t.content || ''}" placeholder="输入工作任务" style="flex:1">
+          <button class="btn btn-danger btn-sm" onclick="removeTask(this)">删除</button>
+        </div>`
+      ).join('');
+    }
+
+    function addTask() {
+      const container = document.getElementById('taskList');
+      const div = document.createElement('div');
+      div.className = 'task-item-admin';
+      div.innerHTML = `<span class="task-num">${container.children.length + 1}</span>
+        <input class="form-input task-input" placeholder="输入工作任务" style="flex:1">
+        <button class="btn btn-danger btn-sm" onclick="removeTask(this)">删除</button>`;
+      container.appendChild(div);
+    }
+
+    function removeTask(btn) {
+      const container = document.getElementById('taskList');
+      btn.parentElement.remove();
+      // 重新编号
+      container.querySelectorAll('.task-num').forEach((el, i) => el.textContent = i + 1);
+    }
+
+    function selectStatus(btn) {
+      document.querySelectorAll('.status-btn').forEach(b => {
+        b.className = 'status-btn';
+      });
+      const status = btn.dataset.status;
+      btn.classList.add(`active-${status}`);
+      selectedStatus = status;
+    }
+
+    async function saveReport() {
+      if (!selectedStatus) {
+        showToast('请选择状态', 'error');
+        return;
+      }
+
+      const tasks = [];
+      document.querySelectorAll('.task-input').forEach(input => {
+        if (input.value.trim()) {
+          tasks.push({ content: input.value.trim() });
+        }
+      });
+
+      const btn = document.getElementById('saveBtn');
+      setLoading(btn, true);
+      try {
+        await api(`/api/admin/reports/${reportId}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            plan_title: document.getElementById('planTitle').value.trim(),
+            tasks,
+            progress: parseInt(document.getElementById('progressSlider').value),
+            status: selectedStatus,
+            issues: document.getElementById('issues').value.trim() || null,
+            next_plan: document.getElementById('nextPlan').value.trim() || null
+          })
+        });
+        showToast('已保存');
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        setLoading(btn, false);
+      }
+    }
+
+    loadReport();
+  </script>
+</body>
+</html>

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>日报管理 - 日报管理系统</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <div class="layout">
+    <div class="sidebar">
+      <div class="sidebar-title">日报管理</div>
+      <div class="sidebar-nav">
+        <a class="nav-item" href="index.html">📊 仪表盘</a>
+        <a class="nav-item" href="engineers.html">👤 员工管理</a>
+        <a class="nav-item" href="projects.html">📁 项目管理</a>
+        <a class="nav-item" href="reports.html">📋 日报管理</a>
+        <a class="nav-item" href="accounts.html">🔐 账户管理</a>
+      </div>
+    </div>
+    <div class="main">
+      <div class="topbar">
+        <span class="topbar-user" id="topbarUser"></span>
+        <span class="topbar-user" id="topbarRole"></span>
+        <button class="topbar-btn" onclick="logout()">退出</button>
+      </div>
+
+      <div class="page-title">日报管理</div>
+
+      <div class="filter-bar">
+        <div class="form-group">
+          <label class="form-label">工程师</label>
+          <select class="form-select" id="filterEngineer">
+            <option value="">全部</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">项目</label>
+          <select class="form-select" id="filterProject">
+            <option value="">全部</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">开始日期</label>
+          <input class="form-input" id="filterDateFrom" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">结束日期</label>
+          <input class="form-input" id="filterDateTo" type="date">
+        </div>
+        <div class="form-group">
+          <button class="btn btn-primary" onclick="loadReports()" style="margin-top:22px">查询</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>工程师</th>
+              <th>项目</th>
+              <th>进度</th>
+              <th>状态</th>
+              <th>提交时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="reportTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <script src="admin.js"></script>
+  <script>
+    async function loadFilterOptions() {
+      try {
+        const engData = (await api('/api/admin/engineers?status=active')).data;
+        const engSel = document.getElementById('filterEngineer');
+        engData.forEach(e => {
+          engSel.innerHTML += `<option value="${e.id}">${e.name}</option>`;
+        });
+
+        const projData = (await api('/api/admin/projects')).data;
+        const projSel = document.getElementById('filterProject');
+        projData.forEach(p => {
+          projSel.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+        });
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function loadReports() {
+      try {
+        const params = new URLSearchParams();
+        const engineerId = document.getElementById('filterEngineer').value;
+        const projectId = document.getElementById('filterProject').value;
+        const dateFrom = document.getElementById('filterDateFrom').value;
+        const dateTo = document.getElementById('filterDateTo').value;
+
+        if (engineerId) params.set('engineer_id', engineerId);
+        if (projectId) params.set('project_id', projectId);
+        if (dateFrom) params.set('date_from', dateFrom);
+        if (dateTo) params.set('date_to', dateTo);
+
+        const data = (await api(`/api/admin/reports?${params.toString()}`)).data;
+        const tbody = document.getElementById('reportTableBody');
+
+        if (data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state">暂无日报</div></td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = data.map(r => `
+          <tr>
+            <td>${formatDate(r.report_date)}</td>
+            <td>${r.engineer_name}</td>
+            <td>${r.project_name}</td>
+            <td>${r.progress}%</td>
+            <td>${statusBadge(r.status)}</td>
+            <td>${formatDateTime(r.submitted_at)}</td>
+            <td>
+              <button class="btn btn-secondary btn-sm" onclick="location.href='report-edit.html?id=${r.id}'">编辑</button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    loadFilterOptions();
+    loadReports();
+  </script>
+</body>
+</html>

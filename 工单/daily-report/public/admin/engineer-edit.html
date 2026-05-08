@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>员工编辑 - 日报管理系统</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <div class="layout">
+    <div class="sidebar">
+      <div class="sidebar-title">日报管理</div>
+      <div class="sidebar-nav">
+        <a class="nav-item" href="index.html">📊 仪表盘</a>
+        <a class="nav-item" href="engineers.html">👤 员工管理</a>
+        <a class="nav-item" href="projects.html">📁 项目管理</a>
+        <a class="nav-item" href="reports.html">📋 日报管理</a>
+        <a class="nav-item" href="accounts.html">🔐 账户管理</a>
+      </div>
+    </div>
+    <div class="main">
+      <div class="topbar">
+        <span class="topbar-user" id="topbarUser"></span>
+        <span class="topbar-user" id="topbarRole"></span>
+        <button class="topbar-btn" onclick="logout()">退出</button>
+      </div>
+
+      <div class="page-title" id="pageTitle">新建员工</div>
+
+      <div class="form-card">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">姓名 *</label>
+            <input class="form-input" id="name" placeholder="请输入姓名">
+          </div>
+          <div class="form-group">
+            <label class="form-label">缩写 *</label>
+            <input class="form-input" id="abbr" placeholder="请输入缩写" maxlength="10">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">电话</label>
+            <input class="form-input" id="phone" placeholder="请输入电话">
+          </div>
+          <div class="form-group">
+            <label class="form-label">邮箱</label>
+            <input class="form-input" id="email" placeholder="请输入邮箱">
+          </div>
+        </div>
+        <div class="form-group" id="statusGroup" style="display:none">
+          <label class="form-label">状态</label>
+          <select class="form-select" id="status">
+            <option value="active">在职</option>
+            <option value="inactive">离职</option>
+          </select>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-primary" id="saveBtn" onclick="saveEngineer()">保存</button>
+          <button class="btn btn-secondary" onclick="location.href='engineers.html'">取消</button>
+        </div>
+      </div>
+
+      <div id="extraInfo" style="display:none">
+        <!-- 参与项目列表 -->
+        <div class="info-section" id="projectSection">
+          <div class="info-section-title">参与项目</div>
+          <div id="projectList"></div>
+        </div>
+
+        <!-- 最近日报 -->
+        <div class="info-section">
+          <div class="info-section-title">最近日报</div>
+          <div id="recentReports"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="admin.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const editId = params.get('id');
+    let engineerData = null;
+
+    async function loadEngineer() {
+      try {
+        const data = (await api(`/api/admin/engineers/${editId}`)).data;
+        engineerData = data;
+        document.getElementById('pageTitle').textContent = '编辑员工';
+        document.getElementById('name').value = data.name;
+        document.getElementById('abbr').value = data.abbr;
+        document.getElementById('phone').value = data.phone || '';
+        document.getElementById('email').value = data.email || '';
+        document.getElementById('status').value = data.status;
+        document.getElementById('statusGroup').style.display = 'block';
+
+        // 项目列表
+        document.getElementById('extraInfo').style.display = 'block';
+        const projectList = document.getElementById('projectList');
+        if (data.projects && data.projects.length > 0) {
+          projectList.innerHTML = data.projects.map(p =>
+            `<div class="name-tag">${p.name} (${p.customer})</div>`
+          ).join('');
+        } else {
+          projectList.innerHTML = '<div class="empty-state">暂无参与项目</div>';
+        }
+
+        // 最近日报
+        const recentReports = document.getElementById('recentReports');
+        if (data.recent_reports && data.recent_reports.length > 0) {
+          recentReports.innerHTML = `<div class="table-wrap"><table>
+            <thead><tr><th>日期</th><th>项目</th><th>进度</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody>${data.recent_reports.map(r =>
+              `<tr>
+                <td>${formatDate(r.report_date)}</td>
+                <td>${r.project_name}</td>
+                <td>${r.progress}%</td>
+                <td>${statusBadge(r.status)}</td>
+                <td><button class="btn btn-secondary btn-sm" onclick="location.href='report-edit.html?id=${r.id}'">编辑</button></td>
+              </tr>`
+            ).join('')}</tbody>
+          </table></div>`;
+        } else {
+          recentReports.innerHTML = '<div class="empty-state">暂无日报</div>';
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function saveEngineer() {
+      const name = document.getElementById('name').value.trim();
+      const abbr = document.getElementById('abbr').value.trim();
+      if (!name || !abbr) {
+        showToast('姓名和缩写不能为空', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('saveBtn');
+      setLoading(btn, true);
+      try {
+        const body = {
+          name,
+          abbr,
+          phone: document.getElementById('phone').value.trim() || null,
+          email: document.getElementById('email').value.trim() || null,
+          status: document.getElementById('status').value || 'active'
+        };
+
+        if (editId) {
+          await api(`/api/admin/engineers/${editId}`, { method: 'PUT', body: JSON.stringify(body) });
+          showToast('已保存');
+        } else {
+          await api('/api/admin/engineers', { method: 'POST', body: JSON.stringify(body) });
+          showToast('已创建');
+          setTimeout(() => { location.href = 'engineers.html'; }, 500);
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        setLoading(btn, false);
+      }
+    }
+
+    if (editId) {
+      loadEngineer();
+    }
+  </script>
+</body>
+</html>

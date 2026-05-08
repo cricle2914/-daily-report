@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>项目管理 - 日报管理系统</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <div class="layout">
+    <div class="sidebar">
+      <div class="sidebar-title">日报管理</div>
+      <div class="sidebar-nav">
+        <a class="nav-item" href="index.html">📊 仪表盘</a>
+        <a class="nav-item" href="engineers.html">👤 员工管理</a>
+        <a class="nav-item" href="projects.html">📁 项目管理</a>
+        <a class="nav-item" href="reports.html">📋 日报管理</a>
+        <a class="nav-item" href="accounts.html">🔐 账户管理</a>
+      </div>
+    </div>
+    <div class="main">
+      <div class="topbar">
+        <span class="topbar-user" id="topbarUser"></span>
+        <span class="topbar-user" id="topbarRole"></span>
+        <button class="topbar-btn" onclick="logout()">退出</button>
+      </div>
+
+      <div class="action-bar">
+        <div class="page-title" style="margin-bottom:0">项目管理</div>
+        <button class="btn btn-primary" onclick="location.href='project-edit.html'">+ 新建项目</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>项目名</th>
+              <th>客户</th>
+              <th>工单号</th>
+              <th>当前工程师</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="projectTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <script src="admin.js"></script>
+  <script>
+    async function loadProjects() {
+      try {
+        const data = (await api('/api/admin/projects')).data;
+        const tbody = document.getElementById('projectTableBody');
+        if (data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">暂无项目</div></td></tr>';
+          return;
+        }
+        tbody.innerHTML = data.map(p => {
+          const avatars = (p.engineers || []).map(e =>
+            `<span class="avatar-bubble" title="${e.name}">${e.abbr}</span>`
+          ).join('');
+          return `<tr>
+            <td><strong>${p.name}</strong></td>
+            <td>${p.customer}</td>
+            <td>${p.order_no || '-'}</td>
+            <td><div class="avatar-group">${avatars || '<span style="color:var(--text-dim)">未分配</span>'}</div></td>
+            <td>
+              <div class="btn-group">
+                <button class="btn btn-secondary btn-sm" onclick="location.href='project-edit.html?id=${p.id}'">编辑</button>
+              </div>
+            </td>
+          </tr>`;
+        }).join('');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    loadProjects();
+  </script>
+</body>
+</html>

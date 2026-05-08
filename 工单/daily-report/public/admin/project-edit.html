@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>项目编辑 - 日报管理系统</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <div class="layout">
+    <div class="sidebar">
+      <div class="sidebar-title">日报管理</div>
+      <div class="sidebar-nav">
+        <a class="nav-item" href="index.html">📊 仪表盘</a>
+        <a class="nav-item" href="engineers.html">👤 员工管理</a>
+        <a class="nav-item" href="projects.html">📁 项目管理</a>
+        <a class="nav-item" href="reports.html">📋 日报管理</a>
+        <a class="nav-item" href="accounts.html">🔐 账户管理</a>
+      </div>
+    </div>
+    <div class="main">
+      <div class="topbar">
+        <span class="topbar-user" id="topbarUser"></span>
+        <span class="topbar-user" id="topbarRole"></span>
+        <button class="topbar-btn" onclick="logout()">退出</button>
+      </div>
+
+      <div class="page-title" id="pageTitle">新建项目</div>
+
+      <div class="form-card">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">项目名 *</label>
+            <input class="form-input" id="name" placeholder="请输入项目名">
+          </div>
+          <div class="form-group">
+            <label class="form-label">工单号</label>
+            <input class="form-input" id="order_no" placeholder="请输入工单号">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">客户名 *</label>
+            <input class="form-input" id="customer" placeholder="请输入客户名">
+          </div>
+          <div class="form-group">
+            <label class="form-label">联系人</label>
+            <input class="form-input" id="contact_name" placeholder="请输入联系人">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">联系电话</label>
+            <input class="form-input" id="contact_phone" placeholder="请输入联系电话">
+          </div>
+          <div class="form-group">
+            <label class="form-label">产品版本</label>
+            <input class="form-input" id="product_version" placeholder="请输入产品版本">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">安装地址</label>
+          <input class="form-input" id="install_address" placeholder="请输入安装地址">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">厂商</label>
+            <input class="form-input" id="manufacturer" placeholder="请输入厂商">
+          </div>
+          <div class="form-group">
+            <label class="form-label">代理商</label>
+            <input class="form-input" id="agent" placeholder="请输入代理商">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">技术负责人</label>
+            <input class="form-input" id="tech_lead" placeholder="请输入技术负责人">
+          </div>
+          <div class="form-group">
+            <label class="form-label">服务经理</label>
+            <input class="form-input" id="service_manager" placeholder="请输入服务经理">
+          </div>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-primary" id="saveBtn" onclick="saveProject()">保存</button>
+          <button class="btn btn-secondary" onclick="location.href='projects.html'">取消</button>
+        </div>
+      </div>
+
+      <!-- 已分配工程师 -->
+      <div class="form-card" id="engineerSection" style="display:none">
+        <div class="form-card-title">已分配工程师</div>
+        <div id="engineerList"></div>
+        <div style="margin-top:12px">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">添加工程师</label>
+              <select class="form-select" id="engineerSelect"></select>
+            </div>
+            <div class="form-group" style="display:flex;align-items:flex-end">
+              <button class="btn btn-primary" onclick="addEngineer()">添加</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="admin.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const editId = params.get('id');
+
+    async function loadEngineerOptions() {
+      try {
+        const data = (await api('/api/admin/engineers?status=active')).data;
+        const sel = document.getElementById('engineerSelect');
+        sel.innerHTML = '<option value="">请选择工程师</option>' +
+          data.map(e => `<option value="${e.id}">${e.name} (${e.abbr})</option>`).join('');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function loadProject() {
+      try {
+        const data = (await api(`/api/admin/projects/${editId}`)).data;
+        document.getElementById('pageTitle').textContent = '编辑项目';
+        document.getElementById('name').value = data.name;
+        document.getElementById('order_no').value = data.order_no || '';
+        document.getElementById('customer').value = data.customer;
+        document.getElementById('contact_name').value = data.contact_name || '';
+        document.getElementById('contact_phone').value = data.contact_phone || '';
+        document.getElementById('product_version').value = data.product_version || '';
+        document.getElementById('install_address').value = data.install_address || '';
+        document.getElementById('manufacturer').value = data.manufacturer || '';
+        document.getElementById('agent').value = data.agent || '';
+        document.getElementById('tech_lead').value = data.tech_lead || '';
+        document.getElementById('service_manager').value = data.service_manager || '';
+
+        // 工程师列表
+        document.getElementById('engineerSection').style.display = 'block';
+        renderEngineers(data.engineers || []);
+        loadEngineerOptions();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    function renderEngineers(engineers) {
+      const el = document.getElementById('engineerList');
+      if (engineers.length === 0) {
+        el.innerHTML = '<div class="empty-state">暂无分配工程师</div>';
+        return;
+      }
+      el.innerHTML = engineers.map(e =>
+        `<div class="name-tag" style="margin-bottom:6px">
+          ${e.name} (${e.abbr}) - 实施天数: ${e.impl_days}
+          <button class="btn btn-danger btn-sm" style="margin-left:8px" onclick="removeEngineer(${e.id})">移除</button>
+        </div>`
+      ).join('');
+    }
+
+    async function saveProject() {
+      const name = document.getElementById('name').value.trim();
+      const customer = document.getElementById('customer').value.trim();
+      if (!name || !customer) {
+        showToast('项目名和客户名不能为空', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('saveBtn');
+      setLoading(btn, true);
+      try {
+        const body = {
+          name,
+          customer,
+          order_no: document.getElementById('order_no').value.trim() || null,
+          contact_name: document.getElementById('contact_name').value.trim() || null,
+          contact_phone: document.getElementById('contact_phone').value.trim() || null,
+          product_version: document.getElementById('product_version').value.trim() || null,
+          install_address: document.getElementById('install_address').value.trim() || null,
+          manufacturer: document.getElementById('manufacturer').value.trim() || null,
+          agent: document.getElementById('agent').value.trim() || null,
+          tech_lead: document.getElementById('tech_lead').value.trim() || null,
+          service_manager: document.getElementById('service_manager').value.trim() || null
+        };
+
+        if (editId) {
+          await api(`/api/admin/projects/${editId}`, { method: 'PUT', body: JSON.stringify(body) });
+          showToast('已保存');
+        } else {
+          const result = await api('/api/admin/projects', { method: 'POST', body: JSON.stringify(body) });
+          showToast('已创建');
+          setTimeout(() => { location.href = `project-edit.html?id=${result.data.id}`; }, 500);
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        setLoading(btn, false);
+      }
+    }
+
+    async function addEngineer() {
+      const engineerId = document.getElementById('engineerSelect').value;
+      if (!engineerId) {
+        showToast('请选择工程师', 'error');
+        return;
+      }
+      try {
+        await api(`/api/admin/projects/${editId}/engineers`, {
+          method: 'POST',
+          body: JSON.stringify({ engineer_id: parseInt(engineerId) })
+        });
+        showToast('已添加');
+        loadProject();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function removeEngineer(eid) {
+      if (!confirm('确认移除该工程师？')) return;
+      try {
+        await api(`/api/admin/projects/${editId}/engineers/${eid}`, { method: 'DELETE' });
+        showToast('已移除');
+        loadProject();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    if (editId) {
+      loadProject();
+    }
+    loadEngineerOptions();
+  </script>
+</body>
+</html>
