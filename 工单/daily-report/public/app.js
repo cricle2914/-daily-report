@@ -265,7 +265,10 @@ function resetEngineerSelection() {
   startTypingAnimation();
 
   searchInput.value = '';
+  searchInput2.value = '';
+  document.getElementById('searchDropdown2').classList.remove('show');
   document.querySelectorAll('.dropdown-item').forEach(el => el.style.display = '');
+  showPage('page-1');
 }
 
 async function loadProjects(engineerId) {
@@ -340,6 +343,72 @@ function buildProjectCard(p) {
     document.getElementById('nextStepArea').classList.remove('hidden');
   };
   return card;
+}
+
+// ====== Page 2: 搜索工程师（底部） ======
+
+const searchInput2 = document.getElementById('searchInput2');
+let searchTimer2 = null;
+
+searchInput2.addEventListener('input', () => {
+  clearTimeout(searchTimer2);
+  const val = searchInput2.value.trim();
+  if (!val) {
+    document.getElementById('searchDropdown2').classList.remove('show');
+    return;
+  }
+  if (state.engineer && searchInput2.value !== state.engineer.name) {
+    resetEngineerSelection();
+  }
+  searchTimer2 = setTimeout(() => searchEngineers2(val), 300);
+});
+
+searchInput2.addEventListener('focus', function() {
+  // page-2 search focus: no backdrop needed
+});
+
+async function searchEngineers2(name) {
+  const data = await request(`/api/engineers/search?name=${encodeURIComponent(name)}`);
+  if (!data) return;
+  const dropdown = document.getElementById('searchDropdown2');
+  dropdown.innerHTML = '';
+  if (data.length === 0) {
+    dropdown.classList.remove('show');
+    return;
+  }
+  data.forEach(eng => {
+    const item = document.createElement('div');
+    item.className = 'dropdown-item';
+    item.innerHTML = `<div class="dropdown-avatar">${eng.abbr}</div>
+      <div>
+        <div class="dropdown-name">${eng.name}</div>
+        <div class="dropdown-sub">${eng.project_count} 个项目</div>
+      </div>`;
+    item.onclick = () => selectEngineerOnPage2(eng);
+    dropdown.appendChild(item);
+  });
+  dropdown.classList.add('show');
+}
+
+async function selectEngineerOnPage2(eng) {
+  state.engineer = eng;
+  state.project = null;
+  searchInput2.value = eng.name;
+  document.getElementById('searchDropdown2').classList.remove('show');
+  document.getElementById('avatar').textContent = eng.abbr;
+  document.getElementById('engineerName').textContent = eng.name;
+
+  // 停止旧动画，修改问候语
+  if (_stopTyping) _stopTyping();
+  document.querySelector('.page1-greeting').innerHTML = '<span style="font-size:84px;font-weight:900;letter-spacing:-.04em">Hello!</span>';
+  typeHelloWithName(eng.name);
+  document.getElementById('page-1').classList.add('has-selection');
+
+  // 同步 page-1 搜索框
+  searchInput.value = eng.name;
+
+  await loadProjects(eng.id);
+  // 保持在 page-2
 }
 
 // ====== 新建项目抽屉 ======
@@ -431,10 +500,16 @@ document.getElementById('nextToReportBtn').onclick = async () => {
   showPage('page-3');
 };
 
-// ====== Page 2: 日报折叠卡片 ======
+// ====== Page 3: 日报折叠卡片 ======
 
-document.getElementById('projectSummary').onclick = function() {
-  this.classList.toggle('open');
+// 点击标题区域展开/收起项目详情
+document.getElementById('collapseTitleArea').onclick = function(e) {
+  document.getElementById('projectSummary').classList.toggle('open');
+};
+// 点击"编辑项目信息"编辑项目
+document.getElementById('editProjBtnInline').onclick = function(e) {
+  e.stopPropagation();
+  enterP3Expand();
 };
 
 // ====== 工作内容动态列表 ======

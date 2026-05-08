@@ -116,26 +116,19 @@ html, body {
 
 /* Page 2 布局 */
 #page-2.page {
-  padding: 24px 20px 0;
+  padding: 24px 20px 20px;
 }
 
-/* 返回按钮（page-2 顶部） */
-.page2-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--text-muted);
-  cursor: pointer;
-  margin-bottom: 16px;
-  transition: color 0.15s;
-  background: none;
-  border: none;
-  font-family: inherit;
-  padding: 0;
+/* page-2 底部搜索区 */
+.page2-search-area {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
 }
-.page2-back:hover {
-  color: var(--text);
+.page2-search-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
 }
 
 /* ════════════════════════════════
@@ -885,6 +878,8 @@ html, body {
 }
 
 .grid-icon {
+  width: 26px;
+  text-align: center;
   font-size: 18px;
   color: var(--text-dim);
   flex-shrink: 0;
@@ -1167,22 +1162,21 @@ html, body {
   color: var(--text-muted);
 }
 
-/* 编辑项目信息按钮（page-3） */
-.edit-proj-btn {
-  width: 100%;
-  padding: 12px;
+/* 编辑项目信息按钮（page-3 折叠卡片头部） */
+.edit-proj-btn-inline {
+  padding: 6px 12px;
   border: 1px solid var(--border-med);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--text-dim);
-  font-size: 13px;
+  font-size: 12px;
   font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s;
-  margin-bottom: 14px;
-  margin-top: 14px;
+  transition: all 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
-.edit-proj-btn:hover {
+.edit-proj-btn-inline:hover {
   border-color: var(--text);
   color: var(--text);
 }

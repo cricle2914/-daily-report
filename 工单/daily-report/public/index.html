@@ -47,7 +47,6 @@
 
     <!-- ====== Page 2: 选择项目 ====== -->
     <div class="page" id="page-2">
-      <button class="page2-back" onclick="showPage('page-1')">← 返回选择工程师</button>
       <!-- 项目列表 -->
       <div id="projectList" class="project-list"></div>
 
@@ -56,6 +55,15 @@
       <!-- 下一步 -->
       <div id="nextStepArea" class="hidden next-step-area">
         <button class="btn btn-primary btn-block" id="nextToReportBtn">填写今日日报</button>
+      </div>
+
+      <!-- 底部搜索工程师 -->
+      <div class="page2-search-area">
+        <div class="page2-search-hint">需要切换工程师？</div>
+        <div class="search-wrap" style="margin-top:0;padding:0;position:relative">
+          <input class="search-box" id="searchInput2" type="text" placeholder="搜索其他工程师…" autocomplete="off">
+          <div class="search-dropdown" id="searchDropdown2"></div>
+        </div>
       </div>
     </div>
 
@@ -74,17 +82,16 @@
       <!-- 项目概要 -->
       <div class="collapse-card" id="projectSummary">
         <div class="collapse-card-header">
-          <div>
+          <div class="collapse-card-title-area" id="collapseTitleArea">
             <div id="reportProjectName" style="font-weight:600;font-size:16px"></div>
             <div id="reportImplDays" style="font-size:13px;color:var(--text-muted);margin-top:4px"></div>
           </div>
-          <span class="expand-arrow" style="font-size:14px">▼</span>
+          <button class="edit-proj-btn-inline" id="editProjBtnInline">编辑项目信息</button>
         </div>
         <div class="collapse-card-body" id="projectDetailBody"></div>
       </div>
 
       <!-- 今日计划 -->
-      <button class="edit-proj-btn" id="editProjBtn">编辑项目信息 ▾</button>
 
       <div class="form-card">
         <div class="form-group" style="margin-bottom:0">
