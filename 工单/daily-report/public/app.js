@@ -74,7 +74,9 @@ function startTypingAnimation() {
   const l2 = document.getElementById('typingLine2');
   if (!l1 || !l2) return;
 
-  const line1 = '今天辛苦啦，';
+  // 第一行常驻
+  l1.textContent = '今天辛苦啦，';
+  // 第二行循环打字
   const line2 = '让我帮你提交日报吧。';
   const bs = 4, be = 8;
   let stopped = false, timer = null;
@@ -89,13 +91,6 @@ function startTypingAnimation() {
     if (ib && len < be) h += '</b>';
     if (len >= be) h += '</b>';
     return h;
-  }
-
-  function t1(idx, cb) {
-    if (stopped) return;
-    l1.textContent = line1.substring(0, idx);
-    if (idx < line1.length) timer = setTimeout(() => t1(idx + 1, cb), 65);
-    else timer = setTimeout(cb, 300);
   }
 
   function t2(idx, cb) {
@@ -114,12 +109,10 @@ function startTypingAnimation() {
 
   function loop() {
     if (stopped) return;
-    t1(0, () => {
-      t2(0, () => {
-        d2(line2.length, () => {
-          t2(bs, () => {
-            timer = setTimeout(loop, 2000);
-          });
+    t2(0, () => {
+      d2(line2.length, () => {
+        t2(bs, () => {
+          timer = setTimeout(loop, 2000);
         });
       });
     });

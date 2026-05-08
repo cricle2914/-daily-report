@@ -114,6 +114,30 @@ html, body {
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* Page 2 布局 */
+#page-2.page {
+  padding: 24px 20px 0;
+}
+
+/* 返回按钮（page-2 顶部） */
+.page2-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  margin-bottom: 16px;
+  transition: color 0.15s;
+  background: none;
+  border: none;
+  font-family: inherit;
+  padding: 0;
+}
+.page2-back:hover {
+  color: var(--text);
+}
+
 /* ════════════════════════════════
    PAGE 1 — Good day! 布局
    ════════════════════════════════ */
@@ -160,6 +184,7 @@ html, body {
   color: var(--text-muted);
   line-height: 1.8;
   min-height: 1.8em;
+  margin-top: 24px;
 }
 
 .sub-line1 {
@@ -843,11 +868,11 @@ html, body {
 .grid-card {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
-  padding: 14px 16px;
+  padding: 14px 16px 14px 20px;
   cursor: pointer;
   transition: all 0.15s;
 }
