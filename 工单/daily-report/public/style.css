@@ -126,6 +126,24 @@ html, body {
   padding: 32px 20px 0;
 }
 
+#page-1.has-selection .page1-hero {
+  padding-top: 8px;
+  padding-bottom: 4px;
+}
+#page-1.has-selection .page1-greeting {
+  margin-bottom: 6px;
+}
+#page-1.has-selection .page1-sub {
+  line-height: 1.4;
+  font-size: 13px;
+}
+#page-1.has-selection .new-project-btn {
+  margin-bottom: 6px;
+}
+#page-1.has-selection .project-list {
+  gap: 4px;
+}
+
 .page1-greeting {
   font-weight: 900;
   line-height: .9;
@@ -173,7 +191,7 @@ html, body {
 
 /* 搜索区域沉底 — 初始在 60% 位置，选中后沉底 */
 #page-1 .search-wrap {
-  margin-top: 40vh;
+  margin-top: 32vh;
   padding: 20px 20px 0;
   position: relative;
   transition: all 0.35s cubic-bezier(0.32, 0.72, 0, 1);
@@ -423,6 +441,39 @@ html, body {
 }
 
 .project-detail.open { display: block; }
+
+/* 遮罩层项目编辑详情 */
+.overlay-detail { padding: 12px 14px; }
+.detail-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.detail-row .label {
+  min-width: 4em;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.detail-input {
+  flex: 1;
+  padding: 8px 10px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.detail-input:focus { border-color: var(--text); }
+.save-detail-btn {
+  font-size: 13px !important;
+  padding: 10px !important;
+}
 
 .detail-grid {
   display: grid;
@@ -674,7 +725,7 @@ html, body {
 }
 
 .progress-value {
-  font-size: 40px;
+  font-size: 56px;
   font-weight: 900;
   color: var(--text);
   letter-spacing: -.04em;
@@ -738,7 +789,7 @@ html, body {
 /* ════════════════════════════════
    PAGE 3 — Done. Nice! 布局
    ════════════════════════════════ */
-#page-3.page { padding: 28px 20px 24px; }
+#page-3.page { padding: 20px 20px 24px; }
 
 .page3-title {
   font-size: 56px;
@@ -746,12 +797,12 @@ html, body {
   letter-spacing: -.04em;
   line-height: .92;
   color: var(--text);
-  margin: 16px 0 24px;
+  margin: 8px 0 16px;
   padding: 0;
 }
 
 .success-bar {
-  margin-bottom: 28px;
+  margin-bottom: 16px;
 }
 
 .success-bar .success-icon {
@@ -784,8 +835,8 @@ html, body {
 .grid-2x2 {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 20px;
+  gap: 5px;
+  margin-bottom: 12px;
 }
 
 .grid-card {
@@ -982,6 +1033,70 @@ html, body {
 
 /* 删除 section-icon 相关（已移除 emoji） */
 .section-icon { display: none !important; }
+
+/* 展开全部按钮 */
+.expand-all-btn {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border-med);
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 10px;
+}
+.expand-all-btn:hover {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+/* ＝＝＝ 项目展开遮罩 ＝＝＝ */
+.project-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.project-overlay.show {
+  opacity: 1;
+  pointer-events: all;
+}
+.project-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.project-overlay-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 60px 18px 20px;
+  animation: overlayIn 0.3s ease;
+}
+@keyframes overlayIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.project-overlay-header {
+  padding-bottom: 14px;
+}
+.project-overlay-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 30px;
+}
 
 /* 工具类 */
 .hidden { display: none !important; }

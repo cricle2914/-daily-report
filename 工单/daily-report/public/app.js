@@ -44,7 +44,10 @@ function showPage(pageId) {
   } else if (pageId === 'page-2') {
     steps[0]?.classList.add('active');
     steps[1]?.classList.add('active');
-  } else if (pageId === 'page-3' || pageId === 'page-complete') {
+  } else if (pageId === 'page-3') {
+    steps[0]?.classList.add('active');
+    steps[1]?.classList.add('active');
+  } else if (pageId === 'page-complete') {
     steps.forEach(s => s.classList.add('active'));
   }
 }
@@ -120,20 +123,37 @@ function startTypingAnimation() {
   _stopTyping = () => { stopped = true; if (timer) clearTimeout(timer); };
 }
 
-// 工程师选中后的打字：一行 "今天辛苦啦！xxx 请选择项目。"
+// 工程师选中后的打字：两行，姓名放大
 function typeHelloWithName(name) {
   const l1 = document.getElementById('typingLine1');
   const l2 = document.getElementById('typingLine2');
   if (!l1 || !l2) return;
-  const text = `今天辛苦啦！${name} 请选择项目。`;
+  const prefix = '今天辛苦啦！';
+  const text1 = prefix + name;
+  const text2 = '请选择项目。';
   l1.textContent = '';
   l2.textContent = '';
-  let idx = 0;
+  let phase = 0, idx1 = 0, idx2 = 0;
   function type() {
-    if (idx <= text.length) {
-      l2.textContent = text.substring(0, idx);
-      idx++;
-      setTimeout(type, 50);
+    if (phase === 0) {
+      if (idx1 < text1.length) {
+        l1.textContent = text1.substring(0, idx1 + 1);
+        idx1++;
+        setTimeout(type, 50);
+      } else {
+        // 替换为带样式的 HTML（姓名放大）
+        l1.innerHTML = `今天辛苦啦！<span style="font-size:24px;font-weight:900;color:#fff">${name}</span>`;
+        phase = 1;
+        setTimeout(type, 400);
+      }
+    } else if (phase === 1) {
+      if (idx2 < text2.length) {
+        l2.textContent = text2.substring(0, idx2 + 1);
+        idx2++;
+        setTimeout(type, 50);
+      } else {
+        phase = 2;
+      }
     }
   }
   setTimeout(type, 300);
@@ -229,8 +249,9 @@ function resetEngineerSelection() {
   state.engineer = null;
   state.project = null;
   document.getElementById('nextStepArea').classList.add('hidden');
-  document.getElementById('newProjectArea').classList.add('hidden');
   document.getElementById('projectList').innerHTML = '';
+  document.getElementById('expandAllBtn').classList.add('hidden');
+  closeProjectOverlay();
   document.getElementById('page-1').classList.remove('has-selection');
 
   // 恢复初始问候语 + 打字动画
@@ -260,51 +281,77 @@ function renderProjectList(projects) {
 
   if (projects.length === 0) {
     container.innerHTML = '<div style="text-align:center;color:#999;padding:20px">暂无项目</div>';
+    document.getElementById('expandAllBtn').classList.add('hidden');
+    return;
   }
 
+  // 按最后填写时间降序排序
+  projects.sort((a, b) => {
+    if (!a.last_report_date) return 1;
+    if (!b.last_report_date) return -1;
+    return new Date(b.last_report_date) - new Date(a.last_report_date);
+  });
+  state.projects = projects;
+
+  // 新建项目按钮 — 第一位
+  const newBtn = document.createElement('div');
+  newBtn.className = 'new-project-btn';
+  newBtn.textContent = '＋ 新建项目';
+  newBtn.onclick = openDrawer;
+  container.appendChild(newBtn);
+
+  // 构建所有卡片
   projects.forEach(p => {
-    const card = document.createElement('div');
-    card.className = 'project-card';
-    card.dataset.projectId = p.id;
-    card.innerHTML = `
-      <div class="project-card-header">
-        <div class="project-info">
-          <div class="project-radio"></div>
-          <div style="flex:1;min-width:0">
-            <div class="project-name">${p.name}</div>
-            <div class="project-meta">工单：${p.order_no || '-'} · 实施第 ${p.impl_days} 天</div>
-          </div>
-        </div>
-        <button class="expand-btn">▼</button>
-      </div>
-      <div class="project-detail">
-        <div><span class="label">客户</span>${p.customer}</div>
-        <div><span class="label">联系人</span>${p.contact_name || '-'} ${p.contact_phone || ''}</div>
-        <div><span class="label">版本</span>${p.product_version || '-'}</div>
-        <div><span class="label">地址</span>${p.install_address || '-'}</div>
-        <div><span class="label">厂商</span>${p.manufacturer || '-'}</div>
-        <div><span class="label">代理商</span>${p.agent || '-'}</div>
-        <div><span class="label">技术负责人</span>${p.tech_lead || '-'}</div>
-        <div><span class="label">服务经理</span>${p.service_manager || '-'}</div>
-      </div>`;
-    card.onclick = (e) => {
-      // 点击展开按钮时切换详情
-      if (e.target.classList.contains('expand-btn')) {
-        const detail = card.querySelector('.project-detail');
-        detail.classList.toggle('open');
-        card.querySelector('.expand-btn').classList.toggle('open');
-        return;
-      }
-      // 切换选中
-      document.querySelectorAll('.project-card').forEach(c => c.classList.remove('selected'));
-      card.classList.add('selected');
-      state.project = { id: p.id, name: p.name, impl_days: p.impl_days, detail: p };
-      document.getElementById('nextStepArea').classList.remove('hidden');
-    };
+    const card = buildProjectCard(p);
     container.appendChild(card);
   });
 
-  document.getElementById('newProjectArea').classList.remove('hidden');
+  // 超出限制时显示"展开全部"
+  const MAX_VISIBLE = 4;
+  const cards = container.querySelectorAll('.project-card');
+  if (cards.length > MAX_VISIBLE) {
+    cards.forEach((c, i) => {
+      if (i >= MAX_VISIBLE) c.style.display = 'none';
+    });
+    document.getElementById('expandAllBtn').classList.remove('hidden');
+  } else {
+    document.getElementById('expandAllBtn').classList.add('hidden');
+  }
+}
+
+function buildProjectCard(p) {
+  const card = document.createElement('div');
+  card.className = 'project-card';
+  card.dataset.projectId = p.id;
+  card.innerHTML = `
+    <div class="project-card-header">
+      <div class="project-info">
+        <div class="project-radio"></div>
+        <div style="flex:1;min-width:0">
+          <div class="project-name">${p.name}</div>
+          <div class="project-meta">工单：${p.order_no || '-'} · 实施第 ${p.impl_days} 天</div>
+        </div>
+      </div>
+      <button class="expand-btn">▼</button>
+    </div>
+    <div class="project-detail">
+      <div><span class="label">客户</span>${p.customer}</div>
+      <div><span class="label">联系人</span>${p.contact_name || '-'} ${p.contact_phone || ''}</div>
+      <div><span class="label">版本</span>${p.product_version || '-'}</div>
+      <div><span class="label">地址</span>${p.install_address || '-'}</div>
+    </div>`;
+  card.onclick = (e) => {
+    if (e.target.classList.contains('expand-btn')) {
+      const detail = card.querySelector('.project-detail');
+      detail.classList.toggle('open');
+      return;
+    }
+    document.querySelectorAll('.project-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    state.project = { id: p.id, name: p.name, impl_days: p.impl_days, detail: p };
+    document.getElementById('nextStepArea').classList.remove('hidden');
+  };
+  return card;
 }
 
 // ====== 新建项目抽屉 ======
@@ -314,12 +361,112 @@ function openDrawer() {
   document.getElementById('drawer').classList.add('show');
 }
 
-document.getElementById('newProjectBtn').onclick = openDrawer;
-
 function closeDrawer() {
   document.getElementById('drawerOverlay').classList.remove('show');
   document.getElementById('drawer').classList.remove('show');
 }
+
+// ====== 项目展开遮罩 ======
+
+document.getElementById('expandAllBtn').onclick = openProjectOverlay;
+
+function openProjectOverlay() {
+  const overlay = document.getElementById('projectOverlay');
+  // 清空搜索框
+  document.getElementById('projectSearchInput').value = '';
+  overlay.classList.add('show');
+  renderAllProjectsInOverlay();
+}
+
+function closeProjectOverlay() {
+  document.getElementById('projectOverlay').classList.remove('show');
+}
+
+document.getElementById('projectOverlayBackdrop').onclick = closeProjectOverlay;
+
+function renderAllProjectsInOverlay() {
+  const list = document.getElementById('projectOverlayList');
+  list.innerHTML = '';
+  state.projects.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'project-card overlay-edit-card';
+    card.dataset.projectId = p.id;
+    card.innerHTML = `
+      <div class="project-card-header" style="cursor:pointer">
+        <div class="project-info">
+          <div style="flex:1;min-width:0">
+            <div class="project-name">${p.name}</div>
+            <div class="project-meta">工单：${p.order_no || '-'} · 实施第 ${p.impl_days} 天</div>
+          </div>
+        </div>
+        <button class="expand-btn">▼</button>
+      </div>
+      <div class="project-detail overlay-detail">
+        <div class="detail-row">
+          <span class="label">客户</span>
+          <input class="form-input detail-input" value="${p.customer || ''}" data-field="customer" data-pid="${p.id}">
+        </div>
+        <div class="detail-row">
+          <span class="label">联系人</span>
+          <input class="form-input detail-input" value="${p.contact_name || ''}" data-field="contact_name" data-pid="${p.id}">
+        </div>
+        <div class="detail-row">
+          <span class="label">电话</span>
+          <input class="form-input detail-input" value="${p.contact_phone || ''}" data-field="contact_phone" data-pid="${p.id}">
+        </div>
+        <div class="detail-row">
+          <span class="label">版本</span>
+          <input class="form-input detail-input" value="${p.product_version || ''}" data-field="product_version" data-pid="${p.id}">
+        </div>
+        <div class="detail-row">
+          <span class="label">地址</span>
+          <input class="form-input detail-input" value="${p.install_address || ''}" data-field="install_address" data-pid="${p.id}">
+        </div>
+        <button class="btn btn-primary save-detail-btn" data-pid="${p.id}" style="margin-top:10px;width:100%">保存修改</button>
+      </div>`;
+
+    // 展开/收起详情
+    card.querySelector('.project-card-header').onclick = (e) => {
+      if (!e.target.closest('.expand-btn')) return;
+      card.querySelector('.project-detail').classList.toggle('open');
+    };
+
+    // 保存修改
+    card.querySelector('.save-detail-btn').onclick = async function() {
+      const pid = this.dataset.pid;
+      const inputs = card.querySelectorAll('.detail-input');
+      const body = {};
+      inputs.forEach(inp => {
+        body[inp.dataset.field] = inp.value.trim() || null;
+      });
+      const result = await request(`/api/projects/${pid}`, {
+        method: 'PUT',
+        body
+      });
+      if (result) {
+        showToast('项目信息已更新');
+        // 同步更新 state.projects
+        const proj = state.projects.find(x => x.id == pid);
+        if (proj) Object.assign(proj, body);
+      }
+    };
+
+    list.appendChild(card);
+  });
+}
+
+// 遮罩中搜索项目
+document.getElementById('projectSearchInput').addEventListener('input', function() {
+  const val = this.value.trim().toLowerCase();
+  const items = document.querySelectorAll('#projectOverlayList .project-card');
+  items.forEach(item => {
+    const nameEl = item.querySelector('.project-name');
+    if (nameEl) {
+      const match = nameEl.textContent.toLowerCase().includes(val);
+      item.style.display = match ? '' : 'none';
+    }
+  });
+});
 
 async function createProject() {
   const name = document.getElementById('drawerName').value.trim();
@@ -381,11 +528,7 @@ document.getElementById('nextToReportBtn').onclick = async () => {
     ? `<div>客户：${state.project.detail.customer || '-'}</div>
        <div>工单：${state.project.detail.order_no || '-'}</div>
        <div>版本：${state.project.detail.product_version || '-'}</div>
-       <div>地址：${state.project.detail.install_address || '-'}</div>
-       <div>厂商：${state.project.detail.manufacturer || '-'}</div>
-       <div>代理商：${state.project.detail.agent || '-'}</div>
-       <div>技术负责人：${state.project.detail.tech_lead || '-'}</div>
-       <div>服务经理：${state.project.detail.service_manager || '-'}</div>`
+       <div>地址：${state.project.detail.install_address || '-'}</div>`
     : '';
   // 从上次日报获取进度，没有则默认 0
   const lastData = await request(`/api/reports/last-progress?engineer_id=${state.engineer.id}&project_id=${state.project.id}`);
@@ -640,7 +783,7 @@ function selectDestination(el) {
 
 // ====== 提交明日去向 ======
 
-async function submitTomorrow() {
+async function submitTomorrow(overwriteMode) {
   if (!state.destination) {
     showToast('请选择明日去向');
     return;
@@ -680,24 +823,41 @@ async function submitTomorrow() {
     }
     body.other_reason = reason;
   }
+  if (overwriteMode) body.overwrite = true;
 
   const btn = document.getElementById('submitTomorrowBtn');
   btn.disabled = true;
   btn.textContent = '提交中...';
 
-  const data = await request('/api/reports/tomorrow', {
-    method: 'POST',
-    body
-  });
+  try {
+    const res = await fetch('/api/reports/tomorrow', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const result = await res.json();
 
-  btn.disabled = false;
-  btn.textContent = '确认提交并完成';
+    btn.disabled = false;
+    btn.textContent = '确认提交并完成';
 
-  if (!data) return;
+    if (!result.success) {
+      if (result.data && result.data.existing) {
+        if (confirm('今日已提交过明日去向，是否修改？')) {
+          submitTomorrow(true);
+        }
+      } else {
+        showToast(result.error || '提交失败');
+      }
+      return;
+    }
 
-  // 加载完成页统计
-  await loadFinalStats();
-  showPage('page-complete');
+    await loadFinalStats();
+    showPage('page-complete');
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = '确认提交并完成';
+    showToast('网络错误: ' + err.message);
+  }
 }
 
 async function loadFinalStats() {

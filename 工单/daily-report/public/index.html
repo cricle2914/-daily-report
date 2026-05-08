@@ -38,15 +38,11 @@
 
       <!-- 项目列表 -->
       <div id="projectList" class="project-list"></div>
-
-      <!-- 新建项目 -->
-      <div id="newProjectArea" class="hidden">
-        <div class="new-project-btn" id="newProjectBtn" onclick="openDrawer()">＋ 新建项目</div>
-      </div>
+      <button class="expand-all-btn hidden" id="expandAllBtn">展开全部 ▾</button>
 
       <!-- 下一步 -->
       <div id="nextStepArea" class="hidden next-step-area">
-        <button class="btn btn-primary btn-block" id="nextToReportBtn">填写今日日报 →</button>
+        <button class="btn btn-primary btn-block" id="nextToReportBtn">填写今日日报</button>
       </div>
 
       <!-- 搜索 -->
@@ -297,6 +293,17 @@
 
     <!-- Toast -->
     <div class="toast" id="toast"></div>
+  </div>
+
+  <!-- ====== 项目展开遮罩 ====== -->
+  <div class="project-overlay" id="projectOverlay">
+    <div class="project-overlay-backdrop" id="projectOverlayBackdrop"></div>
+    <div class="project-overlay-content">
+      <div class="project-overlay-header">
+        <input class="search-box" id="projectSearchInput" placeholder="搜索项目…" autocomplete="off">
+      </div>
+      <div class="project-overlay-list" id="projectOverlayList"></div>
+    </div>
   </div>
 
   <script src="app.js"></script>

@@ -122,7 +122,7 @@ router.post('/tomorrow', async (req, res, next) => {
     const { engineer_id, report_date, destination, project_id,
             new_project_customer, new_project_name, new_project_order,
             new_project_contact, new_project_phone, new_project_version,
-            new_project_address, other_reason } = req.body;
+            new_project_address, other_reason, overwrite } = req.body;
 
     if (!engineer_id || !report_date || !destination) {
       return res.status(400).json({
@@ -149,11 +149,16 @@ router.post('/tomorrow', async (req, res, next) => {
         [engineer_id, report_date]
       );
       if (existing.length > 0) {
-        await conn.rollback();
-        return res.status(400).json({
-          success: false,
-          error: '今日已提交过明日去向'
-        });
+        if (!overwrite) {
+          await conn.rollback();
+          return res.status(400).json({
+            success: false,
+            error: '今日已提交过明日去向',
+            data: { existing: true }
+          });
+        }
+        // 覆盖模式：删除旧记录重新插入
+        await conn.query('DELETE FROM tomorrow_plans WHERE id = ?', [existing[0].id]);
       }
 
       let finalProjectId = project_id || null;
