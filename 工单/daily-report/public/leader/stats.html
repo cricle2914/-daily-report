@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>工时统计 - 日报管理系统</title>
-  <link rel="stylesheet" href="admin.css">
+  <title>工时统计 - 领导看板</title>
+  <link rel="stylesheet" href="leader.css">
   <style>
     .period-tabs { display:flex; gap:4px; margin-bottom:20px; }
     .period-tab {
       padding:6px 18px; border-radius:6px; border:1px solid var(--border);
       background:transparent; color:var(--text-secondary); font-size:13px;
-      font-family:inherit; cursor:pointer; transition:all .15s;
+      font-family:inherit; cursor:pointer; transition:all .15s; font-weight:500;
     }
     .period-tab:hover { border-color:var(--text-primary); color:var(--text-primary); }
     .period-tab.active { background:var(--text-primary); color:var(--bg); border-color:var(--text-primary); }
@@ -23,8 +23,7 @@
     .stat-box .lbl { font-size:12px; color:var(--text-secondary); margin-top:4px; }
     .section-title { font-size:15px; font-weight:600; margin-bottom:12px; }
     .mini-chart { display:flex; align-items:flex-end; gap:3px; height:180px; padding:10px 0; }
-    .mini-bar { flex:1; min-width:6px; border-radius:3px 3px 0 0; background:var(--accent); position:relative; }
-    .mini-bar.val { display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+    .mini-bar { flex:1; min-width:6px; border-radius:3px 3px 0 0; position:relative; }
     .mini-bar .bar-label { font-size:10px; color:var(--text-dim); margin-top:6px; transform:rotate(-45deg); white-space:nowrap; }
     .mini-bar .bar-tip { font-size:10px; color:var(--text-secondary); margin-bottom:4px; }
     .split-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
@@ -34,22 +33,21 @@
     }
     .rank-item:last-child { border-bottom:none; }
     .rank-num { color:var(--text-dim); min-width:24px; }
+    .card { margin-bottom:16px; }
+    .nav-date { font-size:12px; color:var(--text-secondary); margin-left:auto; }
   </style>
 </head>
 <body>
   <div class="layout">
     <div class="sidebar">
-      <div class="sidebar-title">日报管理</div>
+      <div class="sidebar-title">领导看板</div>
       <div class="sidebar-nav">
-        <a class="nav-item" href="index.html">📊 仪表盘</a>
-        <a class="nav-item" href="engineers.html">👤 员工管理</a>
-        <a class="nav-item" href="projects.html">📁 项目管理</a>
-        <a class="nav-item" href="reports.html">📋 日报管理</a>
-        <a class="nav-item" href="hours.html">⏱ 工时统计</a>
-        <a class="nav-item" href="accounts.html">🔐 账户管理</a>
+        <a class="nav-item" href="index.html">📋 今日汇报</a>
+        <a class="nav-item" href="attendance.html">📅 出勤格子</a>
+        <a class="nav-item active" href="stats.html">📊 工时统计</a>
       </div>
       <div style="padding:12px 20px;border-top:1px solid var(--border)">
-        <a class="nav-item" href="/leader/" style="padding:8px 0">📈 领导看板</a>
+        <a class="nav-item" href="/admin/" style="padding:8px 0">⚙ 管理后台</a>
       </div>
     </div>
     <div class="main">
@@ -59,14 +57,17 @@
         <button class="topbar-btn" onclick="logout()">退出</button>
       </div>
 
-      <div class="page-title">工时统计</div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+        <div class="page-title" style="margin-bottom:0">工时统计</div>
+        <span class="nav-date" id="navDate"></span>
+      </div>
 
       <div class="period-tabs">
-        <button class="period-tab" data-period="year" onclick="switchPeriod('year')">年度</button>
-        <button class="period-tab" data-period="quarter" onclick="switchPeriod('quarter')">季度</button>
-        <button class="period-tab active" data-period="month" onclick="switchPeriod('month')">月度</button>
-        <button class="period-tab" data-period="week" onclick="switchPeriod('week')">周</button>
-        <button class="period-tab" data-period="day" onclick="switchPeriod('day')">日</button>
+        <button class="period-tab" data-period="year">年度</button>
+        <button class="period-tab" data-period="quarter">季度</button>
+        <button class="period-tab active" data-period="month">月度</button>
+        <button class="period-tab" data-period="week">周</button>
+        <button class="period-tab" data-period="day">日</button>
       </div>
 
       <div class="stat-row">
@@ -88,34 +89,35 @@
         </div>
       </div>
 
-      <div class="form-card">
+      <div class="card">
         <div class="section-title">工时趋势</div>
         <div class="mini-chart" id="trendChart"></div>
       </div>
 
       <div class="split-2">
-        <div class="form-card">
+        <div class="card">
           <div class="section-title">按项目排名</div>
           <div id="projectRank"></div>
         </div>
-        <div class="form-card">
+        <div class="card">
           <div class="section-title">按工程师排名</div>
           <div id="engineerRank"></div>
         </div>
       </div>
     </div>
   </div>
-  <script src="admin.js"></script>
+  <script src="/admin/admin.js"></script>
   <script>
     let currentPeriod = 'month';
 
-    function switchPeriod(period) {
-      currentPeriod = period;
-      document.querySelectorAll('.period-tab').forEach(t => {
-        t.classList.toggle('active', t.dataset.period === period);
+    document.querySelectorAll('.period-tab').forEach(tab => {
+      tab.addEventListener('click', function() {
+        document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+        currentPeriod = this.dataset.period;
+        loadData();
       });
-      loadData();
-    }
+    });
 
     async function loadData() {
       try {
@@ -123,6 +125,8 @@
         const trend = data.trend || [];
         const byProject = data.by_project || [];
         const byEngineer = data.by_engineer || [];
+
+        document.getElementById('navDate').textContent = `${data.date_from} ~ ${data.date_to}`;
 
         // 总计
         document.getElementById('totalHours').textContent = Math.round(data.grand_total * 10) / 10;
@@ -143,10 +147,10 @@
           const label = currentPeriod === 'year'
             ? t.period_label.slice(5, 7) + '月'
             : t.period_label.slice(5);
-          return `<div class="mini-bar" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end">
+          return `<div style="flex:1;min-width:6px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end">
             <span style="font-size:10px;color:var(--text-secondary);margin-bottom:2px">${Math.round(parseFloat(t.total_hours) * 10) / 10}</span>
-            <div class="mini-bar val" style="height:${Math.max(h, 4)}px;width:100%;background:var(--accent);border-radius:3px 3px 0 0"></div>
-            <span class="bar-label">${label}</span>
+            <div style="height:${Math.max(h, 4)}px;width:100%;background:var(--accent);border-radius:3px 3px 0 0"></div>
+            <span style="font-size:10px;color:var(--text-dim);margin-top:6px;transform:rotate(-45deg);white-space:nowrap">${label}</span>
           </div>`;
         }).join('');
 
@@ -176,7 +180,14 @@
       }
     }
 
-    loadData();
+    document.addEventListener('DOMContentLoaded', () => {
+      const currentPage = window.location.pathname.replace('/leader/', '').split('?')[0] || 'index.html';
+      document.querySelectorAll('.nav-item').forEach(item => {
+        const href = item.getAttribute('href');
+        if (href === currentPage) item.classList.add('active');
+      });
+      loadData();
+    });
   </script>
 </body>
 </html>

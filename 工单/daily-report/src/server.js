@@ -13,6 +13,7 @@ const projectsRouter = require('./routes/projects');
 const reportsRouter = require('./routes/reports');
 const authRouter = require('./routes/auth');
 const adminRouter = require('./routes/admin');
+const leaderRouter = require('./routes/leader');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -61,6 +62,7 @@ app.use('/api/projects', projectsRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/leader', leaderRouter);
 
 // 登录页路由
 app.get('/login', (req, res) => {
@@ -70,6 +72,9 @@ app.get('/login', (req, res) => {
 // 管理侧页面（需验证登录）
 const authMiddleware = require('./middleware/authMiddleware');
 app.use('/admin', authMiddleware(), express.static(path.join(__dirname, '../public/admin')));
+
+// 领导侧页面（需验证登录）
+app.use('/leader', authMiddleware(), express.static(path.join(__dirname, '../public/leader')));
 
 // 全局错误处理
 app.use((err, req, res, next) => {

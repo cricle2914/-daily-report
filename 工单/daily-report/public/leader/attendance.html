@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>出勤格子 - 领导看板</title>
+  <link rel="stylesheet" href="leader.css">
+  <style>
+    .period-tabs { display:flex; gap:4px; margin-bottom:16px; }
+    .period-tab {
+      padding:6px 16px; border-radius:6px; border:1px solid var(--border);
+      background:transparent; color:var(--text-secondary); font-size:13px;
+      font-family:inherit; cursor:pointer; transition:all .15s; font-weight:500;
+    }
+    .period-tab:hover { border-color:var(--text-primary); color:var(--text-primary); }
+    .period-tab.active { background:var(--text-primary); color:var(--bg); border-color:var(--text-primary); }
+
+    .legend { display:flex; gap:16px; margin-bottom:16px; flex-wrap:wrap; }
+    .legend-item { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-secondary); }
+    .legend-swatch { width:16px; height:16px; border-radius:3px; border:1px solid var(--border); }
+
+    .grid-wrap { overflow-x:auto; border:1px solid var(--border); border-radius:var(--radius); background:var(--bg-card); }
+    .grid-table { border-collapse:collapse; width:100%; min-width:max-content; }
+    .grid-table th {
+      padding:8px 6px; font-size:11px; font-weight:600; color:var(--text-secondary);
+      border-bottom:1px solid var(--border); text-align:center; white-space:nowrap;
+      position:sticky; top:0; background:var(--bg-card); z-index:2;
+    }
+    .grid-table th:first-child { position:sticky; left:0; z-index:3; text-align:left; padding-left:12px; min-width:80px; background:var(--bg-card); }
+    .grid-table td { padding:0; }
+    .grid-table td:first-child {
+      padding:6px 12px; font-size:12px; font-weight:600; white-space:nowrap;
+      position:sticky; left:0; background:var(--bg-card); z-index:1;
+      border-right:1px solid var(--border);
+    }
+    .grid-cell {
+      width:36px; height:36px; cursor:pointer; position:relative;
+      transition:opacity .15s; border:1px solid rgba(255,255,255,.04);
+    }
+    .grid-cell:hover { opacity:.7; }
+    .grid-cell.onsite { background:#44cc77; }
+    .grid-cell.office { background:#4f8ef7; }
+    .grid-cell.other { background:#ffaa00; }
+    .grid-cell.weekend { background:rgba(255,255,255,.06); }
+    .grid-cell.unknown { background:rgba(255,255,255,.03); }
+
+    /* tooltip */
+    .grid-cell::after {
+      content:attr(data-tip); position:fixed; bottom:auto; left:auto;
+      padding:6px 10px; border-radius:6px; background:#222; color:#fff;
+      font-size:12px; white-space:pre; pointer-events:none; opacity:0;
+      transition:opacity .15s; z-index:999; border:1px solid #444;
+      transform:translateY(-100%);
+    }
+    .grid-cell:hover::after { opacity:1; }
+
+    .filter-bar { display:flex; gap:12px; align-items:flex-end; margin-bottom:16px; flex-wrap:wrap; }
+    .filter-bar .form-group { margin-bottom:0; }
+
+    .weekend-row td:first-child { opacity:.5; }
+    .nav-date { font-size:12px; color:var(--text-secondary); margin-left:auto; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div class="sidebar">
+      <div class="sidebar-title">领导看板</div>
+      <div class="sidebar-nav">
+        <a class="nav-item" href="index.html">📋 今日汇报</a>
+        <a class="nav-item active" href="attendance.html">📅 出勤格子</a>
+        <a class="nav-item" href="stats.html">📊 工时统计</a>
+      </div>
+      <div style="padding:12px 20px;border-top:1px solid var(--border)">
+        <a class="nav-item" href="/admin/" style="padding:8px 0">⚙ 管理后台</a>
+      </div>
+    </div>
+    <div class="main">
+      <div class="topbar">
+        <span class="topbar-user" id="topbarUser"></span>
+        <span class="topbar-user" id="topbarRole"></span>
+        <button class="topbar-btn" onclick="logout()">退出</button>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+        <div class="page-title" style="margin-bottom:0">出勤格子</div>
+        <span class="nav-date" id="navDate"></span>
+      </div>
+
+      <div class="filter-bar">
+        <div class="period-tabs" id="periodTabs">
+          <button class="period-tab" data-period="year">年</button>
+          <button class="period-tab" data-period="quarter">季</button>
+          <button class="period-tab active" data-period="month">月</button>
+          <button class="period-tab" data-period="week">周</button>
+          <button class="period-tab" data-period="day">日</button>
+        </div>
+        <div class="form-group">
+          <select class="form-select" id="filterEngineer">
+            <option value="">全部工程师</option>
+          </select>
+        </div>
+        <div class="form-group" id="navButtons" style="display:flex;gap:4px">
+          <button class="btn btn-secondary btn-sm" id="prevBtn">‹ 上期</button>
+          <button class="btn btn-secondary btn-sm" id="nextBtn">下期 ›</button>
+        </div>
+      </div>
+
+      <div class="legend">
+        <div class="legend-item"><div class="legend-swatch" style="background:#44cc77"></div>在外实施</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:#4f8ef7"></div>在公司</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:#ffaa00"></div>请假/其他</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:rgba(255,255,255,.06)"></div>周末</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:rgba(255,255,255,.03)"></div>无记录</div>
+      </div>
+
+      <div class="grid-wrap" id="gridWrap">
+        <div class="empty-state">加载中...</div>
+      </div>
+    </div>
+  </div>
+  <script src="/admin/admin.js"></script>
+  <script>
+    let currentDate = new Date();
+    let currentPeriod = 'month';
+    let attendanceData = null;
+
+    function getDateRange(period, date) {
+      const d = new Date(date);
+      let from, to;
+      switch (period) {
+        case 'year':
+          from = `${d.getFullYear()}-01-01`;
+          to = `${d.getFullYear()}-12-31`;
+          break;
+        case 'quarter': {
+          const q = Math.floor(d.getMonth() / 3) * 3;
+          const qStart = new Date(d.getFullYear(), q, 1);
+          const qEnd = new Date(d.getFullYear(), q + 3, 0);
+          from = formatDate(qStart);
+          to = formatDate(qEnd);
+          break;
+        }
+        case 'month': {
+          const mStart = new Date(d.getFullYear(), d.getMonth(), 1);
+          const mEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+          from = formatDate(mStart);
+          to = formatDate(mEnd);
+          break;
+        }
+        case 'week': {
+          const dow = d.getDay();
+          const wStart = new Date(d);
+          wStart.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+          const wEnd = new Date(wStart);
+          wEnd.setDate(wStart.getDate() + 6);
+          from = formatDate(wStart);
+          to = formatDate(wEnd);
+          break;
+        }
+        case 'day':
+          from = formatDate(d);
+          to = formatDate(d);
+          break;
+      }
+      return { from, to };
+    }
+
+    function formatDate(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+
+    function parseDate(str) {
+      const parts = str.split('-');
+      return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    }
+
+    function getPeriodLabel(period, date) {
+      const d = new Date(date);
+      const y = d.getFullYear();
+      const m = d.getMonth() + 1;
+      switch (period) {
+        case 'year': return `${y}年`;
+        case 'quarter': return `${y}年 Q${Math.floor(d.getMonth() / 3) + 1}`;
+        case 'month': return `${y}年${m}月`;
+        case 'week': {
+          const range = getDateRange('week', d);
+          return `${range.from} ~ ${range.to}`;
+        }
+        case 'day': return formatDate(d);
+      }
+    }
+
+    function navigate(delta) {
+      const d = currentDate;
+      switch (currentPeriod) {
+        case 'year': d.setFullYear(d.getFullYear() + delta); break;
+        case 'quarter': d.setMonth(d.getMonth() + delta * 3); break;
+        case 'month': d.setMonth(d.getMonth() + delta); break;
+        case 'week': d.setDate(d.getDate() + delta * 7); break;
+        case 'day': d.setDate(d.getDate() + delta); break;
+      }
+      currentDate = d;
+      loadAttendance();
+    }
+
+    async function loadEngineers() {
+      try {
+        const data = (await api('/api/leader/today')).data;
+        const sel = document.getElementById('filterEngineer');
+        data.engineers.forEach(e => {
+          sel.innerHTML += `<option value="${e.id}">${e.name}</option>`;
+        });
+      } catch (err) {}
+    }
+
+    async function loadAttendance() {
+      const range = getDateRange(currentPeriod, currentDate);
+      document.getElementById('navDate').textContent = getPeriodLabel(currentPeriod, currentDate);
+
+      const engineerId = document.getElementById('filterEngineer').value;
+
+      try {
+        const params = new URLSearchParams({ date_from: range.from, date_to: range.to });
+        if (engineerId) params.set('engineer_id', engineerId);
+
+        const res = await fetch(`/api/leader/attendance?${params.toString()}`);
+        const json = await res.json();
+        if (!json.success) throw new Error(json.message);
+        attendanceData = json.data;
+
+        renderGrid(attendanceData);
+      } catch (err) {
+        document.getElementById('gridWrap').innerHTML = `<div class="empty-state">加载失败：${err.message}</div>`;
+      }
+    }
+
+    function renderGrid(data) {
+      const { engineers, dates, attendance } = data;
+      if (!engineers || engineers.length === 0) {
+        document.getElementById('gridWrap').innerHTML = '<div class="empty-state">暂无数据</div>';
+        return;
+      }
+
+      const colorLabels = {
+        onsite: '在外实施',
+        office: '在公司',
+        other: '请假/其他',
+        weekend: '周末',
+        unknown: '无记录'
+      };
+
+      // 星期行
+      const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+
+      let html = '<table class="grid-table"><thead><tr><th>工程师</th>';
+      dates.forEach(d => {
+        const day = new Date(d);
+        const dow = day.getDay();
+        const isWeekend = dow === 0 || dow === 6;
+        html += `<th style="${isWeekend ? 'color:var(--text-dim);opacity:.6' : ''}">${d.slice(5)}<br><span style="font-weight:400">${weekdays[dow]}</span></th>`;
+      });
+      html += '</tr></thead><tbody>';
+
+      engineers.forEach(e => {
+        const engAttendance = attendance[e.id] || {};
+        // 判断该行是否全为周末/无记录
+        html += `<tr>`;
+        html += `<td>${e.abbr}</td>`;
+        dates.forEach(d => {
+          const cell = engAttendance[d] || { color: 'unknown' };
+          const tip = `${d}\n${e.name}\n${colorLabels[cell.color] || cell.color}` +
+            (cell.project_name ? `\n${cell.project_name}` : '') +
+            (cell.has_report ? `\n有日报` : '');
+          const clickHandler = cell.report_id
+            ? `onclick="window.open('/admin/report-edit.html?id=${cell.report_id}','_blank')"`
+            : '';
+          html += `<td class="grid-cell ${cell.color}" data-tip="${tip}" ${clickHandler}></td>`;
+        });
+        html += '</tr>';
+      });
+
+      html += '</tbody></table>';
+      document.getElementById('gridWrap').innerHTML = html;
+    }
+
+    // 切换周期
+    document.querySelectorAll('.period-tab').forEach(tab => {
+      tab.addEventListener('click', function() {
+        document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+        currentPeriod = this.dataset.period;
+        currentDate = new Date();
+        loadAttendance();
+      });
+    });
+
+    document.getElementById('prevBtn').addEventListener('click', () => navigate(-1));
+    document.getElementById('nextBtn').addEventListener('click', () => navigate(1));
+    document.getElementById('filterEngineer').addEventListener('change', loadAttendance);
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // override admin nav highlight for leader pages
+      const currentPage = window.location.pathname.replace('/leader/', '').split('?')[0] || 'index.html';
+      document.querySelectorAll('.nav-item').forEach(item => {
+        const href = item.getAttribute('href');
+        if (href === currentPage) item.classList.add('active');
+      });
+      loadEngineers();
+      loadAttendance();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>今日汇报 - 领导看板</title>
+  <link rel="stylesheet" href="leader.css">
+  <style>
+    .tag { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+    .tag-field { background:rgba(79,142,247,.15); color:var(--accent); }
+    .tag-office { background:rgba(68,204,119,.15); color:var(--success); }
+    .tag-other { background:rgba(255,170,0,.15); color:var(--warning); }
+    .missing { color:var(--danger) !important; font-weight:700; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div class="sidebar">
+      <div class="sidebar-title">领导看板</div>
+      <div class="sidebar-nav">
+        <a class="nav-item active" href="index.html">📋 今日汇报</a>
+        <a class="nav-item" href="attendance.html">📅 出勤格子</a>
+        <a class="nav-item" href="stats.html">📊 工时统计</a>
+      </div>
+      <div style="padding:12px 20px;border-top:1px solid var(--border)">
+        <a class="nav-item" href="/admin/" style="padding:8px 0">⚙ 管理后台</a>
+      </div>
+    </div>
+    <div class="main">
+      <div class="topbar">
+        <span class="topbar-user" id="topbarUser"></span>
+        <span class="topbar-user" id="topbarRole"></span>
+        <button class="topbar-btn" onclick="logout()">退出</button>
+      </div>
+
+      <div class="page-title">今日汇报总览</div>
+
+      <div class="stats-row" id="statsRow">
+        <div class="stat-card">
+          <div class="num" id="totalCount">-</div>
+          <div class="lbl">在职工程师</div>
+        </div>
+        <div class="stat-card">
+          <div class="num" id="submittedCount">-</div>
+          <div class="lbl">已提交</div>
+        </div>
+        <div class="stat-card">
+          <div class="num" id="notSubmittedCount" style="color:var(--danger)">-</div>
+          <div class="lbl">未提交</div>
+        </div>
+        <div class="stat-card">
+          <div class="num" id="fieldCount">-</div>
+          <div class="lbl">在外实施</div>
+        </div>
+      </div>
+
+      <div class="card" id="missingCard" style="display:none">
+        <div class="card-title" style="color:var(--danger)">⚠ 应提交但未提交</div>
+        <div id="missingList"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">工程师状态</div>
+        <div id="engineerList"></div>
+      </div>
+    </div>
+  </div>
+  <script src="/admin/admin.js"></script>
+  <script>
+    async function loadData() {
+      try {
+        const data = (await api('/api/leader/today')).data;
+        document.getElementById('totalCount').textContent = data.total;
+        document.getElementById('submittedCount').textContent = data.submitted;
+        document.getElementById('notSubmittedCount').textContent = data.not_submitted;
+        document.getElementById('fieldCount').textContent = data.in_field;
+
+        // 未提交名单
+        const missingCard = document.getElementById('missingCard');
+        const missingList = document.getElementById('missingList');
+        if (data.not_submitted_list && data.not_submitted_list.length > 0) {
+          missingCard.style.display = 'block';
+          missingList.innerHTML = data.not_submitted_list.map(e =>
+            `<span class="tag" style="background:rgba(255,68,68,.15);color:var(--danger);margin:4px;display:inline-block">${e.name} (${e.abbr})</span>`
+          ).join('');
+        } else {
+          missingCard.style.display = 'none';
+        }
+
+        // 工程师列表
+        const container = document.getElementById('engineerList');
+        container.innerHTML = data.engineers.map(e => {
+          const statusDot = e.is_submitted
+            ? `<span class="status-dot ${e.report.status}"></span> 已完成`
+            : '<span class="status-dot" style="background:var(--danger)"></span> 未提交';
+
+          const locationTag = e.in_field
+            ? `<span class="tag tag-field">在外实施</span>`
+            : (e.plan ? `<span class="tag ${e.plan.destination === 'back_to_office' ? 'tag-office' : 'tag-other'}">${e.plan.destination === 'back_to_office' ? '回公司' : '其他'}</span>` : '-');
+
+          return `<div class="engineer-row">
+            <span class="avatar">${e.abbr}</span>
+            <div style="flex:1;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <strong>${e.name}</strong>
+              ${!e.is_submitted ? '<span class="missing">未提交日报</span>' : ''}
+              <span>${e.report ? `${e.report.project_name} | 进度 ${e.report.progress}%` : '-'}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              ${e.is_submitted ? `<span class="status-dot ${e.report.status}"></span>` : ''}
+              ${locationTag}
+            </div>
+          </div>`;
+        }).join('');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
