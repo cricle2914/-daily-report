@@ -101,3 +101,15 @@ ALTER TABLE projects ADD COLUMN manufacturer VARCHAR(100) AFTER install_address;
 ALTER TABLE projects ADD COLUMN agent VARCHAR(100) AFTER manufacturer;
 ALTER TABLE projects ADD COLUMN tech_lead VARCHAR(50) AFTER agent;
 ALTER TABLE projects ADD COLUMN service_manager VARCHAR(50) AFTER tech_lead;
+
+CREATE TABLE IF NOT EXISTS work_hours (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  engineer_id INT NOT NULL,
+  project_id INT NOT NULL,
+  report_date DATE NOT NULL,
+  hours DECIMAL(4,1) NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_work_hours (engineer_id, project_id, report_date),
+  FOREIGN KEY (engineer_id) REFERENCES engineers(id),
+  FOREIGN KEY (project_id) REFERENCES projects(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

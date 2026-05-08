@@ -19,7 +19,7 @@ router.post('/', async (req, res, next) => {
     try {
       await conn.beginTransaction();
 
-      const today = new Date().toISOString().split('T')[0];
+      const today = req.body.report_date || new Date().toISOString().split('T')[0];
 
       // 检查当日是否已提交
       const [existing] = await conn.query(
@@ -89,12 +89,12 @@ router.post('/', async (req, res, next) => {
 // 修改已有日报（PUT）
 router.put('/', async (req, res, next) => {
   try {
-    const { engineer_id, project_id, plan_title, tasks, progress, status, issues, next_plan } = req.body;
+    const { engineer_id, project_id, plan_title, tasks, progress, status, issues, next_plan, report_date } = req.body;
     if (!engineer_id || !project_id || !plan_title || !tasks || progress === undefined || !status) {
       return res.status(400).json({ success: false, error: '必填字段缺失' });
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = report_date || new Date().toISOString().split('T')[0];
     const [existing] = await pool.query(
       'SELECT id FROM daily_reports WHERE engineer_id = ? AND project_id = ? AND report_date = ?',
       [engineer_id, project_id, today]
@@ -302,6 +302,31 @@ router.get('/stats/tomorrow', async (req, res, next) => {
         }
       }
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// 提交工时
+router.post('/hours', async (req, res, next) => {
+  try {
+    const { engineer_id, project_id, report_date, hours } = req.body;
+    if (!engineer_id || !project_id || !report_date || hours === undefined) {
+      return res.status(400).json({ success: false, error: '必填字段缺失' });
+    }
+    const h = parseFloat(hours);
+    if (isNaN(h) || h < 0 || h > 24) {
+      return res.status(400).json({ success: false, error: '工时必须在 0-24 之间' });
+    }
+
+    await pool.query(
+      `INSERT INTO work_hours (engineer_id, project_id, report_date, hours)
+       VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE hours = VALUES(hours)`,
+      [engineer_id, project_id, report_date, h]
+    );
+
+    res.json({ success: true, data: { message: '工时提交成功' } });
   } catch (err) {
     next(err);
   }

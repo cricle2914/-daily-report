@@ -4,7 +4,9 @@ let state = {
   project: null,
   projects: [],
   destination: null,
-  tomorrowDate: ''
+  tomorrowDate: '',
+  lastProgress: 0,
+  customReportDate: null
 };
 
 // ====== 工具函数 ======
@@ -246,10 +248,11 @@ async function selectEngineer(eng) {
   showPage('page-2');
 }
 
-function resetEngineerSelection() {
+function resetEngineerSelection(navigateBack = true) {
   if (!state.engineer) return;
   state.engineer = null;
   state.project = null;
+  state.customReportDate = null;
   document.getElementById('nextStepArea').classList.add('hidden');
   document.getElementById('projectList').innerHTML = '';
   document.getElementById('page-1').classList.remove('has-selection');
@@ -268,7 +271,7 @@ function resetEngineerSelection() {
   searchInput2.value = '';
   document.getElementById('searchDropdown2').classList.remove('show');
   document.querySelectorAll('.dropdown-item').forEach(el => el.style.display = '');
-  showPage('page-1');
+  if (navigateBack) showPage('page-1');
 }
 
 async function loadProjects(engineerId) {
@@ -340,6 +343,7 @@ function buildProjectCard(p) {
     document.querySelectorAll('.project-card').forEach(c => c.classList.remove('selected'));
     card.classList.add('selected');
     state.project = { id: p.id, name: p.name, impl_days: p.impl_days, detail: p };
+    state.customReportDate = null;
     document.getElementById('nextStepArea').classList.remove('hidden');
   };
   return card;
@@ -358,7 +362,7 @@ searchInput2.addEventListener('input', () => {
     return;
   }
   if (state.engineer && searchInput2.value !== state.engineer.name) {
-    resetEngineerSelection();
+    resetEngineerSelection(false);
   }
   searchTimer2 = setTimeout(() => searchEngineers2(val), 300);
 });
@@ -499,8 +503,12 @@ document.getElementById('nextToReportBtn').onclick = async () => {
   // 从上次日报获取进度，没有则默认 0
   const lastData = await request(`/api/reports/last-progress?engineer_id=${state.engineer.id}&project_id=${state.project.id}`);
   const lastProgress = lastData ? lastData.progress : 0;
+  state.lastProgress = lastProgress;
   progressSlider.value = lastProgress;
   updateProgressUI(lastProgress);
+  // 固定参考倒三角（显示上次进度位置，不随滑块移动）
+  document.getElementById('progressMarker').style.left = lastProgress + '%';
+  document.getElementById('progressMarkerLabel').textContent = lastProgress > 0 ? lastProgress + '%' : '';
 
   // 初始化条件卡片显示（默认进行中 → 下一步计划）
   document.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
@@ -559,9 +567,7 @@ let selectedStatus = 'ongoing';
 function updateProgressUI(val) {
   progressValue.textContent = val;
   progressSlider.style.background = `linear-gradient(to right, #534AB7 0%, #534AB7 ${val}%, #ddd ${val}%, #ddd 100%)`;
-  // 倒三角跟随滑块
-  const pct = parseInt(val);
-  document.getElementById('progressMarker').style.left = pct + '%';
+  // 倒三角是固定参考标记，不跟随滑块
 }
 
 progressSlider.addEventListener('input', () => {
@@ -621,7 +627,8 @@ async function submitReport(overwriteMode) {
     plan_title: planTitle,
     tasks,
     progress: parseInt(progressSlider.value),
-    status: selectedStatus
+    status: selectedStatus,
+    report_date: state.customReportDate || undefined
   };
 
   if (selectedStatus === 'ongoing') {
@@ -666,15 +673,14 @@ async function submitReport(overwriteMode) {
     btn.disabled = false;
     btn.textContent = '提交日报';
 
-    // 设置成功标题
+    // 设置成功标题（page-4 会用）
     document.getElementById('reportSuccessTitle').textContent =
       result.data && result.data.overwritten ? '日报已修改' : '日报已提交';
-
-    // 跳转到 Page 4
     document.getElementById('reportSummary').textContent =
       `${state.project.name} · 实施第 ${state.project.impl_days} 天 · 进度 ${progressSlider.value}%`;
-    showPage('page-4');
-    initTomorrowPage();
+
+    // 弹出工时填写
+    showHoursOverlay();
   } catch (err) {
     btn.disabled = false;
     btn.textContent = '提交日报';
@@ -682,7 +688,47 @@ async function submitReport(overwriteMode) {
   }
 }
 
-// ====== Page 3: 明日去向 ======
+// ====== 工时弹窗 ======
+
+function showHoursOverlay() {
+  document.getElementById('hoursError').classList.add('hidden');
+  document.getElementById('hoursInput').value = '';
+  document.getElementById('hoursOverlay').classList.remove('hidden');
+  setTimeout(() => document.getElementById('hoursInput').focus(), 100);
+}
+
+document.getElementById('confirmHoursBtn').onclick = async function() {
+  const input = document.getElementById('hoursInput');
+  const val = parseFloat(input.value);
+  if (isNaN(val) || val < 0 || val > 24) {
+    document.getElementById('hoursError').classList.remove('hidden');
+    return;
+  }
+  document.getElementById('hoursError').classList.add('hidden');
+
+  const reportDate = state.customReportDate || new Date().toISOString().split('T')[0];
+  const data = await request('/api/reports/hours', {
+    method: 'POST',
+    body: {
+      engineer_id: state.engineer.id,
+      project_id: state.project.id,
+      report_date: reportDate,
+      hours: val
+    }
+  });
+  if (!data) return;
+
+  document.getElementById('hoursOverlay').classList.add('hidden');
+  showPage('page-4');
+  initTomorrowPage();
+};
+
+// 回车键确认工时
+document.getElementById('hoursInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') document.getElementById('confirmHoursBtn').click();
+});
+
+// ====== Page 4: 明日去向 ======
 
 function initTomorrowPage() {
   const today = new Date();
@@ -804,6 +850,22 @@ function enterP3Expand() {
 
   const list = document.getElementById('p3ExpandList');
   list.innerHTML = '';
+
+  // 实施日期选择（顶部，用于补填昨日日报）
+  const today = new Date().toISOString().split('T')[0];
+  const dateRow = document.createElement('div');
+  dateRow.className = 'p3-expand-date-row';
+  dateRow.innerHTML = `
+    <div class="proj-expand-detail-row" style="border-bottom:1px solid var(--border);padding:12px 16px;margin:0">
+      <span class="label">实施日期</span>
+      <input type="date" class="proj-expand-detail-input" id="p3CustomDate" value="${state.customReportDate || today}">
+    </div>`;
+  list.appendChild(dateRow);
+
+  // 日期变更时存入 state
+  document.getElementById('p3CustomDate').addEventListener('change', function() {
+    state.customReportDate = this.value || null;
+  });
 
   state.projects.forEach(p => {
     const card = document.createElement('div');

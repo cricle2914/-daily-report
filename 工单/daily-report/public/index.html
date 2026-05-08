@@ -123,7 +123,9 @@
         </div>
         <div class="progress-slider-wrap">
           <input class="progress-slider" id="progressSlider" type="range" min="0" max="100" value="0">
-          <div class="progress-marker" id="progressMarker">▼</div>
+          <div class="progress-marker" id="progressMarker">
+            <span class="progress-marker-label" id="progressMarkerLabel"></span>▼
+          </div>
         </div>
         <div class="status-btns">
           <button class="status-btn complete" data-status="complete" onclick="selectStatus(this)">✔ 完成</button>
@@ -343,6 +345,20 @@
         <input class="form-input" id="drawerServiceManager" placeholder="可选">
       </div>
       <button class="btn btn-primary btn-block" style="margin-top:8px" onclick="createProject()">创建并选择</button>
+    </div>
+
+    <!-- ====== 工时填写弹窗（毛玻璃） ====== -->
+    <div class="hours-overlay hidden" id="hoursOverlay">
+      <div class="hours-modal">
+        <div class="hours-modal-title">今日工时</div>
+        <div class="hours-modal-desc" id="hoursModalDesc">请填写今日实际工时</div>
+        <div class="hours-input-area">
+          <input type="number" class="hours-input" id="hoursInput" min="0" max="24" step="0.5" placeholder="0">
+          <span class="hours-unit">小时</span>
+        </div>
+        <div class="hours-error hidden" id="hoursError">请输入 0~24 的数字</div>
+        <button class="btn btn-primary btn-block" id="confirmHoursBtn" style="margin-top:18px">确认</button>
+      </div>
     </div>
 
     <!-- Toast -->
