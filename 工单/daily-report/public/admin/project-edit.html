@@ -5,6 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>项目编辑 - 日报管理系统</title>
   <link rel="stylesheet" href="admin.css">
+  <style>
+    .progress-day-group { margin-bottom: 16px; }
+    .progress-day-header {
+      font-size: 13px; font-weight: 600; color: var(--text-secondary);
+      padding: 6px 0; border-bottom: 1px solid var(--border); margin-bottom: 6px;
+    }
+    .progress-entry {
+      display: grid; grid-template-columns: 100px 60px 60px 1fr;
+      gap: 8px; padding: 5px 0; font-size: 13px;
+    }
+    .progress-entry + .progress-entry { border-top: 1px solid var(--border); }
+  </style>
 </head>
 <body>
   <div class="layout">
@@ -25,81 +37,92 @@
         <button class="topbar-btn" onclick="logout()">退出</button>
       </div>
 
-      <div class="page-title" id="pageTitle">新建项目</div>
+      <div id="editPage">
+        <div class="page-title" id="pageTitle">新建项目</div>
 
-      <div class="form-card">
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">项目名 *</label>
-            <input class="form-input" id="name" placeholder="请输入项目名">
-          </div>
-          <div class="form-group">
-            <label class="form-label">工单号</label>
-            <input class="form-input" id="order_no" placeholder="请输入工单号">
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">客户名 *</label>
-            <input class="form-input" id="customer" placeholder="请输入客户名">
-          </div>
-          <div class="form-group">
-            <label class="form-label">联系人</label>
-            <input class="form-input" id="contact_name" placeholder="请输入联系人">
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">联系电话</label>
-            <input class="form-input" id="contact_phone" placeholder="请输入联系电话">
-          </div>
-          <div class="form-group">
-            <label class="form-label">产品版本</label>
-            <input class="form-input" id="product_version" placeholder="请输入产品版本">
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">安装地址</label>
-          <input class="form-input" id="install_address" placeholder="请输入安装地址">
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">厂商</label>
-            <input class="form-input" id="manufacturer" placeholder="请输入厂商">
-          </div>
-          <div class="form-group">
-            <label class="form-label">代理商</label>
-            <input class="form-input" id="agent" placeholder="请输入代理商">
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">技术负责人</label>
-            <input class="form-input" id="tech_lead" placeholder="请输入技术负责人">
-          </div>
-          <div class="form-group">
-            <label class="form-label">服务经理</label>
-            <input class="form-input" id="service_manager" placeholder="请输入服务经理">
-          </div>
-        </div>
-        <div class="btn-group">
-          <button class="btn btn-primary" id="saveBtn" onclick="saveProject()">保存</button>
-          <button class="btn btn-secondary" onclick="location.href='projects.html'">取消</button>
-        </div>
-      </div>
-
-      <!-- 已分配工程师 -->
-      <div class="form-card" id="engineerSection" style="display:none">
-        <div class="form-card-title">已分配工程师</div>
-        <div id="engineerList"></div>
-        <div style="margin-top:12px">
+        <div class="form-card">
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">添加工程师</label>
-              <select class="form-select" id="engineerSelect"></select>
+              <label class="form-label">项目名 *</label>
+              <input class="form-input" id="name" placeholder="请输入项目名">
             </div>
-            <div class="form-group" style="display:flex;align-items:flex-end">
-              <button class="btn btn-primary" onclick="addEngineer()">添加</button>
+            <div class="form-group">
+              <label class="form-label">工单号</label>
+              <input class="form-input" id="order_no" placeholder="请输入工单号">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">客户名 *</label>
+              <input class="form-input" id="customer" placeholder="请输入客户名">
+            </div>
+            <div class="form-group">
+              <label class="form-label">联系人</label>
+              <input class="form-input" id="contact_name" placeholder="请输入联系人">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">联系电话</label>
+              <input class="form-input" id="contact_phone" placeholder="请输入联系电话">
+            </div>
+            <div class="form-group">
+              <label class="form-label">产品版本</label>
+              <input class="form-input" id="product_version" placeholder="请输入产品版本">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">安装地址</label>
+            <input class="form-input" id="install_address" placeholder="请输入安装地址">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">厂商</label>
+              <input class="form-input" id="manufacturer" placeholder="请输入厂商">
+            </div>
+            <div class="form-group">
+              <label class="form-label">代理商</label>
+              <input class="form-input" id="agent" placeholder="请输入代理商">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">技术负责人</label>
+              <input class="form-input" id="tech_lead" placeholder="请输入技术负责人">
+            </div>
+            <div class="form-group">
+              <label class="form-label">服务经理</label>
+              <input class="form-input" id="service_manager" placeholder="请输入服务经理">
+            </div>
+          </div>
+          <div class="btn-group" style="justify-content:space-between">
+            <div class="btn-group">
+              <button class="btn btn-primary" id="saveBtn" onclick="saveProject()">保存</button>
+              <button class="btn btn-secondary" onclick="location.href='projects.html'">取消</button>
+            </div>
+            <button class="btn btn-danger" id="deleteBtn" style="display:none" onclick="deleteProject()">删除项目</button>
+          </div>
+        </div>
+
+        <!-- 每日进度总结 -->
+        <div class="form-card" id="progressSection" style="display:none">
+          <div class="form-card-title">项目每日进度</div>
+          <div id="progressSummary"></div>
+        </div>
+
+        <!-- 已分配工程师 -->
+        <div class="form-card" id="engineerSection" style="display:none">
+          <div class="form-card-title">已分配工程师</div>
+          <div id="engineerList"></div>
+          <div style="margin-top:12px">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">添加工程师</label>
+                <select class="form-select" id="engineerSelect"></select>
+              </div>
+              <div class="form-group" style="display:flex;align-items:flex-end">
+                <button class="btn btn-primary" onclick="addEngineer()">添加</button>
+              </div>
             </div>
           </div>
         </div>
@@ -122,6 +145,32 @@
       }
     }
 
+    async function loadProgressSummary() {
+      try {
+        const data = (await api(`/api/admin/projects/${editId}/progress-summary`)).data;
+        const container = document.getElementById('progressSummary');
+        if (!data || data.length === 0) {
+          container.innerHTML = '<div class="empty-state">暂无日报记录</div>';
+          return;
+        }
+        container.innerHTML = data.map(day => `
+          <div class="progress-day-group">
+            <div class="progress-day-header">${day.date}</div>
+            ${day.entries.map(e => `
+              <div class="progress-entry">
+                <span><strong>${e.engineer_name}</strong></span>
+                <span>${statusBadge(e.status)}</span>
+                <span>${e.progress}%</span>
+                <span style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.plan_title || ''}</span>
+              </div>
+            `).join('')}
+          </div>
+        `).join('');
+      } catch (err) {
+        document.getElementById('progressSummary').innerHTML = '<div class="empty-state">暂无日报记录</div>';
+      }
+    }
+
     async function loadProject() {
       try {
         const data = (await api(`/api/admin/projects/${editId}`)).data;
@@ -138,10 +187,13 @@
         document.getElementById('tech_lead').value = data.tech_lead || '';
         document.getElementById('service_manager').value = data.service_manager || '';
 
-        // 工程师列表
+        document.getElementById('deleteBtn').style.display = 'inline-flex';
+        document.getElementById('progressSection').style.display = 'block';
         document.getElementById('engineerSection').style.display = 'block';
+
         renderEngineers(data.engineers || []);
         loadEngineerOptions();
+        loadProgressSummary();
       } catch (err) {
         showToast(err.message, 'error');
       }
@@ -173,8 +225,7 @@
       setLoading(btn, true);
       try {
         const body = {
-          name,
-          customer,
+          name, customer,
           order_no: document.getElementById('order_no').value.trim() || null,
           contact_name: document.getElementById('contact_name').value.trim() || null,
           contact_phone: document.getElementById('contact_phone').value.trim() || null,
@@ -225,6 +276,18 @@
         await api(`/api/admin/projects/${editId}/engineers/${eid}`, { method: 'DELETE' });
         showToast('已移除');
         loadProject();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function deleteProject() {
+      if (!confirm('确认删除该项目？此操作不可恢复。')) return;
+      if (!confirm('二次确认：是否确定删除？')) return;
+      try {
+        await api(`/api/admin/projects/${editId}`, { method: 'DELETE' });
+        showToast('已删除');
+        setTimeout(() => { location.href = 'projects.html'; }, 500);
       } catch (err) {
         showToast(err.message, 'error');
       }

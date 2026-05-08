@@ -5,6 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>员工编辑 - 日报管理系统</title>
   <link rel="stylesheet" href="admin.css">
+  <style>
+    .collapse-header {
+      display: flex; align-items: center; gap: 8px; cursor: pointer;
+      padding: 8px 0; user-select: none;
+    }
+    .collapse-header:hover { color: var(--text-primary); }
+    .collapse-arrow { transition: transform 0.2s; font-size: 11px; color: var(--text-dim); }
+    .collapse-arrow.open { transform: rotate(90deg); }
+    .collapse-body { display: none; padding-top: 8px; }
+    .collapse-body.open { display: block; }
+    .proj-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 8px;
+    }
+    .proj-card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      cursor: pointer; user-select: none;
+    }
+    .proj-card-body { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+    .proj-card-body.open { display: block; }
+  </style>
 </head>
 <body>
   <div class="layout">
@@ -48,12 +69,28 @@
             <input class="form-input" id="email" placeholder="请输入邮箱">
           </div>
         </div>
-        <div class="form-group" id="statusGroup" style="display:none">
-          <label class="form-label">状态</label>
-          <select class="form-select" id="status">
-            <option value="active">在职</option>
-            <option value="inactive">离职</option>
-          </select>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">部门</label>
+            <input class="form-input" id="department" placeholder="所属部门">
+          </div>
+          <div class="form-group">
+            <label class="form-label">职位</label>
+            <input class="form-input" id="position" placeholder="职位名称">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">入职日期</label>
+            <input class="form-input" id="hire_date" type="date">
+          </div>
+          <div class="form-group">
+            <label class="form-label">状态</label>
+            <select class="form-select" id="status">
+              <option value="active">在职</option>
+              <option value="inactive">离职</option>
+            </select>
+          </div>
         </div>
         <div class="btn-group">
           <button class="btn btn-primary" id="saveBtn" onclick="saveEngineer()">保存</button>
@@ -62,16 +99,22 @@
       </div>
 
       <div id="extraInfo" style="display:none">
-        <!-- 参与项目列表 -->
-        <div class="info-section" id="projectSection">
-          <div class="info-section-title">参与项目</div>
-          <div id="projectList"></div>
+        <!-- 参与项目 -->
+        <div class="info-section">
+          <div class="collapse-header" onclick="toggleCollapse('projectSectionBody')">
+            <span class="collapse-arrow" id="projectArrow">▶</span>
+            <span class="info-section-title" style="margin-bottom:0">参与项目</span>
+          </div>
+          <div class="collapse-body" id="projectSectionBody"></div>
         </div>
 
         <!-- 最近日报 -->
         <div class="info-section">
-          <div class="info-section-title">最近日报</div>
-          <div id="recentReports"></div>
+          <div class="collapse-header" onclick="toggleCollapse('reportSectionBody')">
+            <span class="collapse-arrow" id="reportArrow">▶</span>
+            <span class="info-section-title" style="margin-bottom:0">最近日报（每项目最新一条）</span>
+          </div>
+          <div class="collapse-body" id="reportSectionBody"></div>
         </div>
       </div>
     </div>
@@ -80,35 +123,62 @@
   <script>
     const params = new URLSearchParams(window.location.search);
     const editId = params.get('id');
-    let engineerData = null;
+
+    function toggleCollapse(id) {
+      const body = document.getElementById(id);
+      const arrow = id === 'projectSectionBody' ? document.getElementById('projectArrow') : document.getElementById('reportArrow');
+      body.classList.toggle('open');
+      arrow.classList.toggle('open');
+    }
 
     async function loadEngineer() {
       try {
         const data = (await api(`/api/admin/engineers/${editId}`)).data;
-        engineerData = data;
         document.getElementById('pageTitle').textContent = '编辑员工';
         document.getElementById('name').value = data.name;
         document.getElementById('abbr').value = data.abbr;
         document.getElementById('phone').value = data.phone || '';
         document.getElementById('email').value = data.email || '';
+        document.getElementById('department').value = data.department || '';
+        document.getElementById('position').value = data.position || '';
+        document.getElementById('hire_date').value = data.hire_date ? formatDate(data.hire_date) : '';
         document.getElementById('status').value = data.status;
-        document.getElementById('statusGroup').style.display = 'block';
-
-        // 项目列表
         document.getElementById('extraInfo').style.display = 'block';
-        const projectList = document.getElementById('projectList');
+
+        // 项目列表 - 可展开查看详情
+        const projectBody = document.getElementById('projectSectionBody');
         if (data.projects && data.projects.length > 0) {
-          projectList.innerHTML = data.projects.map(p =>
-            `<div class="name-tag">${p.name} (${p.customer})</div>`
-          ).join('');
+          projectBody.innerHTML = data.projects.map(p => `
+            <div class="proj-card">
+              <div class="proj-card-header" onclick="toggleProjDetail(this)">
+                <strong>${p.name}</strong>
+                <span style="color:var(--text-dim);font-size:12px">${p.customer} ▶</span>
+              </div>
+              <div class="proj-card-body">
+                <div class="info-grid">
+                  <span class="info-key">工单号</span><span class="info-val">${p.order_no || '-'}</span>
+                  <span class="info-key">实施天数</span><span class="info-val">${p.impl_days} 天</span>
+                  <span class="info-key">加入时间</span><span class="info-val">${formatDateTime(p.joined_at)}</span>
+                  <span class="info-key">联系人</span><span class="info-val">${p.contact_name || '-'}</span>
+                  <span class="info-key">联系电话</span><span class="info-val">${p.contact_phone || '-'}</span>
+                  <span class="info-key">版本</span><span class="info-val">${p.product_version || '-'}</span>
+                  <span class="info-key">地址</span><span class="info-val">${p.install_address || '-'}</span>
+                  <span class="info-key">技术负责人</span><span class="info-val">${p.tech_lead || '-'}</span>
+                </div>
+                <div style="margin-top:8px">
+                  <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();location.href='project-edit.html?id=${p.id}'">查看项目</button>
+                </div>
+              </div>
+            </div>
+          `).join('');
         } else {
-          projectList.innerHTML = '<div class="empty-state">暂无参与项目</div>';
+          projectBody.innerHTML = '<div class="empty-state">暂无参与项目</div>';
         }
 
-        // 最近日报
-        const recentReports = document.getElementById('recentReports');
+        // 最近日报 - 每个项目最新一条
+        const reportBody = document.getElementById('reportSectionBody');
         if (data.recent_reports && data.recent_reports.length > 0) {
-          recentReports.innerHTML = `<div class="table-wrap"><table>
+          reportBody.innerHTML = `<div class="table-wrap"><table>
             <thead><tr><th>日期</th><th>项目</th><th>进度</th><th>状态</th><th>操作</th></tr></thead>
             <tbody>${data.recent_reports.map(r =>
               `<tr>
@@ -121,11 +191,19 @@
             ).join('')}</tbody>
           </table></div>`;
         } else {
-          recentReports.innerHTML = '<div class="empty-state">暂无日报</div>';
+          reportBody.innerHTML = '<div class="empty-state">暂无日报</div>';
         }
+
+        // 默认展开
+        toggleCollapse('projectSectionBody');
+        toggleCollapse('reportSectionBody');
       } catch (err) {
         showToast(err.message, 'error');
       }
+    }
+
+    function toggleProjDetail(header) {
+      header.parentElement.querySelector('.proj-card-body').classList.toggle('open');
     }
 
     async function saveEngineer() {
@@ -140,10 +218,12 @@
       setLoading(btn, true);
       try {
         const body = {
-          name,
-          abbr,
+          name, abbr,
           phone: document.getElementById('phone').value.trim() || null,
           email: document.getElementById('email').value.trim() || null,
+          department: document.getElementById('department').value.trim() || null,
+          position: document.getElementById('position').value.trim() || null,
+          hire_date: document.getElementById('hire_date').value || null,
           status: document.getElementById('status').value || 'active'
         };
 

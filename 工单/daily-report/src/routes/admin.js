@@ -127,14 +127,19 @@ router.get('/engineers/:id', auth(), async (req, res, next) => {
       [id]
     );
 
-    // 最近5条日报
+    // 每个项目最近一条日报
     const [reports] = await pool.query(
       `SELECT dr.*, p.name AS project_name
        FROM daily_reports dr
        JOIN projects p ON dr.project_id = p.id
        WHERE dr.engineer_id = ?
-       ORDER BY dr.report_date DESC LIMIT 5`,
-      [id]
+       AND dr.id IN (
+         SELECT MAX(id) FROM daily_reports
+         WHERE engineer_id = ?
+         GROUP BY project_id
+       )
+       ORDER BY dr.report_date DESC`,
+      [id, id]
     );
 
     res.json({
@@ -149,13 +154,13 @@ router.get('/engineers/:id', auth(), async (req, res, next) => {
 // 新建员工
 router.post('/engineers', auth(), async (req, res, next) => {
   try {
-    const { name, abbr, phone, email } = req.body;
+    const { name, abbr, phone, email, department, position, hire_date } = req.body;
     if (!name || !abbr) {
       return res.status(400).json({ success: false, message: '姓名和缩写不能为空' });
     }
     const [result] = await pool.query(
-      'INSERT INTO engineers (name, abbr, phone, email) VALUES (?, ?, ?, ?)',
-      [name, abbr, phone || null, email || null]
+      'INSERT INTO engineers (name, abbr, phone, email, department, position, hire_date) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [name, abbr, phone || null, email || null, department || null, position || null, hire_date || null]
     );
     res.json({ success: true, data: { id: result.insertId } });
   } catch (err) {
@@ -170,10 +175,10 @@ router.post('/engineers', auth(), async (req, res, next) => {
 router.put('/engineers/:id', auth(), async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, abbr, phone, email, status } = req.body;
+    const { name, abbr, phone, email, department, position, hire_date, status } = req.body;
     await pool.query(
-      'UPDATE engineers SET name = ?, abbr = ?, phone = ?, email = ?, status = ? WHERE id = ?',
-      [name, abbr, phone || null, email || null, status || 'active', id]
+      'UPDATE engineers SET name=?, abbr=?, phone=?, email=?, department=?, position=?, hire_date=?, status=? WHERE id=?',
+      [name, abbr, phone || null, email || null, department || null, position || null, hire_date || null, status || 'active', id]
     );
     res.json({ success: true, data: { message: '已更新' } });
   } catch (err) {
@@ -352,6 +357,70 @@ router.delete('/projects/:id/engineers/:eid', auth(), async (req, res, next) => 
       [id, eid]
     );
     res.json({ success: true, data: { message: '已移除' } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// 删除项目
+router.delete('/projects/:id', auth(), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // 检查是否有日报关联
+    const [reports] = await pool.query(
+      'SELECT COUNT(*) AS cnt FROM daily_reports WHERE project_id = ?', [id]
+    );
+    if (reports[0].cnt > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `该项目已有 ${reports[0].cnt} 条日报记录，无法删除`
+      });
+    }
+
+    // 解除工程师关联
+    await pool.query('DELETE FROM engineer_projects WHERE project_id = ?', [id]);
+    // 删除项目
+    await pool.query('DELETE FROM projects WHERE id = ?', [id]);
+
+    res.json({ success: true, data: { message: '已删除' } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// 项目每日进度总结
+router.get('/projects/:id/progress-summary', auth(), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const [rows] = await pool.query(
+      `SELECT dr.report_date, dr.progress, dr.status, dr.plan_title,
+              e.name AS engineer_name, e.abbr AS engineer_abbr,
+              dr.issues, dr.next_plan
+       FROM daily_reports dr
+       JOIN engineers e ON dr.engineer_id = e.id
+       WHERE dr.project_id = ?
+       ORDER BY dr.report_date DESC, e.name ASC`,
+      [id]
+    );
+
+    // 按日期分组
+    const grouped = {};
+    for (const r of rows) {
+      const dateStr = r.report_date instanceof Date
+        ? r.report_date.toISOString().split('T')[0]
+        : new Date(r.report_date).toISOString().split('T')[0];
+      if (!grouped[dateStr]) {
+        grouped[dateStr] = { date: dateStr, entries: [] };
+      }
+      grouped[dateStr].entries.push(r);
+    }
+
+    res.json({
+      success: true,
+      data: Object.values(grouped).sort((a, b) => b.date.localeCompare(a.date))
+    });
   } catch (err) {
     next(err);
   }
