@@ -36,19 +36,17 @@ function showPage(pageId) {
   const page = document.getElementById(pageId);
   if (page) page.classList.add('active');
 
-  // 更新步骤标签
-  document.querySelectorAll('.step').forEach((s, i) => {
-    s.classList.remove('active', 'done');
-    if (pageId === 'page-1') {
-      if (i === 0) s.classList.add('active');
-    } else if (pageId === 'page-2') {
-      if (i === 0) s.classList.add('done');
-      else if (i === 1) s.classList.add('active');
-    } else if (pageId === 'page-3' || pageId === 'page-complete') {
-      if (i < 2) s.classList.add('done');
-      else if (i === 2) s.classList.add('active');
-    }
-  });
+  // 更新进度条
+  const steps = document.querySelectorAll('.top-bar-prog-step');
+  steps.forEach(s => s.classList.remove('active'));
+  if (pageId === 'page-1') {
+    steps[0]?.classList.add('active');
+  } else if (pageId === 'page-2') {
+    steps[0]?.classList.add('active');
+    steps[1]?.classList.add('active');
+  } else if (pageId === 'page-3' || pageId === 'page-complete') {
+    steps.forEach(s => s.classList.add('active'));
+  }
 }
 
 function showToast(msg) {
@@ -59,7 +57,9 @@ function showToast(msg) {
   toast._timer = setTimeout(() => toast.classList.remove('show'), 2000);
 }
 
-// ====== 打字动画（两行） ======
+// ====== 打字动画 ======
+let _stopTyping = null;
+
 function startTypingAnimation() {
   const l1 = document.getElementById('typingLine1');
   const l2 = document.getElementById('typingLine2');
@@ -67,7 +67,7 @@ function startTypingAnimation() {
 
   const line1 = '今天辛苦啦，';
   const line2 = '让我帮你提交日报吧。';
-  const bs = 4, be = 8; // "提交日报" 在 line2 中的起止索引
+  const bs = 4, be = 8;
   let stopped = false, timer = null;
 
   function build2(len) {
@@ -117,10 +117,28 @@ function startTypingAnimation() {
   }
 
   timer = setTimeout(loop, 1000);
-  return () => { stopped = true; if (timer) clearTimeout(timer); };
+  _stopTyping = () => { stopped = true; if (timer) clearTimeout(timer); };
 }
 
-// 页面加载后启动打字动画
+// 工程师选中后的打字：一行 "今天辛苦啦！xxx 请选择项目。"
+function typeHelloWithName(name) {
+  const l1 = document.getElementById('typingLine1');
+  const l2 = document.getElementById('typingLine2');
+  if (!l1 || !l2) return;
+  const text = `今天辛苦啦！${name} 请选择项目。`;
+  l1.textContent = '';
+  l2.textContent = '';
+  let idx = 0;
+  function type() {
+    if (idx <= text.length) {
+      l2.textContent = text.substring(0, idx);
+      idx++;
+      setTimeout(type, 50);
+    }
+  }
+  setTimeout(type, 300);
+}
+
 document.addEventListener('DOMContentLoaded', startTypingAnimation);
 
 // ====== Page 1: 搜索工程师 ======
@@ -191,15 +209,16 @@ function selectEngineer(eng) {
   document.getElementById('searchDropdown').classList.remove('show');
   document.getElementById('avatar').textContent = eng.abbr;
   document.getElementById('engineerName').textContent = eng.name;
-  document.getElementById('selectedEngineerInfo').classList.remove('hidden');
-  document.getElementById('selectedEngineerName').textContent = eng.name;
 
-  // 添加 has-selection 隐藏 Good day!，露出项目列表
+  // 停止旧动画，修改问候语
+  if (_stopTyping) _stopTyping();
+  document.querySelector('.page1-greeting').innerHTML = '<span style="font-size:84px;font-weight:900;letter-spacing:-.04em">Hello!</span>';
+  typeHelloWithName(eng.name);
+
+  // 添加 has-selection，显示项目列表
   document.getElementById('page-1').classList.add('has-selection');
-  // 退出搜索展开状态
   document.getElementById('page-1').classList.remove('search-expanded');
 
-  // 明确显示已选择的工程师样式
   document.querySelectorAll('.dropdown-item').forEach(el => el.style.display = 'none');
 
   loadProjects(eng.id);
@@ -209,11 +228,21 @@ function resetEngineerSelection() {
   if (!state.engineer) return;
   state.engineer = null;
   state.project = null;
-  document.getElementById('selectedEngineerInfo').classList.add('hidden');
   document.getElementById('nextStepArea').classList.add('hidden');
   document.getElementById('newProjectArea').classList.add('hidden');
   document.getElementById('projectList').innerHTML = '';
   document.getElementById('page-1').classList.remove('has-selection');
+
+  // 恢复初始问候语 + 打字动画
+  if (_stopTyping) _stopTyping();
+  const greeting = document.querySelector('.page1-greeting');
+  greeting.innerHTML = '<span class="greeting-good">Good</span><br><span class="greeting-day">day!</span>';
+  const l1 = document.getElementById('typingLine1');
+  const l2 = document.getElementById('typingLine2');
+  if (l1) l1.textContent = '';
+  if (l2) l2.textContent = '';
+  startTypingAnimation();
+
   searchInput.value = '';
   document.querySelectorAll('.dropdown-item').forEach(el => el.style.display = '');
 }
@@ -362,8 +391,14 @@ document.getElementById('nextToReportBtn').onclick = async () => {
   const lastData = await request(`/api/reports/last-progress?engineer_id=${state.engineer.id}&project_id=${state.project.id}`);
   const lastProgress = lastData ? lastData.progress : 0;
   progressSlider.value = lastProgress;
-  progressValue.textContent = lastProgress + '%';
-  progressSlider.style.background = `linear-gradient(to right, #534AB7 0%, #534AB7 ${lastProgress}%, var(--text-dim) ${lastProgress}%, var(--text-dim) 100%)`;
+  progressValue.textContent = lastProgress;
+
+  // 初始化条件卡片显示（默认进行中 → 下一步计划）
+  document.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.status-btn.ongoing').classList.add('active');
+  selectedStatus = 'ongoing';
+  document.getElementById('nextPlanCard').style.display = 'block';
+  document.getElementById('issuesCard').style.display = 'none';
   showPage('page-2');
 };
 
@@ -407,7 +442,7 @@ const progressValue = document.getElementById('progressValue');
 let selectedStatus = 'ongoing';
 
 progressSlider.addEventListener('input', () => {
-  progressValue.textContent = progressSlider.value + '%';
+  progressValue.textContent = progressSlider.value;
   progressSlider.style.background = `linear-gradient(to right, #534AB7 0%, #534AB7 ${progressSlider.value}%, #ddd ${progressSlider.value}%, #ddd 100%)`;
 });
 
@@ -415,6 +450,20 @@ function selectStatus(btn) {
   document.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   selectedStatus = btn.dataset.status;
+
+  // 根据状态切换下一步计划 / 遗留问题
+  const nextPlanCard = document.getElementById('nextPlanCard');
+  const issuesCard = document.getElementById('issuesCard');
+  if (selectedStatus === 'ongoing') {
+    nextPlanCard.style.display = 'block';
+    issuesCard.style.display = 'none';
+  } else if (selectedStatus === 'blocked') {
+    nextPlanCard.style.display = 'none';
+    issuesCard.style.display = 'block';
+  } else {
+    nextPlanCard.style.display = 'none';
+    issuesCard.style.display = 'none';
+  }
 }
 
 // 默认选中"进行中"
@@ -440,8 +489,6 @@ async function submitReport(overwriteMode) {
     return;
   }
 
-  const issues = document.getElementById('issues').value.trim() || '';
-
   const btn = document.getElementById('submitReportBtn');
   btn.disabled = true;
   btn.textContent = '提交中...';
@@ -452,9 +499,14 @@ async function submitReport(overwriteMode) {
     plan_title: planTitle,
     tasks,
     progress: parseInt(progressSlider.value),
-    status: selectedStatus,
-    issues
+    status: selectedStatus
   };
+
+  if (selectedStatus === 'ongoing') {
+    body.next_plan = document.getElementById('nextPlan').value.trim() || '';
+  } else if (selectedStatus === 'blocked') {
+    body.issues = document.getElementById('issues').value.trim() || '';
+  }
   if (overwriteMode) body.overwrite = true;
 
   try {

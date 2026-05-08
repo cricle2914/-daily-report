@@ -5,7 +5,7 @@ const pool = require('../database');
 // 提交日报（支持 upsert：已存在则覆盖）
 router.post('/', async (req, res, next) => {
   try {
-    const { engineer_id, project_id, plan_title, tasks, progress, status, issues, overwrite } = req.body;
+    const { engineer_id, project_id, plan_title, tasks, progress, status, issues, next_plan, overwrite } = req.body;
 
     // 必填校验
     if (!engineer_id || !project_id || !plan_title || !tasks || progress === undefined || !status) {
@@ -39,9 +39,9 @@ router.post('/', async (req, res, next) => {
         }
         // 覆盖模式：UPDATE 已有记录，不增加实施天数
         await conn.query(
-          `UPDATE daily_reports SET plan_title = ?, tasks = ?, progress = ?, status = ?, issues = ?, submitted_at = NOW()
+          `UPDATE daily_reports SET plan_title = ?, tasks = ?, progress = ?, status = ?, issues = ?, next_plan = ?, submitted_at = NOW()
            WHERE id = ?`,
-          [plan_title, JSON.stringify(tasks), progress, status, issues || null, existing[0].id]
+          [plan_title, JSON.stringify(tasks), progress, status, issues || null, next_plan || null, existing[0].id]
         );
         await conn.commit();
         return res.json({
@@ -58,9 +58,9 @@ router.post('/', async (req, res, next) => {
       const implDay = history[0].cnt + 1;
 
       await conn.query(
-        `INSERT INTO daily_reports (engineer_id, project_id, report_date, impl_day, plan_title, tasks, progress, status, issues)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [engineer_id, project_id, today, implDay, plan_title, JSON.stringify(tasks), progress, status, issues || null]
+        `INSERT INTO daily_reports (engineer_id, project_id, report_date, impl_day, plan_title, tasks, progress, status, issues, next_plan)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [engineer_id, project_id, today, implDay, plan_title, JSON.stringify(tasks), progress, status, issues || null, next_plan || null]
       );
 
       // 同步更新 engineer_projects.impl_days
@@ -89,7 +89,7 @@ router.post('/', async (req, res, next) => {
 // 修改已有日报（PUT）
 router.put('/', async (req, res, next) => {
   try {
-    const { engineer_id, project_id, plan_title, tasks, progress, status, issues } = req.body;
+    const { engineer_id, project_id, plan_title, tasks, progress, status, issues, next_plan } = req.body;
     if (!engineer_id || !project_id || !plan_title || !tasks || progress === undefined || !status) {
       return res.status(400).json({ success: false, error: '必填字段缺失' });
     }
@@ -105,9 +105,9 @@ router.put('/', async (req, res, next) => {
     }
 
     await pool.query(
-      `UPDATE daily_reports SET plan_title = ?, tasks = ?, progress = ?, status = ?, issues = ?, submitted_at = NOW()
+      `UPDATE daily_reports SET plan_title = ?, tasks = ?, progress = ?, status = ?, issues = ?, next_plan = ?, submitted_at = NOW()
        WHERE id = ?`,
-      [plan_title, JSON.stringify(tasks), progress, status, issues || null, existing[0].id]
+      [plan_title, JSON.stringify(tasks), progress, status, issues || null, next_plan || null, existing[0].id]
     );
 
     res.json({ success: true, data: { overwritten: true, message: '日报已修改' } });

@@ -92,3 +92,12 @@ INSERT IGNORE INTO engineer_projects (engineer_id, project_id, impl_days)
 SELECT e.id, p.id, 11
 FROM engineers e, projects p
 WHERE e.name IN ('王涛','张宏洋','周继成') AND p.order_no = '00725547';
+
+-- ====== 以下为后续新增字段迁移 ======
+
+ALTER TABLE daily_reports ADD COLUMN next_plan TEXT AFTER issues;
+
+ALTER TABLE projects ADD COLUMN manufacturer VARCHAR(100) AFTER install_address;
+ALTER TABLE projects ADD COLUMN agent VARCHAR(100) AFTER manufacturer;
+ALTER TABLE projects ADD COLUMN tech_lead VARCHAR(50) AFTER agent;
+ALTER TABLE projects ADD COLUMN service_manager VARCHAR(50) AFTER tech_lead;

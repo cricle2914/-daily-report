@@ -12,10 +12,10 @@
     <div class="top-bar">
       <div class="avatar" id="avatar">-</div>
       <span class="engineer-name" id="engineerName">请选择工程师</span>
-      <div class="steps">
-        <div class="step active" id="step1">1</div>
-        <div class="step" id="step2">2</div>
-        <div class="step" id="step3">3</div>
+      <div class="top-bar-progress" id="topBarProgress">
+        <div class="top-bar-prog-step active"></div>
+        <div class="top-bar-prog-step"></div>
+        <div class="top-bar-prog-step"></div>
       </div>
     </div>
 
@@ -34,14 +34,6 @@
           <span class="sub-line1" id="typingLine1"></span><br>
           <span class="sub-line2" id="typingLine2"></span><span class="type-cursor">|</span>
         </p>
-      </div>
-
-      <!-- 已选工程师 -->
-      <div id="selectedEngineerInfo" class="hidden">
-        <div class="selected-info">
-          <span class="check">✔</span>
-          已选择：<span id="selectedEngineerName" style="color:#fff;font-weight:600"></span>
-        </div>
       </div>
 
       <!-- 项目列表 -->
@@ -81,21 +73,14 @@
       <!-- 今日计划 -->
       <div class="form-card">
         <div class="form-group" style="margin-bottom:0">
-          <label class="form-label">
-            <span class="section-icon">📋</span>
-            今日计划 <span class="required-mark">*</span>
-          </label>
+          <label class="form-label">今日计划</label>
           <input class="form-input" id="planTitle" placeholder="例：AS7升级验证、文档整理" required>
         </div>
       </div>
 
       <!-- 工作内容 -->
       <div class="task-section">
-        <div class="section-header">
-          <span class="section-icon">📌</span>
-          工作内容
-          <span style="color:var(--red);font-size:13px;font-weight:400">（至少1条）</span>
-        </div>
+        <div class="section-header">工作内容</div>
         <div id="taskList" class="task-list">
           <div class="task-item">
             <span class="task-num">1</span>
@@ -108,16 +93,13 @@
 
       <!-- 进度 -->
       <div class="progress-section">
-        <div class="section-header">
-          <span class="section-icon">📊</span>
-          进度
+        <div class="section-header">进度</div>
+        <div class="progress-display">
+          <span class="progress-value" id="progressValue">0</span>
+          <span class="progress-percent">%</span>
         </div>
         <div class="progress-slider-wrap">
-          <input class="progress-slider" id="progressSlider" type="range" min="0" max="100" value="75">
-        </div>
-        <div class="progress-display">
-          <span class="progress-value" id="progressValue">0%</span>
-          <span class="progress-label">已完成</span>
+          <input class="progress-slider" id="progressSlider" type="range" min="0" max="100" value="0">
         </div>
         <div class="status-btns">
           <button class="status-btn complete" data-status="complete" onclick="selectStatus(this)">✔ 完成</button>
@@ -126,13 +108,18 @@
         </div>
       </div>
 
-      <!-- 遗留问题 -->
-      <div class="form-card" style="margin-top:16px">
+      <!-- 下一步计划（进行中时显示） -->
+      <div class="form-card" id="nextPlanCard" style="margin-top:16px;display:block">
         <div class="form-group" style="margin-bottom:0">
-          <label class="form-label">
-            <span class="section-icon">💬</span>
-            遗留问题
-          </label>
+          <label class="form-label">下一步计划</label>
+          <textarea class="form-input" id="nextPlan" placeholder="请描述下一步计划…" rows="3"></textarea>
+        </div>
+      </div>
+
+      <!-- 遗留问题（有阻碍时显示） -->
+      <div class="form-card" id="issuesCard" style="margin-top:16px;display:none">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">遗留问题</label>
           <textarea class="form-input" id="issues" placeholder="无" rows="3"></textarea>
         </div>
       </div>
