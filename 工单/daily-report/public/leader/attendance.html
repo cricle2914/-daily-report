@@ -22,47 +22,31 @@
     .filter-bar { display:flex; gap:12px; align-items:flex-end; margin-bottom:16px; flex-wrap:wrap; }
     .filter-bar .form-group { margin-bottom:0; }
 
-    /* 网格容器 */
-    #gridWrap { overflow-x:auto; }
+    /* ===== 卡片容器 ===== */
+    .card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:16px; }
+    .grid-scroll { overflow-x:auto; }
+
+    /* ===== 工程师行 ===== */
     .eng-row {
-      display:flex; align-items:stretch; gap:0;
-      border-bottom:1px solid var(--border); min-height:44px;
+      display:flex; align-items:center; gap:8px;
+      padding:6px 0; border-bottom:1px solid var(--border); min-height:40px;
     }
     .eng-row:last-child { border-bottom:none; }
     .eng-label {
-      width:70px; flex-shrink:0; display:flex; align-items:center;
-      font-size:12px; font-weight:600; padding:8px 12px 8px 0;
-      position:sticky; left:0; z-index:2; background:var(--bg-card);
+      width:56px; flex-shrink:0; display:flex; align-items:center; gap:4px;
+      font-size:12px; font-weight:600;
     }
     .eng-label .abbr {
-      width:28px; height:28px; border-radius:6px; background:var(--text-primary);
+      width:26px; height:26px; border-radius:6px; background:var(--text-primary);
       color:var(--bg); display:flex; align-items:center; justify-content:center;
-      font-size:11px; font-weight:900; margin-right:6px; flex-shrink:0;
+      font-size:10px; font-weight:900; flex-shrink:0;
     }
-    .eng-label .name { font-size:12px; white-space:nowrap; }
+    .eng-label .name { font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-    /* 星期标签行 */
-    .weekday-row {
-      display:flex; align-items:stretch; gap:0;
-      border-bottom:1px solid var(--border); height:24px;
-    }
-    .weekday-label {
-      width:70px; flex-shrink:0; font-size:10px; color:var(--text-dim);
-      padding:4px 12px 4px 0; text-align:right; position:sticky; left:0; z-index:2;
-      background:var(--bg-card);
-    }
-    .weekday-cell {
-      font-size:10px; color:var(--text-dim); display:flex; align-items:center;
-      justify-content:center; border-right:1px solid transparent;
-    }
-
-    /* 月视图：日历格子 */
-    .month-container { display:flex; gap:1px; align-items:stretch; flex:1; }
-    .week-group { display:flex; gap:1px; margin-right:6px; }
-    .week-group:last-child { margin-right:0; }
+    /* ===== 通用格子 ===== */
     .cal-cell {
-      width:32px; height:32px; border-radius:3px; cursor:pointer;
-      transition:opacity .15s; position:relative; flex-shrink:0;
+      border-radius:4px; cursor:pointer; transition:opacity .15s;
+      position:relative;
     }
     .cal-cell:hover { opacity:.7; }
     .cal-cell.onsite { background:#44cc77; }
@@ -71,46 +55,66 @@
     .cal-cell.unknown { background:rgba(255,255,255,.03); }
     .cal-cell.empty { background:transparent; cursor:default; pointer-events:none; }
 
-    /* 周视图：柱状图 */
-    .week-container { display:flex; gap:2px; align-items:stretch; flex:1; padding:4px 0; }
-    .week-bar-cell {
-      flex:1; min-width:16px; max-width:40px; border-radius:4px 4px 0 0;
-      cursor:pointer; transition:opacity .15s; position:relative;
-      display:flex; align-items:flex-end;
-    }
-    .week-bar-cell .bar-fill {
-      width:100%; border-radius:4px 4px 0 0; min-height:12px; transition:height .2s;
-    }
-    .week-bar-cell:hover .bar-fill { opacity:.7; }
-    .week-bar-cell .bar-fill.onsite { background:#44cc77; }
-    .week-bar-cell .bar-fill.other { background:#ffaa00; }
-    .week-bar-cell .bar-fill.weekend { background:rgba(255,255,255,.06); }
-    .week-bar-cell .bar-fill.unknown { background:rgba(255,255,255,.03); }
-
-    /* 季度/年视图：紧凑格子 */
-    .compact-wrap { display:flex; gap:0; flex:1; }
-    .month-block { margin-right:8px; }
-    .month-block:last-child { margin-right:0; }
-    .month-title { font-size:9px; color:var(--text-dim); margin-bottom:2px; text-align:center; }
-    .month-grid { display:grid; gap:1px; }
-    .month-grid .cal-cell { width:12px; height:12px; border-radius:2px; }
-    .month-grid.quarter .cal-cell { width:16px; height:16px; }
-    .month-grid.year .cal-cell { width:8px; height:8px; border-radius:1px; }
-
-    /* tooltip */
-    .cal-cell::after, .bar-fill::after {
-      content:attr(data-tip); position:fixed; bottom:auto;
+    /* ===== tooltip ===== */
+    .cal-cell::after {
+      content:attr(data-tip); position:fixed;
       padding:4px 8px; border-radius:4px; background:#222; color:#fff;
       font-size:11px; white-space:nowrap; pointer-events:none; opacity:0;
       transition:opacity .12s; z-index:999; border:1px solid #444;
       transform:translateY(-100%);
     }
-    .cal-cell:hover::after, .bar-fill:hover::after { opacity:1; }
+    .cal-cell:hover::after { opacity:1; }
 
     .empty-state { text-align:center; padding:60px 20px; color:var(--text-secondary); font-size:14px; }
 
-    /* 容器卡片 */
-    .card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:16px; }
+    /* ==================================================
+       周视图：柱状图
+       ================================================== */
+    .week-bars { display:flex; gap:3px; flex:1; align-items:flex-end; height:64px; }
+    .bar-cell {
+      flex:1; display:flex; flex-direction:column; align-items:center;
+      justify-content:flex-end; cursor:pointer;
+    }
+    .bar-cell .bar-fill {
+      width:100%; border-radius:4px 4px 0 0; min-height:8px; transition:height .2s;
+    }
+    .bar-cell:hover .bar-fill { opacity:.7; }
+    .bar-fill.onsite { background:#44cc77; }
+    .bar-fill.other { background:#ffaa00; }
+    .bar-fill.weekend { background:rgba(255,255,255,.06); }
+    .bar-fill.unknown { background:rgba(255,255,255,.03); }
+    .bar-cell .dow { font-size:9px; color:var(--text-dim); margin-top:2px; }
+    .bar-fill::after {
+      content:attr(data-tip); position:fixed;
+      padding:4px 8px; border-radius:4px; background:#222; color:#fff;
+      font-size:11px; white-space:nowrap; pointer-events:none; opacity:0;
+      transition:opacity .12s; z-index:999; border:1px solid #444;
+      transform:translateY(-100%);
+    }
+    .bar-fill:hover::after { opacity:1; }
+    .week-header { display:flex; gap:3px; flex:1; margin-bottom:2px; }
+    .week-header .dow-label { flex:1; text-align:center; font-size:10px; color:var(--text-dim); }
+
+    /* ==================================================
+       月视图：日历网格
+       ================================================== */
+    .month-grid {
+      flex:1; display:grid; grid-template-columns:repeat(7,1fr); gap:3px;
+    }
+    .month-grid .cal-cell { aspect-ratio:1; min-height:24px; }
+
+    /* ==================================================
+       季度/年视图：紧凑月历
+       ================================================== */
+    .compact-months { display:flex; gap:12px; flex:1; flex-wrap:nowrap; }
+    .compact-months .month-block { flex:1; min-width:0; }
+    .compact-months .month-title { font-size:10px; color:var(--text-dim); margin-bottom:3px; text-align:center; }
+    .compact-months .month-grid { gap:2px; }
+    .compact-months .month-grid .cal-cell { aspect-ratio:1; min-height:12px; border-radius:2px; }
+    /* 年视图：6个月一行 */
+    .compact-months.year-view { flex-wrap:wrap; }
+    .compact-months.year-view .month-block { flex:0 0 calc(100% / 6); }
+    .compact-months.year-view .month-grid .cal-cell { min-height:8px; border-radius:1px; }
   </style>
 </head>
 <body>
@@ -263,25 +267,21 @@
     async function loadAttendance() {
       const range = getDateRange(currentPeriod, currentDate);
       document.getElementById('navLabel').textContent = getPeriodLabel(currentPeriod, currentDate);
-
       const engineerId = document.getElementById('filterEngineer').value;
-
       try {
         const params = new URLSearchParams({ date_from: range.from, date_to: range.to });
         if (engineerId) params.set('engineer_id', engineerId);
-
         const res = await fetch(`/api/leader/attendance?${params.toString()}`);
         const json = await res.json();
         if (!json.success) throw new Error(json.message);
         attendanceData = json.data;
-
         renderGrid(attendanceData);
       } catch (err) {
         document.getElementById('gridWrap').innerHTML = `<div class="empty-state">加载失败：${err.message}</div>`;
       }
     }
 
-    // ====== 渲染逻辑 ======
+    // ====== 渲染 ======
 
     function renderGrid(data) {
       const { engineers, dates, attendance } = data;
@@ -289,153 +289,131 @@
         document.getElementById('gridWrap').innerHTML = '<div class="empty-state">暂无数据</div>';
         return;
       }
-
       const container = document.getElementById('gridWrap');
-      let html = '<div class="eng-row weekday-row"><div class="weekday-label"></div>';
+
+      // 清除溢出，让月/季/年自动填满
+      container.style.overflow = '';
 
       if (currentPeriod === 'week') {
-        // 周视图：7天柱状图
-        html += '<div class="week-container">';
-        dates.forEach((d, idx) => {
-          html += `<div class="weekday-cell" style="flex:1;min-width:16px;max-width:40px">${WEEKDAYS_CN[idx]}</div>`;
+        renderWeek(container, engineers, dates, attendance);
+      } else if (currentPeriod === 'month') {
+        renderMonth(container, engineers, dates, attendance);
+      } else {
+        renderCompact(container, engineers, dates, attendance);
+      }
+    }
+
+    // ---- 周（柱状图） ----
+    function renderWeek(container, engineers, dates, attendance) {
+      let html = `<div class="eng-row"><div class="eng-label"></div><div class="week-header">`;
+      dates.forEach(d => {
+        const day = new Date(d);
+        html += `<div class="dow-label">${WEEKDAYS_CN[day.getDay() === 0 ? 6 : day.getDay() - 1]}</div>`;
+      });
+      html += '</div></div>';
+
+      engineers.forEach(e => {
+        const engAtt = attendance[e.id] || {};
+        html += `<div class="eng-row"><div class="eng-label">
+          <span class="abbr">${e.abbr}</span><span class="name">${e.name}</span>
+        </div><div class="week-bars">`;
+        dates.forEach(d => {
+          const cell = engAtt[d] || { color: 'unknown', report_id: null };
+          const isWork = cell.color === 'onsite';
+          const barH = isWork ? 52 : 10;
+          html += `<div class="bar-cell">
+            <div class="bar-fill ${cell.color}" style="height:${barH}px" data-tip="${d}"
+              ${cell.report_id ? `onclick="window.open('/admin/report-edit.html?id=${cell.report_id}','_blank')"` : ''}></div>
+          </div>`;
         });
         html += '</div></div>';
+      });
+      container.innerHTML = html;
+    }
 
-        engineers.forEach(e => {
-          const engAtt = attendance[e.id] || {};
-          const maxReport = Math.max(1, ...dates.map(d => (engAtt[d] && engAtt[d].has_report) ? 1 : 0));
+    // ---- 月（日历网格） ----
+    function renderMonth(container, engineers, dates, attendance) {
+      const firstDate = new Date(dates[0]);
+      const year = firstDate.getFullYear();
+      const month = firstDate.getMonth();
+      let startDow = new Date(year, month, 1).getDay();
+      startDow = startDow === 0 ? 6 : startDow - 1;
+      const totalDays = new Date(year, month + 1, 0).getDate();
 
-          html += `<div class="eng-row"><div class="eng-label">
-            <span class="abbr">${e.abbr}</span><span class="name">${e.name}</span>
-          </div><div class="week-container">`;
-
-          dates.forEach(d => {
-            const cell = engAtt[d] || { color: 'unknown', report_id: null };
-            const isWork = cell.color === 'onsite';
-            const barH = isWork ? 32 : 12;
-            html += `<div class="week-bar-cell">
-              <div class="bar-fill ${cell.color}" style="height:${barH}px" data-tip="${d}"
-                ${cell.report_id ? `onclick="window.open('/admin/report-edit.html?id=${cell.report_id}','_blank')"` : ''}></div>
-            </div>`;
-          });
-
-          html += '</div></div>';
-        });
-
-      } else if (currentPeriod === 'month') {
-        // 月视图：日历点阵
-        // 计算每周分组
-        const firstDate = new Date(dates[0]);
-        const year = firstDate.getFullYear();
-        const month = firstDate.getMonth();
-        const firstDayOfMonth = new Date(year, month, 1);
-        const lastDayOfMonth = new Date(year, month + 1, 0);
-        // 当月第一天是星期几（0=日, 1=月, ...）
-        let startDow = firstDayOfMonth.getDay();
-        // 转为周一=0
-        startDow = startDow === 0 ? 6 : startDow - 1;
-
-        const totalDays = lastDayOfMonth.getDate();
-        const weeks = [];
-        let week = [];
-        // 月首空白
-        for (let i = 0; i < startDow; i++) week.push(null);
-        for (let day = 1; day <= totalDays; day++) {
-          const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-          week.push(dateStr);
-          if (week.length === 7) {
-            weeks.push(week);
-            week = [];
-          }
-        }
-        if (week.length > 0) {
-          // 月末空白补齐
-          while (week.length < 7) week.push(null);
-          weeks.push(week);
-        }
-
-        html += '</div>';
-
-        engineers.forEach(e => {
-          const engAtt = attendance[e.id] || {};
-          html += `<div class="eng-row"><div class="eng-label">
-            <span class="abbr">${e.abbr}</span><span class="name">${e.name}</span>
-          </div><div class="month-container">`;
-
-          weeks.forEach(week => {
-            html += '<div class="week-group">';
-            week.forEach(dateStr => {
-              if (dateStr) {
-                const cell = engAtt[dateStr] || { color: 'unknown', report_id: null };
-                html += `<div class="cal-cell ${cell.color}" data-tip="${dateStr}"
-                  ${cell.report_id ? `onclick="window.open('/admin/report-edit.html?id=${cell.report_id}','_blank')"` : ''}></div>`;
-              } else {
-                html += '<div class="cal-cell empty"></div>';
-              }
-            });
-            html += '</div>';
-          });
-
-          html += '</div></div>';
-        });
-
-      } else {
-        // 关闭初始 weekday-row
-        html += '</div>';
-        // 季度/年视图：紧凑日历
-        const isYear = currentPeriod === 'year';
-        const cellClass = isYear ? 'year' : 'quarter';
-
-        // 按月份分组日期
-        const monthMap = {};
-        dates.forEach(d => {
-          const m = d.slice(0, 7); // YYYY-MM
-          if (!monthMap[m]) monthMap[m] = [];
-          monthMap[m].push(d);
-        });
-
-        const monthKeys = Object.keys(monthMap);
-
-        engineers.forEach(e => {
-          const engAtt = attendance[e.id] || {};
-          html += `<div class="eng-row"><div class="eng-label">
-            <span class="abbr">${e.abbr}</span><span class="name">${e.name}</span>
-          </div><div class="compact-wrap">`;
-
-          monthKeys.forEach(mKey => {
-            const monthDates = monthMap[mKey];
-            const [y, m] = mKey.split('-').map(Number);
-            const firstDay = new Date(y, m - 1, 1);
-            let startDow = firstDay.getDay();
-            startDow = startDow === 0 ? 6 : startDow - 1;
-
-            // 计算该月天数
-            const lastDay = new Date(y, m, 0).getDate();
-            const cells = [];
-            for (let i = 0; i < startDow; i++) cells.push(null);
-            for (let day = 1; day <= lastDay; day++) {
-              cells.push(`${mKey}-${String(day).padStart(2, '0')}`);
-            }
-            // 补齐到7的倍数以形成完整网格
-            while (cells.length % 7 !== 0) cells.push(null);
-
-            html += `<div class="month-block"><div class="month-title">${m}月</div><div class="month-grid ${cellClass}" style="grid-template-columns:repeat(7,1fr)">`;
-            cells.forEach(dateStr => {
-              if (dateStr) {
-                const cell = engAtt[dateStr] || { color: 'unknown', report_id: null };
-                html += `<div class="cal-cell ${cell.color}" data-tip="${dateStr}"
-                  ${cell.report_id ? `onclick="window.open('/admin/report-edit.html?id=${cell.report_id}','_blank')"` : ''}></div>`;
-              } else {
-                html += '<div class="cal-cell empty"></div>';
-              }
-            });
-            html += '</div></div>';
-          });
-
-          html += '</div></div>';
-        });
+      // 构建网格数据
+      const cells = [];
+      for (let i = 0; i < startDow; i++) cells.push(null);
+      for (let day = 1; day <= totalDays; day++) {
+        cells.push(`${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
       }
 
+      let html = '';
+      engineers.forEach(e => {
+        const engAtt = attendance[e.id] || {};
+        html += `<div class="eng-row"><div class="eng-label">
+          <span class="abbr">${e.abbr}</span><span class="name">${e.name}</span>
+        </div><div class="month-grid">`;
+        cells.forEach(dateStr => {
+          if (dateStr) {
+            const cell = engAtt[dateStr] || { color: 'unknown', report_id: null };
+            html += `<div class="cal-cell ${cell.color}" data-tip="${dateStr}"
+              ${cell.report_id ? `onclick="window.open('/admin/report-edit.html?id=${cell.report_id}','_blank')"` : ''}></div>`;
+          } else {
+            html += '<div class="cal-cell empty"></div>';
+          }
+        });
+        html += '</div></div>';
+      });
+      container.innerHTML = html;
+    }
+
+    // ---- 季度/年（紧凑月历） ----
+    function renderCompact(container, engineers, dates, attendance) {
+      const isYear = currentPeriod === 'year';
+
+      // 按月份分组
+      const monthMap = {};
+      dates.forEach(d => {
+        const m = d.slice(0, 7);
+        if (!monthMap[m]) monthMap[m] = [];
+        monthMap[m].push(d);
+      });
+      const monthKeys = Object.keys(monthMap);
+
+      let html = '';
+      engineers.forEach(e => {
+        const engAtt = attendance[e.id] || {};
+        html += `<div class="eng-row"><div class="eng-label">
+          <span class="abbr">${e.abbr}</span><span class="name">${e.name}</span>
+        </div><div class="compact-months ${isYear ? 'year-view' : ''}">`;
+
+        monthKeys.forEach(mKey => {
+          const [y, m] = mKey.split('-').map(Number);
+          let startDow = new Date(y, m - 1, 1).getDay();
+          startDow = startDow === 0 ? 6 : startDow - 1;
+          const lastDay = new Date(y, m, 0).getDate();
+
+          const cells = [];
+          for (let i = 0; i < startDow; i++) cells.push(null);
+          for (let day = 1; day <= lastDay; day++) {
+            cells.push(`${mKey}-${String(day).padStart(2, '0')}`);
+          }
+
+          html += `<div class="month-block"><div class="month-title">${m}月</div><div class="month-grid">`;
+          cells.forEach(dateStr => {
+            if (dateStr) {
+              const cell = engAtt[dateStr] || { color: 'unknown', report_id: null };
+              html += `<div class="cal-cell ${cell.color}" data-tip="${dateStr}"
+                ${cell.report_id ? `onclick="window.open('/admin/report-edit.html?id=${cell.report_id}','_blank')"` : ''}></div>`;
+            } else {
+              html += '<div class="cal-cell empty"></div>';
+            }
+          });
+          html += '</div></div>';
+        });
+
+        html += '</div></div>';
+      });
       container.innerHTML = html;
     }
 
@@ -457,7 +435,6 @@
     document.getElementById('filterEngineer').addEventListener('change', loadAttendance);
 
     document.addEventListener('DOMContentLoaded', () => {
-      // 覆写 leader 导航高亮
       const currentPage = window.location.pathname.replace('/leader/', '').split('?')[0] || 'index.html';
       document.querySelectorAll('.nav-item').forEach(item => {
         const href = item.getAttribute('href');
