@@ -148,45 +148,25 @@ router.get('/attendance', auth(), async (req, res, next) => {
         const engPlans = plansByEng[e.id] || {};
         const plan = engPlans[dateStr];
         const report = engReports[dateStr];
-        // 次日日报（用于判定绿色）
-        const nextDate = new Date(theDate);
-        nextDate.setDate(nextDate.getDate() + 1);
-        const nextDateStr = nextDate.toISOString().split('T')[0];
-        const nextDayReport = engReports[nextDateStr];
 
         let color = 'unknown';
-        let tooltip = `${dateStr}\n${e.name}`;
+        let tooltip = dateStr;
 
-        if (plan) {
-          if (plan.destination === 'other') {
-            color = 'other'; // 🟨
-            tooltip += `\n请假/其他`;
-          } else if (plan.destination === 'back_to_office') {
-            color = 'office'; // 🟦
-            tooltip += `\n回公司`;
-          } else if (plan.destination === 'existing_project' || plan.destination === 'new_project') {
-            if (nextDayReport) {
-              color = 'onsite'; // 🟩
-              tooltip += `\n在外实施：${plan.project_name || '新项目'}`;
-            } else {
-              color = 'office'; // 🟦 计划去项目但无次日日报
-              tooltip += `\n计划去项目但无日报`;
-            }
-          }
-        } else if (report) {
-          // 有日报但无计划 → 蓝色（视作办公）
-          color = 'office';
-          tooltip += `\n有日报记录`;
-        } else if (isWeekend) {
-          color = 'weekend'; // ⬜
-          tooltip += `\n周末`;
-        } else {
-          color = 'unknown'; // ▪️
-          tooltip += `\n无记录`;
+        // 请假/其他
+        if (plan && plan.destination === 'other') {
+          color = 'other';
         }
-
-        if (report) {
-          tooltip += `\n进度：${report.progress}%`;
+        // 出勤：有日报 或 有工作计划（去现场/回公司/新项目）
+        else if (report || (plan && ['existing_project', 'new_project', 'back_to_office'].includes(plan.destination))) {
+          color = 'onsite';
+        }
+        // 周末无记录
+        else if (isWeekend) {
+          color = 'weekend';
+        }
+        // 无记录
+        else {
+          color = 'unknown';
         }
 
         attendance[e.id][dateStr] = {
