@@ -11,7 +11,12 @@
       "Bash(node -c src/server.js)",
       "Bash(node -c src/routes/auth.js)",
       "Bash(node -c src/middleware/authMiddleware.js)",
-      "Bash(npm start *)"
+      "Bash(npm start *)",
+      "PowerShell(Get-Process -Name mysqld -ErrorAction SilentlyContinue)",
+      "Bash(cd \"c:\\\\Users\\\\2914\\\\Desktop\" && ls 王涛*.xlsx)",
+      "Read(//c/Users/2914/Desktop/**)",
+      "Bash(python3 -c \"import openpyxl; print\\('ok'\\)\")",
+      "Bash(python -c \"import openpyxl; print\\('ok'\\)\")"
     ]
   }
 }

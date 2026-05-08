@@ -305,12 +305,30 @@ function renderProjectList(projects) {
   newBtn.onclick = openDrawer;
   container.appendChild(newBtn);
 
-  // 构建所有卡片
-  projects.forEach(p => {
+  // 构建所有卡片（默认只展示前5个，多余的折叠）
+  projects.forEach((p, i) => {
     const card = buildProjectCard(p);
+    if (i >= 5) {
+      card.classList.add('project-card-folded');
+      card.classList.add('hidden');
+    }
     container.appendChild(card);
   });
 
+  // 更新展开全部按钮状态
+  updateExpandAllBtn();
+}
+
+function updateExpandAllBtn() {
+  const btn = document.getElementById('expandAllBtn');
+  const folded = document.querySelectorAll('.project-card-folded');
+  if (folded.length === 0) {
+    btn.style.display = 'none';
+    return;
+  }
+  btn.style.display = '';
+  const allVisible = Array.from(folded).every(c => !c.classList.contains('hidden'));
+  btn.textContent = allVisible ? '收起部分 ▴' : '展开全部 ▾';
 }
 
 function buildProjectCard(p) {
@@ -821,21 +839,17 @@ function selectDestination(el) {
   }
 }
 
-// ====== Page 2: 展开全部 ======
+// ====== Page 2: 展开全部（显示被折叠的更多项目） ======
 
 document.getElementById('expandAllBtn').onclick = function() {
-  const details = document.querySelectorAll('.project-detail');
-  const btns = document.querySelectorAll('.expand-btn');
-  if (details.length === 0) return;
-  const allOpen = Array.from(details).every(d => d.classList.contains('open'));
-  details.forEach(d => {
-    if (allOpen) d.classList.remove('open');
-    else d.classList.add('open');
+  const folded = document.querySelectorAll('.project-card-folded');
+  if (folded.length === 0) return;
+  const allVisible = Array.from(folded).every(c => !c.classList.contains('hidden'));
+  folded.forEach(c => {
+    if (allVisible) c.classList.add('hidden');
+    else c.classList.remove('hidden');
   });
-  btns.forEach(btn => {
-    btn.textContent = allOpen ? '▶' : '▼';
-  });
-  this.textContent = allOpen ? '展开全部 ▾' : '收起全部 ▴';
+  this.textContent = allVisible ? '展开全部 ▾' : '收起部分 ▴';
 };
 
 // ====== Page 3: 项目信息编辑展开 ======
