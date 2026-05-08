@@ -1,10 +1,101 @@
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcrypt');
 const pool = require('../database');
 const auth = require('../middleware/authMiddleware');
 
+// ====== 鉴权辅助：允许普通 session 或 viewer session ======
+function viewerOrUser(req, res, next) {
+  if (req.session?.viewer?.authed) return next();
+  if (req.session?.user) return next();
+  return res.status(401).json({ success: false, message: '未登录' });
+}
+
+// ==================== Viewer 认证 ====================
+
+// viewer 登录
+router.post('/login', async (req, res, next) => {
+  try {
+    const { password } = req.body;
+    if (!password) {
+      return res.json({ success: false, message: '请输入密码' });
+    }
+
+    const [rows] = await pool.query(
+      'SELECT id, password_hash FROM accounts WHERE role = ? LIMIT 1',
+      ['viewer']
+    );
+
+    if (rows.length === 0) {
+      return res.json({ success: false, message: '查看者账户未配置' });
+    }
+
+    const valid = await bcrypt.compare(password, rows[0].password_hash);
+    if (!valid) {
+      return res.json({ success: false, message: '密码错误' });
+    }
+
+    req.session.viewer = { authed: true, account_id: rows[0].id };
+    res.json({ success: true, data: { message: '登录成功' } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// viewer 退出
+router.post('/logout', (req, res) => {
+  req.session.viewer = null;
+  res.json({ success: true });
+});
+
+// viewer 状态检查
+router.get('/me', (req, res) => {
+  if (req.session?.viewer?.authed) {
+    return res.json({ success: true, data: { role: 'viewer' } });
+  }
+  if (req.session?.user) {
+    return res.json({ success: true, data: { role: req.session.user.role } });
+  }
+  res.status(401).json({ success: false, message: '未登录' });
+});
+
+// 修改 viewer 密码
+router.put('/password', async (req, res, next) => {
+  try {
+    if (!req.session?.viewer?.authed && !req.session?.user) {
+      return res.status(401).json({ success: false, message: '未登录' });
+    }
+
+    const { old_password, new_password } = req.body;
+    if (!old_password || !new_password) {
+      return res.json({ success: false, message: '请填写旧密码和新密码' });
+    }
+
+    const [rows] = await pool.query(
+      'SELECT id, password_hash FROM accounts WHERE role = ? LIMIT 1',
+      ['viewer']
+    );
+
+    if (rows.length === 0) {
+      return res.json({ success: false, message: '查看者账户未配置' });
+    }
+
+    const valid = await bcrypt.compare(old_password, rows[0].password_hash);
+    if (!valid) {
+      return res.json({ success: false, message: '旧密码错误' });
+    }
+
+    const hash = await bcrypt.hash(new_password, 10);
+    await pool.query('UPDATE accounts SET password_hash = ? WHERE id = ?', [hash, rows[0].id]);
+
+    res.json({ success: true, data: { message: '密码已修改' } });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ==================== 今日汇报总览 ====================
-router.get('/today', auth(), async (req, res, next) => {
+router.get('/today', viewerOrUser, async (req, res, next) => {
   try {
     const today = new Date().toISOString().split('T')[0];
 
@@ -72,7 +163,7 @@ router.get('/today', auth(), async (req, res, next) => {
 });
 
 // ==================== 出勤格子数据 ====================
-router.get('/attendance', auth(), async (req, res, next) => {
+router.get('/attendance', viewerOrUser, async (req, res, next) => {
   try {
     const { engineer_id, date_from, date_to } = req.query;
 
@@ -193,7 +284,7 @@ router.get('/attendance', auth(), async (req, res, next) => {
 });
 
 // ==================== 工时趋势 ====================
-router.get('/hours/trend', auth(), async (req, res, next) => {
+router.get('/hours/trend', viewerOrUser, async (req, res, next) => {
   try {
     const { period, date } = req.query;
     const refDate = date || new Date().toISOString().split('T')[0];

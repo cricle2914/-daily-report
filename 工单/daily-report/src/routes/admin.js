@@ -4,6 +4,21 @@ const bcrypt = require('bcrypt');
 const pool = require('../database');
 const auth = require('../middleware/authMiddleware');
 
+// ====== 权限辅助函数：获取当前用户可查看的工程师ID列表 ======
+async function getAuthorizedEngineerIds(user) {
+  if (user.role === 'admin') return null; // null = 不过滤
+  if (user.role === 'engineer' && user.engineer_id) {
+    const [perms] = await pool.query(
+      'SELECT target_engineer_id FROM view_permissions WHERE viewer_account_id = ?',
+      [user.id]
+    );
+    const ids = perms.map(p => p.target_engineer_id);
+    ids.push(user.engineer_id); // 自己永远可见
+    return ids;
+  }
+  return null;
+}
+
 // ==================== 仪表盘 ====================
 router.get('/dashboard', auth(), async (req, res, next) => {
   try {
@@ -89,15 +104,25 @@ router.get('/dashboard', auth(), async (req, res, next) => {
 router.get('/engineers', auth(), async (req, res, next) => {
   try {
     const { status } = req.query;
+    const allowedIds = await getAuthorizedEngineerIds(req.session.user);
     let sql = `SELECT e.*, COUNT(ep.id) AS project_count
                FROM engineers e
                LEFT JOIN engineer_projects ep ON e.id = ep.engineer_id`;
     const params = [];
+    const conditions = [];
+
+    if (allowedIds !== null) {
+      conditions.push(`e.id IN (${allowedIds.map(() => '?').join(',')})`);
+      params.push(...allowedIds);
+    }
     if (status && status !== 'all') {
-      sql += ` WHERE e.status = ?`;
+      conditions.push('e.status = ?');
       params.push(status);
     }
-    sql += ` GROUP BY e.id ORDER BY e.created_at DESC`;
+    if (conditions.length > 0) {
+      sql += ' WHERE ' + conditions.join(' AND ');
+    }
+    sql += ' GROUP BY e.id ORDER BY e.created_at DESC';
     const [rows] = await pool.query(sql, params);
     res.json({ success: true, data: rows });
   } catch (err) {
@@ -220,6 +245,7 @@ router.delete('/engineers/:id', auth(), async (req, res, next) => {
 router.get('/projects', auth(), async (req, res, next) => {
   try {
     const { keyword, order_no, engineer } = req.query;
+    const allowedIds = await getAuthorizedEngineerIds(req.session.user);
     let sql = `
       SELECT p.*,
              GROUP_CONCAT(DISTINCT CONCAT(e.id, ':', e.name, ':', e.abbr) SEPARATOR ',') AS engineers
@@ -229,6 +255,10 @@ router.get('/projects', auth(), async (req, res, next) => {
     const params = [];
     const conditions = [];
 
+    if (allowedIds !== null) {
+      conditions.push(`ep.engineer_id IN (${allowedIds.map(() => '?').join(',')})`);
+      params.push(...allowedIds);
+    }
     if (keyword) {
       conditions.push('p.name LIKE ?');
       params.push(`%${keyword}%`);
@@ -461,6 +491,7 @@ router.get('/projects/:id/progress-summary', auth(), async (req, res, next) => {
 router.get('/reports', auth(), async (req, res, next) => {
   try {
     const { engineer_id, project_id, date_from, date_to } = req.query;
+    const allowedIds = await getAuthorizedEngineerIds(req.session.user);
     let sql = `
       SELECT dr.*, e.name AS engineer_name, e.abbr AS engineer_abbr, p.name AS project_name
       FROM daily_reports dr
@@ -469,6 +500,10 @@ router.get('/reports', auth(), async (req, res, next) => {
       WHERE 1=1`;
     const params = [];
 
+    if (allowedIds !== null) {
+      sql += ` AND dr.engineer_id IN (${allowedIds.map(() => '?').join(',')})`;
+      params.push(...allowedIds);
+    }
     if (engineer_id) {
       sql += ' AND dr.engineer_id = ?';
       params.push(engineer_id);
@@ -540,13 +575,17 @@ router.put('/reports/:id', auth(), async (req, res, next) => {
   }
 });
 
-// ==================== 账户管理 ====================
+// ==================== 账户管理（仅 admin） ====================
 
-// 账户列表
+// 账户列表（含关联工程师信息）
 router.get('/accounts', auth('admin'), async (req, res, next) => {
   try {
     const [rows] = await pool.query(
-      'SELECT id, username, role, created_at FROM accounts ORDER BY created_at DESC'
+      `SELECT a.id, a.username, a.role, a.engineer_id, a.created_at,
+              e.name AS engineer_name, e.abbr AS engineer_abbr
+       FROM accounts a
+       LEFT JOIN engineers e ON a.engineer_id = e.id
+       ORDER BY a.created_at DESC`
     );
     res.json({ success: true, data: rows });
   } catch (err) {
@@ -554,22 +593,25 @@ router.get('/accounts', auth('admin'), async (req, res, next) => {
   }
 });
 
-// 新建账户
+// 新建账户（支持 engineer 角色关联工程师）
 router.post('/accounts', auth('admin'), async (req, res, next) => {
   try {
-    const { username, password, role } = req.body;
+    const { username, password, role, engineer_id } = req.body;
 
     if (!username || !password || !role) {
       return res.status(400).json({ success: false, message: '用户名、密码、角色不能为空' });
     }
-    if (!['admin', 'leader'].includes(role)) {
+    if (!['admin', 'leader', 'engineer'].includes(role)) {
       return res.status(400).json({ success: false, message: '角色无效' });
+    }
+    if (role === 'engineer' && !engineer_id) {
+      return res.status(400).json({ success: false, message: '员工角色必须关联一个工程师' });
     }
 
     const hash = await bcrypt.hash(password, 10);
     await pool.query(
-      'INSERT INTO accounts (username, password_hash, role) VALUES (?, ?, ?)',
-      [username, hash, role]
+      'INSERT INTO accounts (username, password_hash, role, engineer_id) VALUES (?, ?, ?, ?)',
+      [username, hash, role, role === 'engineer' ? engineer_id : null]
     );
 
     res.json({ success: true, data: { message: '账户已创建' } });
@@ -611,6 +653,58 @@ router.delete('/accounts/:id', auth('admin'), async (req, res, next) => {
 
     await pool.query('DELETE FROM accounts WHERE id = ?', [id]);
     res.json({ success: true, data: { message: '已删除' } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ==================== 权限管理（仅 admin） ====================
+
+// 获取所有权限配置
+router.get('/permissions', auth('admin'), async (req, res, next) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT vp.*, a.username AS viewer_name, e.name AS engineer_name, e.abbr AS engineer_abbr
+       FROM view_permissions vp
+       JOIN accounts a ON vp.viewer_account_id = a.id
+       JOIN engineers e ON vp.target_engineer_id = e.id
+       ORDER BY a.username, e.name`
+    );
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// 添加权限
+router.post('/permissions', auth('admin'), async (req, res, next) => {
+  try {
+    const { viewer_account_id, target_engineer_id } = req.body;
+
+    if (!viewer_account_id || !target_engineer_id) {
+      return res.status(400).json({ success: false, message: '参数不完整' });
+    }
+
+    await pool.query(
+      'INSERT INTO view_permissions (viewer_account_id, target_engineer_id) VALUES (?, ?)',
+      [viewer_account_id, target_engineer_id]
+    );
+
+    res.json({ success: true, data: { message: '权限已添加' } });
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ success: false, message: '该权限已存在' });
+    }
+    next(err);
+  }
+});
+
+// 删除权限
+router.delete('/permissions/:id', auth('admin'), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM view_permissions WHERE id = ?', [id]);
+    res.json({ success: true, data: { message: '权限已删除' } });
   } catch (err) {
     next(err);
   }

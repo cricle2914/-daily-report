@@ -11,15 +11,13 @@
     <div class="sidebar">
       <div class="sidebar-title">日报管理</div>
       <div class="sidebar-nav">
-        <a class="nav-item" href="index.html">📊 仪表盘</a>
         <a class="nav-item" href="engineers.html">👤 员工管理</a>
         <a class="nav-item" href="projects.html">📁 项目管理</a>
         <a class="nav-item" href="reports.html">📋 日报管理</a>
-        <a class="nav-item" href="hours.html">⏱ 工时管理</a>
-        <a class="nav-item" href="accounts.html">🔐 账户管理</a>
+        <a class="nav-item" href="accounts.html">🔐 权限管理</a>
       </div>
       <div style="padding:12px 20px;border-top:1px solid var(--border)">
-        <a class="nav-item" href="/leader/" style="padding:8px 0">📈 领导看板</a>
+        <a class="nav-item" href="javascript:void(0)" onclick="openStatsPanel()" style="padding:8px 0">📈 统计面板</a>
       </div>
     </div>
     <div class="main">
@@ -124,7 +122,7 @@
             <td>${r.progress}%</td>
             <td>${statusBadge(r.status)}</td>
             <td>${formatDateTime(r.submitted_at)}</td>
-            <td>
+            <td class="hide-if-engineer">
               <button class="btn btn-secondary btn-sm" onclick="location.href='report-edit.html?id=${r.id}'">编辑</button>
             </td>
           </tr>

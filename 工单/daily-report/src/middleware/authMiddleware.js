@@ -9,3 +9,14 @@ module.exports = (requiredRole) => (req, res, next) => {
   }
   next();
 };
+
+// 检查 viewer session 中间件
+module.exports.viewerOrUser = (req, res, next) => {
+  if (req.session?.viewer?.authed || req.session?.user) {
+    return next();
+  }
+  if (req.path.startsWith('/api/')) {
+    return res.status(401).json({ success: false, message: '未登录' });
+  }
+  res.redirect('/login');
+};

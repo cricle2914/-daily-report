@@ -78,6 +78,9 @@ html, body {
   background: var(--bg-hover);
 }
 
+/* ====== 只读模式（员工角色） ====== */
+[data-role="engineer"] .hide-if-engineer { display: none !important; }
+
 .nav-item.active {
   color: var(--text-primary);
   background: rgba(255,255,255,0.06);
@@ -189,6 +192,9 @@ td {
 tr:hover td {
   background: var(--bg-hover);
 }
+
+/* ====== 只读模式（员工角色） ====== */
+[data-role="engineer"] .hide-if-engineer { display: none !important; }
 
 /* ====== 按钮 ====== */
 .btn {

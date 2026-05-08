@@ -73,8 +73,8 @@ app.get('/login', (req, res) => {
 const authMiddleware = require('./middleware/authMiddleware');
 app.use('/admin', authMiddleware(), express.static(path.join(__dirname, '../public/admin')));
 
-// 领导侧页面（需验证登录）
-app.use('/leader', authMiddleware(), express.static(path.join(__dirname, '../public/leader')));
+// 领导侧页面（前端 JS 自行处理 viewer 认证）
+app.use('/leader', express.static(path.join(__dirname, '../public/leader')));
 
 // 全局错误处理
 app.use((err, req, res, next) => {

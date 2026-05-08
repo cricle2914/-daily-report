@@ -17,7 +17,14 @@ async function initAdmin() {
   const userEl = document.getElementById('topbarUser');
   if (userEl) userEl.textContent = user.username;
   const roleEl = document.getElementById('topbarRole');
-  if (roleEl) roleEl.textContent = user.role === 'admin' ? '管理员' : '领导';
+  if (roleEl) {
+    const roleMap = { admin: '管理员', leader: '领导', viewer: '查看者', engineer: '员工' };
+    roleEl.textContent = roleMap[user.role] || user.role;
+  }
+
+  // 存储用户角色到 body 供页面使用
+  document.body.dataset.role = user.role;
+  document.body.dataset.engineerId = user.engineer_id || '';
 
   // 高亮当前导航
   const currentPage = window.location.pathname.replace('/admin/', '').split('?')[0] || 'index.html';
@@ -112,6 +119,72 @@ async function api(url, options) {
     throw new Error(data.message || '请求失败');
   }
   return data;
+}
+
+// ====== 统计面板访问（密码弹窗） ======
+function openStatsPanel() {
+  // 检查是否已有 viewer session（直接用 ajax 检测）
+  fetch('/api/leader/me')
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        window.location.href = '/leader/';
+        return;
+      }
+      // 未认证，显示密码弹窗
+      showStatsPasswordModal();
+    })
+    .catch(() => showStatsPasswordModal());
+}
+
+function showStatsPasswordModal() {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay show';
+  overlay.style.display = 'flex';
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:360px">
+      <div class="modal-title">统计面板访问</div>
+      <div class="form-group">
+        <label class="form-label">请输入查看密码</label>
+        <input class="form-input" id="statsPassword" type="password" placeholder="请输入密码"
+          style="width:100%" autofocus>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">取消</button>
+        <button class="btn btn-primary" id="statsLoginBtn" onclick="doStatsLogin()">确认</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', function(e) {
+    if (e.target === this) this.remove();
+  });
+  setTimeout(() => document.getElementById('statsPassword')?.focus(), 100);
+}
+
+async function doStatsLogin() {
+  const password = document.getElementById('statsPassword').value;
+  if (!password) { alert('请输入密码'); return; }
+  const btn = document.getElementById('statsLoginBtn');
+  setLoading(btn, true);
+  try {
+    const res = await fetch('/api/leader/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+    const data = await res.json();
+    if (!data.success) {
+      alert(data.message || '密码错误');
+      setLoading(btn, false);
+      return;
+    }
+    // 清理弹窗
+    document.querySelector('.modal-overlay.show')?.remove();
+    window.location.href = '/leader/';
+  } catch (err) {
+    alert('请求失败');
+    setLoading(btn, false);
+  }
 }
 
 // 页面加载完成后初始化

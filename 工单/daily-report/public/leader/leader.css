@@ -171,3 +171,20 @@ tr:hover td { background: var(--bg-hover); }
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ====== 统计面板登录 ====== */
+.auth-overlay {
+  position:fixed; inset:0; z-index:999;
+  background:var(--bg);
+  display:flex; align-items:center; justify-content:center;
+}
+.auth-box {
+  background:var(--bg-card); border:1px solid var(--border);
+  border-radius:var(--radius); padding:32px; width:320px;
+  text-align:center;
+}
+.auth-box h2 { font-size:18px; margin-bottom:4px; }
+.auth-box p { font-size:13px; color:var(--text-secondary); margin-bottom:20px; }
+.auth-box .form-input { width:100%; margin-bottom:12px; text-align:center; font-size:16px; padding:10px; }
+.auth-box .error { color:var(--danger); font-size:12px; margin-bottom:8px; display:none; }
+.auth-box .btn { width:100%; padding:10px; }

@@ -12,7 +12,7 @@ router.post('/login', async (req, res, next) => {
     }
 
     const [rows] = await pool.query(
-      'SELECT id, username, password_hash, role FROM accounts WHERE username = ?',
+      'SELECT id, username, password_hash, role, engineer_id FROM accounts WHERE username = ?',
       [username]
     );
 
@@ -29,15 +29,21 @@ router.post('/login', async (req, res, next) => {
     req.session.user = {
       id: account.id,
       username: account.username,
-      role: account.role
+      role: account.role,
+      engineer_id: account.engineer_id
     };
+
+    let redirect = '/admin/';
+    if (account.role === 'viewer') {
+      redirect = '/leader/';
+    }
 
     res.json({
       success: true,
       data: {
         username: account.username,
         role: account.role,
-        redirect: '/admin/'
+        redirect
       }
     });
   } catch (err) {

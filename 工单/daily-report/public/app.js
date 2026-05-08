@@ -882,62 +882,64 @@ function enterP3Expand() {
     state.customReportDate = this.value || null;
   });
 
-  state.projects.forEach(p => {
-    const card = document.createElement('div');
-    card.className = 'proj-expand-card';
-    card.innerHTML = `
-      <div class="proj-expand-card-header">${p.name}</div>
-      <div class="proj-expand-card-body">
-        <div class="proj-expand-detail-row">
-          <span class="label">客户</span>
-          <input class="proj-expand-detail-input" value="${String(p.customer || '').replace(/"/g,'&quot;')}" data-field="customer">
-        </div>
-        <div class="proj-expand-detail-row">
-          <span class="label">联系人</span>
-          <input class="proj-expand-detail-input" value="${String(p.contact_name || '').replace(/"/g,'&quot;')}" data-field="contact_name">
-        </div>
-        <div class="proj-expand-detail-row">
-          <span class="label">电话</span>
-          <input class="proj-expand-detail-input" value="${String(p.contact_phone || '').replace(/"/g,'&quot;')}" data-field="contact_phone">
-        </div>
-        <div class="proj-expand-detail-row">
-          <span class="label">版本</span>
-          <input class="proj-expand-detail-input" value="${String(p.product_version || '').replace(/"/g,'&quot;')}" data-field="product_version">
-        </div>
-        <div class="proj-expand-detail-row">
-          <span class="label">地址</span>
-          <input class="proj-expand-detail-input" value="${String(p.install_address || '').replace(/"/g,'&quot;')}" data-field="install_address">
-        </div>
-        <div class="proj-expand-detail-row">
-          <span class="label">厂商</span>
-          <input class="proj-expand-detail-input" value="${String(p.manufacturer || '').replace(/"/g,'&quot;')}" data-field="manufacturer">
-        </div>
-        <div class="proj-expand-detail-row">
-          <span class="label">代理商</span>
-          <input class="proj-expand-detail-input" value="${String(p.agent || '').replace(/"/g,'&quot;')}" data-field="agent">
-        </div>
-        <div class="proj-expand-detail-row">
-          <span class="label">技术负责人</span>
-          <input class="proj-expand-detail-input" value="${String(p.tech_lead || '').replace(/"/g,'&quot;')}" data-field="tech_lead">
-        </div>
-        <div class="proj-expand-detail-row">
-          <span class="label">服务经理</span>
-          <input class="proj-expand-detail-input" value="${String(p.service_manager || '').replace(/"/g,'&quot;')}" data-field="service_manager">
-        </div>
-        <button class="btn btn-primary save-detail-btn" style="margin-top:10px;width:100%">保存修改</button>
-      </div>`;
-    card.querySelector('.save-detail-btn').onclick = async function() {
-      const inputs = card.querySelectorAll('.proj-expand-detail-input');
-      const body = {};
-      inputs.forEach(inp => { body[inp.dataset.field] = inp.value.trim() || null; });
-      const result = await request(`/api/projects/${p.id}`, { method: 'PUT', body });
-      if (result) {
-        showToast('项目信息已更新');
-        if (p) Object.assign(p, body);
-      }
-    };
-    list.appendChild(card);
-  });
+  // 只显示当前选中的项目
+  const p = state.project && state.project.detail ? state.project.detail : state.project;
+  if (!p) return;
+
+  const card = document.createElement('div');
+  card.className = 'proj-expand-card';
+  card.innerHTML = `
+    <div class="proj-expand-card-header">${p.name}</div>
+    <div class="proj-expand-card-body">
+      <div class="proj-expand-detail-row">
+        <span class="label">客户</span>
+        <input class="proj-expand-detail-input" value="${String(p.customer || '').replace(/"/g,'&quot;')}" data-field="customer">
+      </div>
+      <div class="proj-expand-detail-row">
+        <span class="label">联系人</span>
+        <input class="proj-expand-detail-input" value="${String(p.contact_name || '').replace(/"/g,'&quot;')}" data-field="contact_name">
+      </div>
+      <div class="proj-expand-detail-row">
+        <span class="label">电话</span>
+        <input class="proj-expand-detail-input" value="${String(p.contact_phone || '').replace(/"/g,'&quot;')}" data-field="contact_phone">
+      </div>
+      <div class="proj-expand-detail-row">
+        <span class="label">版本</span>
+        <input class="proj-expand-detail-input" value="${String(p.product_version || '').replace(/"/g,'&quot;')}" data-field="product_version">
+      </div>
+      <div class="proj-expand-detail-row">
+        <span class="label">地址</span>
+        <input class="proj-expand-detail-input" value="${String(p.install_address || '').replace(/"/g,'&quot;')}" data-field="install_address">
+      </div>
+      <div class="proj-expand-detail-row">
+        <span class="label">厂商</span>
+        <input class="proj-expand-detail-input" value="${String(p.manufacturer || '').replace(/"/g,'&quot;')}" data-field="manufacturer">
+      </div>
+      <div class="proj-expand-detail-row">
+        <span class="label">代理商</span>
+        <input class="proj-expand-detail-input" value="${String(p.agent || '').replace(/"/g,'&quot;')}" data-field="agent">
+      </div>
+      <div class="proj-expand-detail-row">
+        <span class="label">技术负责人</span>
+        <input class="proj-expand-detail-input" value="${String(p.tech_lead || '').replace(/"/g,'&quot;')}" data-field="tech_lead">
+      </div>
+      <div class="proj-expand-detail-row">
+        <span class="label">服务经理</span>
+        <input class="proj-expand-detail-input" value="${String(p.service_manager || '').replace(/"/g,'&quot;')}" data-field="service_manager">
+      </div>
+      <button class="btn btn-primary save-detail-btn" style="margin-top:10px;width:100%">保存修改</button>
+    </div>`;
+  card.querySelector('.save-detail-btn').onclick = async function() {
+    const inputs = card.querySelectorAll('.proj-expand-detail-input');
+    const body = {};
+    inputs.forEach(inp => { body[inp.dataset.field] = inp.value.trim() || null; });
+    const result = await request(`/api/projects/${p.id}`, { method: 'PUT', body });
+    if (result) {
+      showToast('项目信息已更新');
+      if (p) Object.assign(p, body);
+    }
+  };
+  list.appendChild(card);
 }
 
 function exitP3Expand() {

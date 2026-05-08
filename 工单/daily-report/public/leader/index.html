@@ -14,11 +14,23 @@
   </style>
 </head>
 <body>
-  <div class="layout">
+  <!-- 认证遮罩 -->
+  <div class="auth-overlay" id="authOverlay">
+    <div class="auth-box">
+      <h2>统计面板</h2>
+      <p>请输入查看密码</p>
+      <div class="error" id="authError">密码错误</div>
+      <input class="form-input" id="authPassword" type="password" placeholder="请输入密码"
+        onkeydown="if(event.key==='Enter')doAuth()">
+      <button class="btn btn-primary" id="authBtn" onclick="doAuth()">进入</button>
+    </div>
+  </div>
+
+  <div class="layout" id="mainContent" style="display:none">
     <div class="sidebar">
-      <div class="sidebar-title">领导看板</div>
+      <div class="sidebar-title">统计面板</div>
       <div class="sidebar-nav">
-        <a class="nav-item active" href="index.html">📋 今日汇报</a>
+        <a class="nav-item active" href="index.html">📋 今日概览</a>
         <a class="nav-item" href="attendance.html">📅 出勤格子</a>
         <a class="nav-item" href="stats.html">📊 工时统计</a>
       </div>
@@ -33,7 +45,7 @@
         <button class="topbar-btn" onclick="logout()">退出</button>
       </div>
 
-      <div class="page-title">今日汇报总览</div>
+      <div class="page-title">今日概览</div>
 
       <div class="stats-row" id="statsRow">
         <div class="stat-card">
@@ -67,6 +79,52 @@
   </div>
   <script src="/admin/admin.js"></script>
   <script>
+    // ====== viewer 认证 ======
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/leader/me');
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('authOverlay').style.display = 'none';
+          document.getElementById('mainContent').style.display = '';
+          if (data.data.role) {
+            document.getElementById('topbarRole').textContent = data.data.role === 'viewer' ? '查看者' : '管理员';
+          }
+          loadData();
+          return;
+        }
+      } catch(e) {}
+      document.getElementById('authOverlay').style.display = '';
+      document.getElementById('authPassword').focus();
+    }
+
+    async function doAuth() {
+      const pw = document.getElementById('authPassword').value;
+      if (!pw) return;
+      const btn = document.getElementById('authBtn');
+      btn.textContent = '验证中...';
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/leader/login', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({password: pw})
+        });
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('authOverlay').style.display = 'none';
+          document.getElementById('mainContent').style.display = '';
+          loadData();
+          return;
+        }
+        document.getElementById('authError').style.display = '';
+      } catch(e) {
+        document.getElementById('authError').style.display = '';
+      }
+      btn.textContent = '进入';
+      btn.disabled = false;
+    }
+
     async function loadData() {
       try {
         const data = (await api('/api/leader/today')).data;
@@ -116,7 +174,13 @@
       }
     }
 
-    loadData();
+    // viewer 退出
+    async function logout() {
+      await fetch('/api/leader/logout', { method: 'POST' });
+      window.location.reload();
+    }
+
+    checkAuth();
   </script>
 </body>
 </html>

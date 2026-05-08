@@ -11,15 +11,13 @@
     <div class="sidebar">
       <div class="sidebar-title">日报管理</div>
       <div class="sidebar-nav">
-        <a class="nav-item" href="index.html">📊 仪表盘</a>
         <a class="nav-item" href="engineers.html">👤 员工管理</a>
         <a class="nav-item" href="projects.html">📁 项目管理</a>
         <a class="nav-item" href="reports.html">📋 日报管理</a>
-        <a class="nav-item" href="hours.html">⏱ 工时管理</a>
-        <a class="nav-item" href="accounts.html">🔐 账户管理</a>
+        <a class="nav-item" href="accounts.html">🔐 权限管理</a>
       </div>
       <div style="padding:12px 20px;border-top:1px solid var(--border)">
-        <a class="nav-item" href="/leader/" style="padding:8px 0">📈 领导看板</a>
+        <a class="nav-item" href="javascript:void(0)" onclick="openStatsPanel()" style="padding:8px 0">📈 统计面板</a>
       </div>
     </div>
     <div class="main">
@@ -31,7 +29,7 @@
 
       <div class="action-bar">
         <div class="page-title" style="margin-bottom:0">项目管理</div>
-        <button class="btn btn-primary" onclick="location.href='project-edit.html'">+ 新建项目</button>
+        <button class="btn btn-primary hide-if-engineer" onclick="location.href='project-edit.html'">+ 新建项目</button>
       </div>
 
       <div class="filter-bar">
@@ -97,7 +95,7 @@
             <td>${p.customer}</td>
             <td>${p.order_no || '-'}</td>
             <td><div class="avatar-group">${avatars || '<span style="color:var(--text-dim)">未分配</span>'}</div></td>
-            <td>
+            <td class="hide-if-engineer">
               <div class="btn-group">
                 <button class="btn btn-secondary btn-sm" onclick="location.href='project-edit.html?id=${p.id}'">编辑</button>
               </div>

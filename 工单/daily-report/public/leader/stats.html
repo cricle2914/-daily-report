@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>工时统计 - 领导看板</title>
   <link rel="stylesheet" href="leader.css">
+  <link rel="stylesheet" href="/admin/admin.css">
   <style>
     .period-tabs { display:flex; gap:4px; margin-bottom:16px; }
     .period-tab {
@@ -71,11 +72,23 @@
   </style>
 </head>
 <body>
-  <div class="layout">
+  <!-- 认证遮罩 -->
+  <div class="auth-overlay" id="authOverlay">
+    <div class="auth-box">
+      <h2>统计面板</h2>
+      <p>请输入查看密码</p>
+      <div class="error" id="authError">密码错误</div>
+      <input class="form-input" id="authPassword" type="password" placeholder="请输入密码"
+        onkeydown="if(event.key==='Enter')doAuth()">
+      <button class="btn btn-primary" id="authBtn" onclick="doAuth()">进入</button>
+    </div>
+  </div>
+
+  <div class="layout" id="mainContent" style="display:none">
     <div class="sidebar">
-      <div class="sidebar-title">领导看板</div>
+      <div class="sidebar-title">统计面板</div>
       <div class="sidebar-nav">
-        <a class="nav-item" href="index.html">📋 今日汇报</a>
+        <a class="nav-item" href="index.html">📋 今日概览</a>
         <a class="nav-item" href="attendance.html">📅 出勤格子</a>
         <a class="nav-item active" href="stats.html">📊 工时统计</a>
       </div>
@@ -87,6 +100,7 @@
       <div class="topbar">
         <span class="topbar-user" id="topbarUser"></span>
         <span class="topbar-user" id="topbarRole"></span>
+        <button class="topbar-btn" onclick="showChangePasswordModal()">修改密码</button>
         <button class="topbar-btn" onclick="logout()">退出</button>
       </div>
 
@@ -291,14 +305,120 @@
       return label.slice(5);
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      const currentPage = window.location.pathname.replace('/leader/', '').split('?')[0] || 'index.html';
-      document.querySelectorAll('.nav-item').forEach(item => {
-        const href = item.getAttribute('href');
-        if (href === currentPage) item.classList.add('active');
+    // ====== viewer 认证 ======
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/leader/me');
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('authOverlay').style.display = 'none';
+          document.getElementById('mainContent').style.display = '';
+          if (data.data.role) {
+            document.getElementById('topbarRole').textContent = data.data.role === 'viewer' ? '查看者' : '管理员';
+          }
+          const currentPage = window.location.pathname.replace('/leader/', '').split('?')[0] || 'index.html';
+          document.querySelectorAll('.nav-item').forEach(item => {
+            const href = item.getAttribute('href');
+            if (href === currentPage) item.classList.add('active');
+          });
+          loadData();
+          return;
+        }
+      } catch(e) {}
+      document.getElementById('authOverlay').style.display = '';
+      document.getElementById('authPassword').focus();
+    }
+
+    async function doAuth() {
+      const pw = document.getElementById('authPassword').value;
+      if (!pw) return;
+      const btn = document.getElementById('authBtn');
+      btn.textContent = '验证中...';
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/leader/login', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({password: pw})
+        });
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('authOverlay').style.display = 'none';
+          document.getElementById('mainContent').style.display = '';
+          const currentPage = window.location.pathname.replace('/leader/', '').split('?')[0] || 'index.html';
+          document.querySelectorAll('.nav-item').forEach(item => {
+            const href = item.getAttribute('href');
+            if (href === currentPage) item.classList.add('active');
+          });
+          loadData();
+          return;
+        }
+        document.getElementById('authError').style.display = '';
+      } catch(e) {
+        document.getElementById('authError').style.display = '';
+      }
+      btn.textContent = '进入';
+      btn.disabled = false;
+    }
+
+    // viewer 退出
+    async function logout() {
+      await fetch('/api/leader/logout', { method: 'POST' });
+      window.location.reload();
+    }
+
+    // ====== 修改密码 ======
+    function showChangePasswordModal() {
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay show';
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center';
+      overlay.innerHTML = `
+        <div class="modal" style="max-width:360px">
+          <div class="modal-title">修改查看密码</div>
+          <div class="form-group">
+            <label class="form-label">旧密码</label>
+            <input class="form-input" id="oldPassword" type="password" style="width:100%">
+          </div>
+          <div class="form-group">
+            <label class="form-label">新密码</label>
+            <input class="form-input" id="newPassword" type="password" style="width:100%">
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">取消</button>
+            <button class="btn btn-primary" id="changePwdBtn" onclick="changePassword()">确认修改</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click', function(e) {
+        if (e.target === this) this.remove();
       });
-      loadData();
-    });
+    }
+
+    async function changePassword() {
+      const oldPw = document.getElementById('oldPassword').value;
+      const newPw = document.getElementById('newPassword').value;
+      if (!oldPw || !newPw) { showToast('请填写完整', 'error'); return; }
+      const btn = document.getElementById('changePwdBtn');
+      btn.textContent = '处理中...';
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/leader/password', {
+          method: 'PUT',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ old_password: oldPw, new_password: newPw })
+        });
+        const data = await res.json();
+        if (!data.success) { showToast(data.message, 'error'); btn.textContent = '确认修改'; btn.disabled = false; return; }
+        showToast('密码已修改');
+        document.querySelector('.modal-overlay.show')?.remove();
+      } catch(e) {
+        showToast('请求失败', 'error');
+        btn.textContent = '确认修改';
+        btn.disabled = false;
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', checkAuth);
   </script>
 </body>
 </html>

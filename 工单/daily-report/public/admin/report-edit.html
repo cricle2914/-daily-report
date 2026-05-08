@@ -11,15 +11,13 @@
     <div class="sidebar">
       <div class="sidebar-title">日报管理</div>
       <div class="sidebar-nav">
-        <a class="nav-item" href="index.html">📊 仪表盘</a>
         <a class="nav-item" href="engineers.html">👤 员工管理</a>
         <a class="nav-item" href="projects.html">📁 项目管理</a>
         <a class="nav-item" href="reports.html">📋 日报管理</a>
-        <a class="nav-item" href="hours.html">⏱ 工时管理</a>
-        <a class="nav-item" href="accounts.html">🔐 账户管理</a>
+        <a class="nav-item" href="accounts.html">🔐 权限管理</a>
       </div>
       <div style="padding:12px 20px;border-top:1px solid var(--border)">
-        <a class="nav-item" href="/leader/" style="padding:8px 0">📈 领导看板</a>
+        <a class="nav-item" href="javascript:void(0)" onclick="openStatsPanel()" style="padding:8px 0">📈 统计面板</a>
       </div>
     </div>
     <div class="main">
@@ -94,6 +92,23 @@
   </div>
   <script src="admin.js"></script>
   <script>
+    // 只读模式
+    (function() {
+      if (document.body.dataset.role === 'engineer') {
+        document.addEventListener('DOMContentLoaded', function() {
+          document.querySelectorAll('input, select, textarea').forEach(el => el.disabled = true);
+          const saveBtn = document.querySelector('.btn-primary');
+          if (saveBtn) saveBtn.style.display = 'none';
+          const banner = document.createElement('div');
+          banner.className = 'badge badge-info';
+          banner.style.marginBottom = '12px';
+          banner.textContent = '🔍 只读模式：您只能查看信息';
+          const title = document.querySelector('.page-title');
+          if (title) title.after(banner);
+        });
+      }
+    })();
+
     const reportId = new URLSearchParams(window.location.search).get('id');
     let selectedStatus = '';
 
