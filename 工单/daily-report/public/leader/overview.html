@@ -11,8 +11,8 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
     body { overflow: hidden; }
-    .grid-sq { width:28px; height:28px; border-radius:4px; transition:all .12s; cursor:pointer; flex-shrink:0; }
-    .grid-sq:hover { transform:scale(1.15); opacity:.85; }
+    .sq-36 { width:36px; height:36px; border-radius:4px; transition:all .12s; cursor:pointer; }
+    .sq-36:hover { transform:scale(1.12); opacity:.85; }
     .tooltip-el { position:fixed; pointer-events:none; z-index:9999; padding:5px 10px; border-radius:6px; font-size:12px; background:#1a1a1a; color:#fff; border:1px solid #333; white-space:nowrap; }
     @keyframes fadeIn { from{opacity:0} to{opacity:1} }
     @keyframes slideUp { from{opacity:0;transform:translateY(20px) scale(.96)} to{opacity:1;transform:translateY(0) scale(1)} }
@@ -20,16 +20,13 @@
     .modal-content { animation:slideUp .2s ease-out; }
     .eng-row { transition:background .12s; cursor:pointer; }
     .eng-row:hover { background:rgba(255,255,255,.04); }
-    .legend-sq { width:12px; height:12px; border-radius:3px; display:inline-block; flex-shrink:0; }
-    .date-input-overlay { position:absolute; z-index:10; top:100%; left:0; }
-    /* 简洁滚动条 */
+    .legend-sq { width:10px; height:10px; border-radius:2px; display:inline-block; flex-shrink:0; }
     .list-scroll::-webkit-scrollbar { width:3px; }
     .list-scroll::-webkit-scrollbar-thumb { background:#333; border-radius:2px; }
     .list-scroll::-webkit-scrollbar-track { background:transparent; }
   </style>
 </head>
 <body>
-  <!-- 认证遮罩 -->
   <div class="auth-overlay" id="authOverlay">
     <div class="auth-box">
       <h2>统计面板</h2>
@@ -89,12 +86,10 @@
       const pw = document.getElementById('authPassword').value;
       if (!username || !pw) return;
       const btn = document.getElementById('authBtn');
-      btn.textContent = '验证中...';
-      btn.disabled = true;
+      btn.textContent = '验证中...'; btn.disabled = true;
       try {
         const res = await fetch('/api/leader/login', {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
+          method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({username, password: pw})
         });
         const data = await res.json();
@@ -105,14 +100,11 @@
           return;
         }
         document.getElementById('authError').style.display = '';
-      } catch (e) {
-        document.getElementById('authError').style.display = '';
-      }
-      btn.textContent = '进入';
-      btn.disabled = false;
+      } catch(e) { document.getElementById('authError').style.display = ''; }
+      btn.textContent = '进入'; btn.disabled = false;
     }
     async function logout() {
-      await fetch('/api/leader/logout', { method: 'POST' });
+      await fetch('/api/leader/logout', { method:'POST' });
       window.location.reload();
     }
     document.addEventListener('DOMContentLoaded', checkAuth);
@@ -120,13 +112,10 @@
   <script type="text/babel">
     const { useState, useCallback, useRef, useEffect } = React;
 
-    // ============================================================
-    // 常量
-    // ============================================================
-    const TOMORROW_LABEL = {
-      'in_project':'有项目在外', 'back_to_office':'在公司', 'unavailable':'请假',
+    const TOMORROW = {
+      in_project:'有项目在外', back_to_office:'在公司', unavailable:'请假',
     };
-    const GRID_COLS = 7, SQ = 28, GAP = 6;
+    const SQ = 36, GAP = 6;
 
     const MOCK = [
       { id:1,  name:'王涛',   abbr:'王', project:'清科管理·AnyShare部署', progress:75, submitted:true,  tomorrowStatus:'in_project',     tomorrowTarget:'清科管理·AnyShare部署' },
@@ -151,36 +140,32 @@
       { id:20, name:'韩冰',   abbr:'韩', project:'等保安全审计',          progress:72,  submitted:true,  tomorrowStatus:'back_to_office' },
     ];
 
-    function getTodayStr() {
-      const d = new Date();
-      return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-    }
-    function formatDate(dateStr) {
-      const d = new Date(dateStr+'T00:00:00');
-      const week = ['日','一','二','三','四','五','六'];
-      return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 周${week[d.getDay()]}`;
-    }
-    function progressColor(p) { return p>=100?'#44cc77':p>=60?'#4f8ef7':p>=20?'#ffaa00':'#ff4444'; }
-    function statusColor(s) { return s==='in_project'?'#44cc77':s==='back_to_office'?'#4f8ef7':'#ffaa00'; }
-    function statusBg(s) { return s==='in_project'?'rgba(68,204,119,.15)':s==='back_to_office'?'rgba(79,142,247,.15)':'rgba(255,170,0,.15)'; }
+    function getToday() { const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+    function fmtDate(s) { const d=new Date(s+'T00:00:00'); return d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日'; }
+    function pc(p) { return p>=100?'#44cc77':p>=60?'#4f8ef7':p>=20?'#ffaa00':'#ff4444'; }
+    function sc(s) { return s==='in_project'?'#44cc77':s==='back_to_office'?'#4f8ef7':'#ffaa00'; }
+    function sbg(s) { return s==='in_project'?'rgba(68,204,119,.15)':s==='back_to_office'?'rgba(79,142,247,.15)':'rgba(255,170,0,.15)'; }
 
-    // ============================================================
-    // Modal
-    // ============================================================
+    // 自动计算最优列数
+    function calcCols(total, w) {
+      const itemW = SQ + GAP;
+      const max = Math.max(1, Math.floor((w + GAP) / itemW));
+      for (let c = max; c >= 1; c--) if (total % c === 0) return c;
+      return Math.min(total, max);
+    }
+
+    // ====== Modal ======
     function Modal({ show, onClose, title, children }) {
       if (!show) return null;
       return (
         <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center"
              style={{ background:'rgba(0,0,0,.75)' }} onClick={onClose}>
-          <div className="modal-content rounded-xl border"
-               style={{ background:'#111', borderColor:'#333', minWidth:360, maxWidth:480 }}
-               onClick={e => e.stopPropagation()}>
+          <div className="modal-content rounded-xl border" style={{ background:'#111', borderColor:'#333', minWidth:360, maxWidth:480 }} onClick={e=>e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom:'1px solid #222' }}>
               <span className="text-base font-semibold">{title}</span>
               <button onClick={onClose} className="flex items-center justify-center rounded-md text-sm transition"
-                      style={{ width:28, height:28, color:'#666' }}
-                      onMouseOver={e=>e.currentTarget.style.color='#fff'}
-                      onMouseOut={e=>e.currentTarget.style.color='#666'}>✕</button>
+                      style={{ width:28,height:28,color:'#666' }}
+                      onMouseOver={e=>e.currentTarget.style.color='#fff'} onMouseOut={e=>e.currentTarget.style.color='#666'}>✕</button>
             </div>
             <div className="px-6 py-5">{children}</div>
           </div>
@@ -188,94 +173,77 @@
       );
     }
 
-    // ============================================================
-    // 左侧上部 — 日期 + 统计卡片
-    // ============================================================
-    function StatsCard({ dateStr, total, submitted, notSubmitted, onDateChange, onNotSubmittedClick }) {
-      const [showPicker, setShowPicker] = useState(false);
+    // ====== 左上部 — 日期 + 统计 ======
+    function StatsCard({ dateStr, total, submitted, notSubmitted, onDateChange, onNotSubmitClick }) {
+      const [showPicker,setShowPicker] = useState(false);
       const pickerRef = useRef(null);
-
       useEffect(() => {
-        function handleClick(e) {
-          if (pickerRef.current && !pickerRef.current.contains(e.target)) setShowPicker(false);
-        }
-        if (showPicker) document.addEventListener('mousedown', handleClick);
-        return () => document.removeEventListener('mousedown', handleClick);
-      }, [showPicker]);
+        function h(e) { if(pickerRef.current&&!pickerRef.current.contains(e.target)) setShowPicker(false); }
+        if(showPicker) document.addEventListener('mousedown',h);
+        return ()=>document.removeEventListener('mousedown',h);
+      },[showPicker]);
 
       return (
-        <div className="rounded-xl border h-full flex flex-col justify-center"
-             style={{ background:'var(--bg-card)', borderColor:'var(--border)', padding:'0 24px' }}>
-          {/* 日期行 */}
-          <div className="flex items-center gap-3" style={{ marginBottom:12 }}>
-            <span className="font-bold tracking-tight" style={{ fontSize:20, cursor:'pointer' }}
-                  onClick={() => setShowPicker(true)}>{formatDate(dateStr)}</span>
-            <span style={{ fontSize:11, color:'var(--text-dim)', cursor:'pointer' }}
-                  onClick={() => setShowPicker(true)}>📅</span>
-            {showPicker && (
-              <div ref={pickerRef} style={{ position:'relative' }}>
-                <input type="date" value={dateStr}
-                       onChange={e => { onDateChange(e.target.value); setShowPicker(false); }}
-                       className="form-input" autoFocus
-                       style={{ position:'absolute', top:'-4px', left:0, width:160, fontSize:13, zIndex:20 }} />
-              </div>
-            )}
+        <div className="rounded-xl border h-full flex flex-col" style={{ background:'var(--bg-card)', borderColor:'var(--border)', padding:'18px 24px' }}>
+          {/* 日期 — 缩小 */}
+          <div className="flex items-center gap-2 flex-shrink-0" style={{ fontSize:15, color:'var(--text-secondary)' }}>
+            <span style={{ cursor:'pointer' }} onClick={()=>setShowPicker(true)}>{fmtDate(dateStr)}</span>
+            <span style={{ fontSize:13, cursor:'pointer' }} onClick={()=>setShowPicker(true)}>📅</span>
+            {showPicker && <div ref={pickerRef} style={{ position:'relative' }}>
+              <input type="date" value={dateStr} className="form-input" autoFocus
+                     onChange={e=>{onDateChange(e.target.value);setShowPicker(false)}}
+                     style={{ position:'absolute',top:-2,left:0,width:150,fontSize:12,zIndex:20 }} />
+            </div>}
           </div>
-          {/* 统计行 */}
-          <div className="flex items-center gap-6">
-            <div>
-              <span style={{ fontSize:13, color:'var(--text-secondary)', marginRight:4 }}>在职工程师</span>
-              <span className="font-black" style={{ fontSize:28 }}>{total}</span>
-              <span style={{ fontSize:12, color:'var(--text-dim)' }}>人</span>
+
+          {/* 在职工程师 — hero 数字 */}
+          <div className="flex flex-col items-center justify-center" style={{ flex:1 }}>
+            <span className="font-black tracking-tight" style={{ fontSize:60, lineHeight:1 }}>{total}</span>
+            <span style={{ fontSize:13, color:'var(--text-secondary)', marginTop:2 }}>在职工程师</span>
+          </div>
+
+          {/* 已提交 / 未提交 */}
+          <div className="flex items-center justify-center gap-6 flex-shrink-0" style={{ paddingBottom:2 }}>
+            <div className="text-center">
+              <span className="font-bold" style={{ fontSize:36, lineHeight:1.2, color:'var(--success)' }}>{submitted}</span>
+              <div style={{ fontSize:11, color:'#666' }}>已提交</div>
             </div>
-            <div className="flex gap-3" style={{ marginLeft:'auto' }}>
-              <div className="rounded-lg border text-center" style={{ background:'#0d0d0d', borderColor:'#2a2a2a', padding:'6px 18px' }}>
-                <div className="font-bold" style={{ fontSize:22, color:'var(--success)' }}>{submitted}</div>
-                <div style={{ fontSize:11, color:'#666' }}>已提交</div>
-              </div>
-              <div className="rounded-lg border text-center cursor-pointer transition"
-                   style={{ background:'#0d0d0d', borderColor:'#2a2a2a', padding:'6px 18px' }}
-                   onClick={onNotSubmittedClick}
-                   onMouseOver={e=>{e.currentTarget.style.borderColor='#ff4444';e.currentTarget.style.background='#1a0a0a'}}
-                   onMouseOut={e=>{e.currentTarget.style.borderColor='#2a2a2a';e.currentTarget.style.background='#0d0d0d'}}>
-                <div className="font-bold" style={{ fontSize:22, color:'var(--danger)' }}>{notSubmitted}</div>
-                <div style={{ fontSize:11, color:'var(--danger)' }}>未提交</div>
-              </div>
+            <div className="text-center cursor-pointer transition rounded px-3 py-1"
+                 style={{ margin:'-4px 0' }}
+                 onClick={onNotSubmitClick}
+                 onMouseOver={e=>{e.currentTarget.style.background='rgba(255,68,68,.08)'}}
+                 onMouseOut={e=>{e.currentTarget.style.background='transparent'}}>
+              <span className="font-bold" style={{ fontSize:36, lineHeight:1.2, color:'var(--danger)' }}>{notSubmitted}</span>
+              <div style={{ fontSize:11, color:'var(--danger)' }}>未提交</div>
             </div>
           </div>
         </div>
       );
     }
 
-    // ============================================================
-    // 左侧下部 — 工程师状态列表
-    // ============================================================
-    function EngineerStatusList({ engineers, onRowClick }) {
+    // ====== 左下部 — 工程师状态 ======
+    function EngineerList({ engineers, onRowClick }) {
       return (
-        <div className="rounded-xl border flex flex-col"
-             style={{ background:'var(--bg-card)', borderColor:'var(--border)', height:'100%' }}>
-          <div style={{ fontSize:13, fontWeight:600, color:'#ccc', padding:'14px 18px 10px', borderBottom:'1px solid #222' }}>
-            工程师状态
-          </div>
+        <div className="rounded-xl border flex flex-col" style={{ background:'var(--bg-card)', borderColor:'var(--border)', height:'100%' }}>
+          <div style={{ fontSize:13, fontWeight:600, color:'#ccc', padding:'14px 18px 10px', borderBottom:'1px solid #222' }}>工程师状态</div>
           <div className="list-scroll flex-1" style={{ overflowY:'auto', minHeight:0 }}>
             {engineers.map(e => (
               <div key={e.id} className="eng-row flex items-center gap-2.5 px-4"
                    style={{ padding:'7px 16px', borderBottom:'1px solid rgba(255,255,255,.04)', fontSize:13 }}
-                   onClick={() => onRowClick(e)}>
+                   onClick={()=>onRowClick(e)}>
                 <div className="flex items-center justify-center rounded font-black flex-shrink-0"
-                     style={{ width:24, height:24, background:'#fff', color:'#000', fontSize:10 }}>{e.abbr}</div>
+                     style={{ width:24,height:24,background:'#fff',color:'#000',fontSize:10 }}>{e.abbr}</div>
                 <span className="font-semibold flex-shrink-0" style={{ fontSize:13, minWidth:36 }}>{e.name}</span>
                 <span className="truncate" style={{ fontSize:12, color:'#999', minWidth:0, maxWidth:'30%' }}>{e.project}</span>
-                <span className="font-medium flex-shrink-0" style={{ fontSize:12, color:progressColor(e.progress), minWidth:34 }}>{e.progress}%</span>
+                <span className="font-medium flex-shrink-0" style={{ fontSize:12, color:pc(e.progress), minWidth:34 }}>{e.progress}%</span>
                 <span className="inline-flex items-center gap-1 rounded px-1.5 flex-shrink-0"
-                      style={{ fontSize:11, background: e.submitted ? 'rgba(68,204,119,.12)' : 'rgba(255,68,68,.12)',
-                               color: e.submitted ? '#44cc77' : '#ff4444', lineHeight:'18px' }}>
-                  {e.submitted ? '已提交' : '未提交'}
+                      style={{ fontSize:11, background:e.submitted?'rgba(68,204,119,.12)':'rgba(255,68,68,.12)', color:e.submitted?'#44cc77':'#ff4444', lineHeight:'18px' }}>
+                  {e.submitted?'已提交':'未提交'}
                 </span>
                 <span className="inline-flex items-center gap-1 rounded px-1.5 flex-shrink-0"
-                      style={{ fontSize:11, background:statusBg(e.tomorrowStatus), color:statusColor(e.tomorrowStatus), lineHeight:'18px' }}>
-                  <span style={{ width:5, height:5, borderRadius:'50%', background:statusColor(e.tomorrowStatus), display:'inline-block' }}></span>
-                  {TOMORROW_LABEL[e.tomorrowStatus]}
+                      style={{ fontSize:11, background:sbg(e.tomorrowStatus), color:sc(e.tomorrowStatus), lineHeight:'18px' }}>
+                  <span style={{ width:5,height:5,borderRadius:'50%',background:sc(e.tomorrowStatus),display:'inline-block' }}></span>
+                  {TOMORROW[e.tomorrowStatus]}
                 </span>
               </div>
             ))}
@@ -284,24 +252,27 @@
       );
     }
 
-    // ============================================================
-    // 右侧上部 — 日报提交情况
-    // ============================================================
-    function SubmissionGrid({ engineers, onRedClick, onTooltip, hideTooltip }) {
+    // ====== 右上部 — 日报提交情况 ======
+    function SubmitGrid({ engineers, onRedClick, onTooltip, hideTooltip }) {
+      const ref = useRef(null);
+      const [cols, setCols] = useState(10);
+
+      useEffect(() => {
+        if (ref.current) {
+          const w = ref.current.clientWidth;
+          setCols(calcCols(engineers.length, w));
+        }
+      }, [engineers.length]);
+
       return (
-        <div className="rounded-xl border flex flex-col"
-             style={{ background:'var(--bg-card)', borderColor:'var(--border)', height:'100%', padding:'16px 20px' }}>
-          <div style={{ fontSize:13, fontWeight:600, color:'#ccc', marginBottom:'auto', paddingBottom:8 }}>日报提交情况</div>
-          <div className="flex justify-center items-center" style={{ flex:1 }}>
-            <div className="grid" style={{ gridTemplateColumns:`repeat(${GRID_COLS},${SQ}px)`, gap:GAP }}>
+        <div className="rounded-xl border flex flex-col" style={{ background:'var(--bg-card)', borderColor:'var(--border)', height:'100%', padding:'16px 20px' }}>
+          <div style={{ fontSize:13, fontWeight:600, color:'#ccc', paddingBottom:8, flexShrink:0 }}>日报提交情况</div>
+          <div ref={ref} className="flex-1 flex items-center justify-center" style={{ minHeight:0 }}>
+            <div className="grid" style={{ gridTemplateColumns:`repeat(${cols}, ${SQ}px)`, gap:`${GAP}px` }}>
               {engineers.map(e => (
-                <div key={e.id} className="grid-sq"
-                     style={{ background:e.submitted?'#44cc77':'#ff4444' }}
-                     onClick={() => { if (!e.submitted) onRedClick(e); }}
-                     onMouseEnter={e2 => {
-                       const r = e2.target.getBoundingClientRect();
-                       onTooltip(e.name+(e.submitted?' · 已提交':' · 未提交'), r.right+8, r.top-4);
-                     }}
+                <div key={e.id} className="sq-36" style={{ background:e.submitted?'#44cc77':'#ff4444' }}
+                     onClick={()=>{if(!e.submitted) onRedClick(e);}}
+                     onMouseEnter={e2=>{const r=e2.target.getBoundingClientRect();onTooltip(e.name+(e.submitted?' · 已提交':' · 未提交'),r.right+8,r.top-4)}}
                      onMouseLeave={hideTooltip} />
               ))}
             </div>
@@ -310,43 +281,50 @@
       );
     }
 
-    // ============================================================
-    // 右侧下部 — 明日出勤情况
-    // ============================================================
-    function AttendanceGrid({ engineers, onSquareClick, onTooltip, hideTooltip }) {
-      const inP = engineers.filter(e => e.tomorrowStatus==='in_project').length;
-      const inO = engineers.filter(e => e.tomorrowStatus==='back_to_office').length;
-      const onL = engineers.filter(e => e.tomorrowStatus==='unavailable').length;
+    // ====== 右下部 — 明日出勤情况 ======
+    function AttendGrid({ engineers, onSquareClick, onTooltip, hideTooltip }) {
+      const ref = useRef(null);
+      const [cols, setCols] = useState(10);
+
+      useEffect(() => {
+        if (ref.current) {
+          const w = ref.current.clientWidth;
+          setCols(calcCols(engineers.length, w));
+        }
+      }, [engineers.length]);
+
+      const inP = engineers.filter(e=>e.tomorrowStatus==='in_project').length;
+      const inO = engineers.filter(e=>e.tomorrowStatus==='back_to_office').length;
+      const onL = engineers.filter(e=>e.tomorrowStatus==='unavailable').length;
+
       return (
-        <div className="rounded-xl border flex flex-col"
-             style={{ background:'var(--bg-card)', borderColor:'var(--border)', height:'100%', padding:'16px 20px' }}>
-          <div style={{ fontSize:13, fontWeight:600, color:'#ccc', marginBottom:8 }}>明日出勤情况</div>
-          <div className="flex gap-3 flex-shrink-0" style={{ marginBottom:'auto' }}>
-            {[{c:'#44cc77',l:'有项目在外'},{c:'#4f8ef7',l:'在公司'},{c:'#ffaa00',l:'请假'}].map(item => (
-              <div key={item.c} className="flex items-center gap-1.5">
-                <span className="legend-sq" style={{ background:item.c }}></span>
-                <span style={{ fontSize:11, color:'#888' }}>{item.l}</span>
+        <div className="rounded-xl border flex flex-col" style={{ background:'var(--bg-card)', borderColor:'var(--border)', height:'100%', padding:'16px 20px' }}>
+          <div style={{ fontSize:13, fontWeight:600, color:'#ccc', flexShrink:0 }}>明日出勤情况</div>
+          {/* 图例 */}
+          <div className="flex gap-3 flex-shrink-0" style={{ padding:'6px 0 4px' }}>
+            {[{c:'#44cc77',l:'有项目在外'},{c:'#4f8ef7',l:'在公司'},{c:'#ffaa00',l:'请假'}].map(i=>(
+              <div key={i.c} className="flex items-center gap-1.5">
+                <span className="legend-sq" style={{ background:i.c }}></span>
+                <span style={{ fontSize:11, color:'#888' }}>{i.l}</span>
               </div>
             ))}
           </div>
-          <div className="flex justify-center items-center" style={{ flex:1 }}>
-            <div className="grid" style={{ gridTemplateColumns:`repeat(${GRID_COLS},${SQ}px)`, gap:GAP }}>
+          {/* 格子 */}
+          <div ref={ref} className="flex items-center justify-center" style={{ flex:1, minHeight:0 }}>
+            <div className="grid" style={{ gridTemplateColumns:`repeat(${cols}, ${SQ}px)`, gap:`${GAP}px` }}>
               {engineers.map(e => {
                 const bg = e.tomorrowStatus==='in_project'?'#44cc77':e.tomorrowStatus==='back_to_office'?'#4f8ef7':'#ffaa00';
                 return (
-                  <div key={e.id} className="grid-sq" style={{ background:bg }}
-                       onClick={() => onSquareClick(e)}
-                       onMouseEnter={e2 => {
-                         const r = e2.target.getBoundingClientRect();
-                         const label = `${e.name} · ${TOMORROW_LABEL[e.tomorrowStatus]}`+(e.tomorrowTarget?` · ${e.tomorrowTarget}`:'');
-                         onTooltip(label, r.right+8, r.top-4);
-                       }}
+                  <div key={e.id} className="sq-36" style={{ background:bg }}
+                       onClick={()=>onSquareClick(e)}
+                       onMouseEnter={e2=>{const r=e2.target.getBoundingClientRect();const lb=e.name+' · '+TOMORROW[e.tomorrowStatus]+(e.tomorrowTarget?' · '+e.tomorrowTarget:'');onTooltip(lb,r.right+8,r.top-4)}}
                        onMouseLeave={hideTooltip} />
                 );
               })}
             </div>
           </div>
-          <div className="flex gap-4 justify-center flex-shrink-0" style={{ paddingTop:10 }}>
+          {/* 汇总 */}
+          <div className="flex gap-4 justify-center flex-shrink-0" style={{ paddingTop:8 }}>
             <span style={{ fontSize:12, color:'var(--text-secondary)' }}>有项目在外 <strong style={{ color:'#44cc77' }}>{inP}</strong>人</span>
             <span style={{ fontSize:12, color:'var(--text-secondary)' }}>在公司 <strong style={{ color:'#4f8ef7' }}>{inO}</strong>人</span>
             <span style={{ fontSize:12, color:'var(--text-secondary)' }}>请假 <strong style={{ color:'#ffaa00' }}>{onL}</strong>人</span>
@@ -355,140 +333,99 @@
       );
     }
 
-    // ============================================================
-    // 工程师概览弹窗
-    // ============================================================
-    function EngineerOverview({ engineer, onClose }) {
-      if (!engineer) return null;
+    // ====== 工程师概览弹窗 ======
+    function EngOverview({ engineer, onClose }) {
+      if(!engineer) return null;
       return (
         <Modal show={true} onClose={onClose} title="工程师概览">
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center font-black rounded-lg"
-                   style={{ width:44, height:44, background:'#fff', color:'#000', fontSize:16 }}>{engineer.abbr}</div>
-              <div>
-                <div className="text-lg font-bold">{engineer.name}</div>
-                <div style={{ color:'#888', fontSize:12 }}>ID: {engineer.id}</div>
-              </div>
+              <div className="flex items-center justify-center font-black rounded-lg" style={{ width:44,height:44,background:'#fff',color:'#000',fontSize:16 }}>{engineer.abbr}</div>
+              <div><div className="text-lg font-bold">{engineer.name}</div><div style={{ color:'#888',fontSize:12 }}>ID: {engineer.id}</div></div>
             </div>
-            <div>
-              <div style={{ color:'#888', fontSize:12, marginBottom:4 }}>今日项目</div>
-              <div className="font-medium" style={{ fontSize:14 }}>{engineer.project}</div>
-            </div>
-            <div>
-              <div style={{ color:'#888', fontSize:12, marginBottom:4 }}>
-                进度 <strong style={{ color:'#fff' }}>{engineer.progress}%</strong>
-              </div>
-              <div className="w-full rounded-full" style={{ height:5, background:'#222' }}>
-                <div className="rounded-full" style={{ width:`${Math.max(engineer.progress,4)}%`, height:5, background:progressColor(engineer.progress) }}></div>
-              </div>
+            <div><div style={{ color:'#888',fontSize:12,marginBottom:4 }}>今日项目</div><div className="font-medium" style={{ fontSize:14 }}>{engineer.project}</div></div>
+            <div><div style={{ color:'#888',fontSize:12,marginBottom:4 }}>进度 <strong style={{ color:'#fff' }}>{engineer.progress}%</strong></div>
+              <div className="w-full rounded-full" style={{ height:5,background:'#222' }}><div className="rounded-full" style={{ width:`${Math.max(engineer.progress,4)}%`,height:5,background:pc(engineer.progress) }}></div></div>
             </div>
             <div className="flex gap-4">
-              <div>
-                <div style={{ color:'#888', fontSize:12, marginBottom:2 }}>日报</div>
+              <div><div style={{ color:'#888',fontSize:12,marginBottom:2 }}>日报</div>
                 <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium"
                       style={{ background:engineer.submitted?'rgba(68,204,119,.15)':'rgba(255,68,68,.15)', color:engineer.submitted?'#44cc77':'#ff4444' }}>
-                  <span style={{ width:6, height:6, borderRadius:'50%', background:engineer.submitted?'#44cc77':'#ff4444', display:'inline-block' }}></span>
+                  <span style={{ width:6,height:6,borderRadius:'50%',background:engineer.submitted?'#44cc77':'#ff4444',display:'inline-block' }}></span>
                   {engineer.submitted?'已提交':'未提交'}
                 </span>
               </div>
-              <div>
-                <div style={{ color:'#888', fontSize:12, marginBottom:2 }}>明日去向</div>
+              <div><div style={{ color:'#888',fontSize:12,marginBottom:2 }}>明日去向</div>
                 <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium"
-                      style={{ background:statusBg(engineer.tomorrowStatus), color:statusColor(engineer.tomorrowStatus) }}>
-                  <span style={{ width:6, height:6, borderRadius:'50%', background:statusColor(engineer.tomorrowStatus), display:'inline-block' }}></span>
-                  {TOMORROW_LABEL[engineer.tomorrowStatus]}
+                      style={{ background:sbg(engineer.tomorrowStatus), color:sc(engineer.tomorrowStatus) }}>
+                  <span style={{ width:6,height:6,borderRadius:'50%',background:sc(engineer.tomorrowStatus),display:'inline-block' }}></span>
+                  {TOMORROW[engineer.tomorrowStatus]}
                 </span>
               </div>
             </div>
-            {engineer.tomorrowTarget && (
-              <div>
-                <div style={{ color:'#888', fontSize:12, marginBottom:2 }}>去向详情</div>
-                <div className="font-medium" style={{ fontSize:14 }}>{engineer.tomorrowTarget}</div>
-              </div>
-            )}
+            {engineer.tomorrowTarget && <div><div style={{ color:'#888',fontSize:12,marginBottom:2 }}>去向详情</div><div className="font-medium">{engineer.tomorrowTarget}</div></div>}
           </div>
         </Modal>
       );
     }
 
-    // ============================================================
-    // 未提交名单
-    // ============================================================
-    function NotSubmittedModal({ engineers, show, onClose }) {
-      const names = engineers.filter(e => !e.submitted);
+    // ====== 未提交名单 ======
+    function NotSubModal({ engineers, show, onClose }) {
+      const ns = engineers.filter(e=>!e.submitted);
       return (
-        <Modal show={show} onClose={onClose} title={`未提交日报（${names.length}人）`}>
-          <div className="space-y-2">
-            {names.length===0 ? (
-              <div style={{ color:'#666', fontSize:13, textAlign:'center', padding:'20px 0' }}>全部已提交 ✓</div>
-            ) : names.map(e => (
-              <div key={e.id} className="flex items-center gap-3 rounded-lg px-3 py-2" style={{ background:'#0d0d0d' }}>
-                <div className="flex items-center justify-center rounded font-black flex-shrink-0"
-                     style={{ width:26, height:26, background:'#fff', color:'#000', fontSize:10 }}>{e.abbr}</div>
-                <span className="font-medium" style={{ fontSize:14 }}>{e.name}</span>
-              </div>
-            ))}
-          </div>
+        <Modal show={show} onClose={onClose} title={`未提交日报（${ns.length}人）`}>
+          {ns.length===0 ? <div style={{ color:'#666',fontSize:13,textAlign:'center',padding:'20px 0' }}>全部已提交 ✓</div>
+          : ns.map(e=>(
+            <div key={e.id} className="flex items-center gap-3 rounded-lg px-3 py-2" style={{ background:'#0d0d0d' }}>
+              <div className="flex items-center justify-center rounded font-black flex-shrink-0" style={{ width:26,height:26,background:'#fff',color:'#000',fontSize:10 }}>{e.abbr}</div>
+              <span className="font-medium" style={{ fontSize:14 }}>{e.name}</span>
+            </div>
+          ))}
         </Modal>
       );
     }
 
-    // ============================================================
-    // App
-    // ============================================================
+    // ====== App ======
     function App() {
-      const today = getTodayStr();
+      const today = getToday();
       const [selDate, setSelDate] = useState(today);
       const [engineers, setEngineers] = useState(MOCK);
       const [modal, setModal] = useState(null);
       const [tooltip, setTooltip] = useState(null);
 
-      const showTip = useCallback((t,x,y) => setTooltip({text:t, x, y}), []);
-      const hideTip = useCallback(() => setTooltip(null), []);
+      const showTip = useCallback((t,x,y)=>setTooltip({text:t,x,y}),[]);
+      const hideTip = useCallback(()=>setTooltip(null),[]);
 
       const total = engineers.length;
-      const sub = engineers.filter(e => e.submitted).length;
+      const sub = engineers.filter(e=>e.submitted).length;
       const notSub = total - sub;
 
-      // 日期切换 — 模拟数据联动
-      const handleDateChange = (d) => {
+      const hDate = d => {
         setSelDate(d);
-        if (d !== today) {
-          // 非今天：随机打乱部分状态演示联动
-          const copy = MOCK.map(e => ({...e, submitted: Math.random() > 0.3, progress: Math.min(100, e.progress + Math.round(Math.random()*20-10)) }));
-          setEngineers(copy);
-        } else {
-          setEngineers(MOCK);
-        }
+        setEngineers(d!==today ? MOCK.map(e=>({...e,submitted:Math.random()>0.3,progress:Math.min(100,e.progress+Math.round(Math.random()*20-10))})) : MOCK);
       };
+      const closeModal = ()=>setModal(null);
+      const hRow = e=>setModal({type:'eng',data:e});
+      const hRed = e=>setModal({type:'red',data:e});
+      const hNotSub = ()=>setModal({type:'notSub'});
+      const hAtt = e=>setModal({type:'att',data:e});
 
-      const closeModal = () => setModal(null);
-      const handleRowClick = (e) => setModal({type:'engineerOverview', data:e});
-      const handleRedClick = (e) => setModal({type:'redSquare', data:e});
-      const handleNotSubmittedClick = () => setModal({type:'notSubmitted'});
-      const handleAttClick = (e) => setModal({type:'attendanceDetail', data:e});
-
-      const renderAttDetail = () => {
-        const e = modal?.data;
-        if (!e) return null;
+      const AttDetail = ()=>{
+        const e=modal?.data; if(!e) return null;
         return (
           <Modal show={true} onClose={closeModal} title="明日出勤详情">
             <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center rounded font-black"
-                     style={{ width:36, height:36, background:'#fff', color:'#000', fontSize:14 }}>{e.abbr}</div>
+                <div className="flex items-center justify-center rounded font-black" style={{ width:36,height:36,background:'#fff',color:'#000',fontSize:14 }}>{e.abbr}</div>
                 <span className="text-lg font-bold">{e.name}</span>
               </div>
               <div className="flex items-center gap-2 rounded-lg px-3 py-2.5" style={{ background:'#0d0d0d' }}>
-                <span style={{ width:10, height:10, borderRadius:3, background:statusColor(e.tomorrowStatus), display:'inline-block' }}></span>
-                <span>明日状态：<strong>{TOMORROW_LABEL[e.tomorrowStatus]}</strong></span>
+                <span style={{ width:10,height:10,borderRadius:3,background:sc(e.tomorrowStatus),display:'inline-block' }}></span>
+                <span>明日状态：<strong>{TOMORROW[e.tomorrowStatus]}</strong></span>
               </div>
-              {e.tomorrowTarget && (
-                <div><div style={{ color:'#888', fontSize:12, marginBottom:4 }}>去向详情</div><div className="font-medium">{e.tomorrowTarget}</div></div>
-              )}
-              {!e.tomorrowTarget && e.tomorrowStatus==='back_to_office' && <div style={{ color:'#4f8ef7', fontSize:13 }}>回公司办公</div>}
-              {e.tomorrowStatus==='unavailable' && <div style={{ color:'#ffaa00', fontSize:13 }}>请假</div>}
+              {e.tomorrowTarget && <div><div style={{ color:'#888',fontSize:12,marginBottom:4 }}>去向详情</div><div className="font-medium">{e.tomorrowTarget}</div></div>}
+              {!e.tomorrowTarget && e.tomorrowStatus==='back_to_office' && <div style={{ color:'#4f8ef7',fontSize:13 }}>回公司办公</div>}
+              {e.tomorrowStatus==='unavailable' && <div style={{ color:'#ffaa00',fontSize:13 }}>请假</div>}
             </div>
           </Modal>
         );
@@ -496,50 +433,42 @@
 
       return (
         <div style={{ height:'100%', display:'flex', flexDirection:'column' }}>
-          {/* 两列主布局 */}
           <div className="flex gap-4 flex-1 min-h-0">
-            {/* ===== 左 55% ===== */}
+            {/* 左 55% */}
             <div className="flex flex-col gap-3" style={{ flex:'55', minWidth:0, minHeight:0 }}>
               <div style={{ height:'30%', minHeight:0 }} className="flex-shrink-0">
                 <StatsCard dateStr={selDate} total={total} submitted={sub} notSubmitted={notSub}
-                           onDateChange={handleDateChange} onNotSubmittedClick={handleNotSubmittedClick} />
+                           onDateChange={hDate} onNotSubmitClick={hNotSub} />
               </div>
               <div style={{ flex:1, minHeight:0 }}>
-                <EngineerStatusList engineers={engineers} onRowClick={handleRowClick} />
+                <EngineerList engineers={engineers} onRowClick={hRow} />
               </div>
             </div>
-
-            {/* ===== 右 45% ===== */}
+            {/* 右 45% */}
             <div className="flex flex-col gap-3" style={{ flex:'45', minWidth:0, minHeight:0 }}>
               <div style={{ flex:1, minHeight:0 }}>
-                <SubmissionGrid engineers={engineers} onRedClick={handleRedClick} onTooltip={showTip} hideTooltip={hideTip} />
+                <SubmitGrid engineers={engineers} onRedClick={hRed} onTooltip={showTip} hideTooltip={hideTip} />
               </div>
               <div style={{ flex:1, minHeight:0 }}>
-                <AttendanceGrid engineers={engineers} onSquareClick={handleAttClick} onTooltip={showTip} hideTooltip={hideTip} />
+                <AttendGrid engineers={engineers} onSquareClick={hAtt} onTooltip={showTip} hideTooltip={hideTip} />
               </div>
             </div>
           </div>
 
-          {/* Modals */}
-          <NotSubmittedModal engineers={engineers} show={modal?.type==='notSubmitted'} onClose={closeModal} />
-
-          {modal?.type==='redSquare' && (
+          <NotSubModal engineers={engineers} show={modal?.type==='notSub'} onClose={closeModal} />
+          {modal?.type==='red' && (
             <Modal show={true} onClose={closeModal} title="未提交日报">
               <div className="flex items-center gap-3 mb-3">
-                <div className="flex items-center justify-center rounded font-black"
-                     style={{ width:36, height:36, background:'#fff', color:'#000', fontSize:14 }}>{modal.data.abbr}</div>
+                <div className="flex items-center justify-center rounded font-black" style={{ width:36,height:36,background:'#fff',color:'#000',fontSize:14 }}>{modal.data.abbr}</div>
                 <span className="text-lg font-bold">{modal.data.name}</span>
               </div>
-              <div className="flex items-center gap-2 rounded-lg px-3 py-2.5" style={{ background:'#0d0d0d', color:'#ff4444' }}>
+              <div className="flex items-center gap-2 rounded-lg px-3 py-2.5" style={{ background:'#0d0d0d',color:'#ff4444' }}>
                 <span>⚠</span><span>该工程师今日尚未提交日报</span>
               </div>
             </Modal>
           )}
-
-          {modal?.type==='engineerOverview' && <EngineerOverview engineer={modal.data} onClose={closeModal} />}
-
-          {modal?.type==='attendanceDetail' && renderAttDetail()}
-
+          {modal?.type==='eng' && <EngOverview engineer={modal.data} onClose={closeModal} />}
+          {modal?.type==='att' && <AttDetail />}
           {tooltip && <div className="tooltip-el" style={{ left:tooltip.x, top:tooltip.y }}>{tooltip.text}</div>}
         </div>
       );
