@@ -3,96 +3,99 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>日报概览</title>
+  <title>日报概览 - 统计面板</title>
+  <link rel="stylesheet" href="leader.css">
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    html, body, #root {
-      height: 100%; width: 100%; overflow: hidden;
-      background: #000;
-      color: #fff;
-      font-family: 'SF Pro Display', 'PingFang SC', system-ui, -apple-system, sans-serif;
-    }
-
-    /* 自定义滚动条 */
-    .scrollbar-dark::-webkit-scrollbar { width: 4px; }
-    .scrollbar-dark::-webkit-scrollbar-track { background: transparent; }
-    .scrollbar-dark::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
-
     /* 格子通用 */
     .grid-sq {
-      width: 28px; height: 28px; border-radius: 4px;
-      transition: all .12s; cursor: pointer; flex-shrink: 0;
+      width:28px; height:28px; border-radius:4px;
+      transition:all .12s; cursor:pointer; flex-shrink:0;
     }
-    .grid-sq:hover { transform: scale(1.15); opacity: .85; }
+    .grid-sq:hover { transform:scale(1.15); opacity:.85; }
 
     /* tooltip */
     .tooltip-el {
-      position: fixed; pointer-events: none; z-index: 9999;
-      padding: 5px 10px; border-radius: 6px; font-size: 12px;
-      background: #1a1a1a; color: #fff; border: 1px solid #333;
-      white-space: nowrap;
+      position:fixed; pointer-events:none; z-index:9999;
+      padding:5px 10px; border-radius:6px; font-size:12px;
+      background:#1a1a1a; color:#fff; border:1px solid #333;
+      white-space:nowrap;
     }
 
-    /* 模态遮罩动画 */
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes slideUp { from { opacity: 0; transform: translateY(20px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
-    .modal-overlay { animation: fadeIn .15s ease-out; }
-    .modal-content { animation: slideUp .2s ease-out; }
+    /* 模态动画 */
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+    @keyframes slideUp { from{opacity:0;transform:translateY(20px) scale(.96)} to{opacity:1;transform:translateY(0) scale(1)} }
+    .modal-overlay { animation:fadeIn .15s ease-out; }
+    .modal-content { animation:slideUp .2s ease-out; }
 
     /* 工程师行 hover */
-    .eng-row { transition: background .12s; cursor: pointer; }
-    .eng-row:hover { background: rgba(255,255,255,.04); }
+    .eng-row { transition:background .12s; cursor:pointer; }
+    .eng-row:hover { background:rgba(255,255,255,.04); }
+
+    /* 图例色块 */
+    .legend-sq { width:12px; height:12px; border-radius:3px; display:inline-block; flex-shrink:0; }
   </style>
 </head>
 <body>
-  <div id="root">加载中...</div>
+  <!-- 认证遮罩 -->
+  <div class="auth-overlay" id="authOverlay">
+    <div class="auth-box">
+      <h2>统计面板</h2>
+      <p>请输入账户密码</p>
+      <div class="error" id="authError">用户名或密码错误</div>
+      <input class="form-input" id="authUsername" type="text" placeholder="用户名" autofocus>
+      <input class="form-input" id="authPassword" type="password" placeholder="密码"
+        onkeydown="if(event.key==='Enter')doAuth()">
+      <button class="btn btn-primary" id="authBtn" onclick="doAuth()">进入</button>
+    </div>
+  </div>
+
+  <div class="layout" id="mainContent" style="display:none">
+    <!-- 侧边栏 -->
+    <div class="sidebar">
+      <div class="sidebar-title">统计面板</div>
+      <div class="sidebar-nav">
+        <a class="nav-item" href="index.html">今日概览</a>
+        <a class="nav-item active" href="overview.html">日报概览</a>
+        <a class="nav-item" href="attendance.html">出勤格子</a>
+        <a class="nav-item" href="engineer.html">工程师概况</a>
+        <a class="nav-item" href="stats.html">工时统计</a>
+      </div>
+      <div style="padding:12px 20px;border-top:1px solid var(--border)">
+        <span style="font-size:11px;color:var(--text-dim)">统计面板 v1.0</span>
+      </div>
+    </div>
+
+    <!-- 主内容 -->
+    <div class="main" style="display:flex; flex-direction:column;">
+      <div class="topbar">
+        <span class="topbar-user" id="topbarUser"></span>
+        <span class="topbar-user" id="topbarRole"></span>
+        <button class="topbar-btn" onclick="logout()">退出</button>
+      </div>
+      <div id="root" style="flex:1; display:flex; flex-direction:column; min-height:0;"></div>
+    </div>
+  </div>
+
+  <script src="/admin/admin.js"></script>
   <script type="text/babel">
-    const { useState, useEffect, useCallback, useRef } = React;
+    const { useState, useCallback } = React;
 
     // ============================================================
-    // Mock 数据（20 人）
+    // 常量
     // ============================================================
-    const MOCK_ENGINEERS = [
-      { id:1,  name:'王涛',   abbr:'王', project:'清科管理·AnyShare部署',   progress:75, submitted:true,  tomorrowStatus:'in_project',     tomorrowTarget:'清科管理·AnyShare部署' },
-      { id:2,  name:'张宏洋', abbr:'张', project:'某银行核心系统升级',       progress:100, submitted:true,  tomorrowStatus:'back_to_office' },
-      { id:3,  name:'周继成', abbr:'周', project:'数据中心网络迁移',         progress:45,  submitted:false, tomorrowStatus:'in_project',     tomorrowTarget:'数据中心网络迁移' },
-      { id:4,  name:'张学龙', abbr:'学', project:'医院HIS系统对接',          progress:60,  submitted:true,  tomorrowStatus:'back_to_office' },
-      { id:5,  name:'李明',   abbr:'李', project:'政务云平台部署',           progress:90,  submitted:false, tomorrowStatus:'unavailable' },
-      { id:6,  name:'赵强',   abbr:'赵', project:'ERP系统调试优化',          progress:30,  submitted:true,  tomorrowStatus:'in_project',     tomorrowTarget:'ERP系统调试优化' },
-      { id:7,  name:'刘洋',   abbr:'刘', project:'网络安全加固方案',          progress:80,  submitted:true,  tomorrowStatus:'in_project',     tomorrowTarget:'网络安全加固方案' },
-      { id:8,  name:'陈伟',   abbr:'陈', project:'Oracle数据库迁移',         progress:55,  submitted:true,  tomorrowStatus:'back_to_office' },
-      { id:9,  name:'孙鹏',   abbr:'孙', project:'OA系统上线支持',           progress:70,  submitted:false, tomorrowStatus:'in_project',     tomorrowTarget:'OA系统上线支持' },
-      { id:10, name:'黄磊',   abbr:'黄', project:'Zabbix监控部署',          progress:85,  submitted:true,  tomorrowStatus:'back_to_office' },
-      { id:11, name:'吴鑫',   abbr:'吴', project:'容灾演练方案实施',          progress:40,  submitted:true,  tomorrowStatus:'in_project',     tomorrowTarget:'容灾演练方案实施' },
-      { id:12, name:'郑宇',   abbr:'郑', project:'IDC机房季度巡检',          progress:95,  submitted:true,  tomorrowStatus:'unavailable' },
-      { id:13, name:'林峰',   abbr:'林', project:'K8s集群搭建',              progress:20,  submitted:false, tomorrowStatus:'in_project',     tomorrowTarget:'K8s集群搭建' },
-      { id:14, name:'何杰',   abbr:'何', project:'备份系统数据恢复测试',      progress:50,  submitted:true,  tomorrowStatus:'back_to_office' },
-      { id:15, name:'高阳',   abbr:'高', project:'VMware虚拟化部署',         progress:65,  submitted:true,  tomorrowStatus:'in_project',     tomorrowTarget:'VMware虚拟化部署' },
-      { id:16, name:'马超',   abbr:'马', project:'存储系统扩容',              progress:35,  submitted:false, tomorrowStatus:'back_to_office' },
-      { id:17, name:'梁宇',   abbr:'梁', project:'JumpServer堡垒机安装',     progress:100, submitted:true,  tomorrowStatus:'in_project',     tomorrowTarget:'JumpServer堡垒机安装' },
-      { id:18, name:'宋涛',   abbr:'宋', project:'ELK日志平台搭建',          progress:10,  submitted:false, tomorrowStatus:'unavailable' },
-      { id:19, name:'唐杰',   abbr:'唐', project:'APM全链路监控接入',        progress:88,  submitted:true,  tomorrowStatus:'in_project',     tomorrowTarget:'APM全链路监控接入' },
-      { id:20, name:'韩冰',   abbr:'韩', project:'等保安全审计',              progress:72,  submitted:true,  tomorrowStatus:'back_to_office' },
-    ];
-
     const TOMORROW_LABEL = {
       'in_project':     '有项目在外',
       'back_to_office': '在公司',
       'unavailable':    '请假',
     };
+    const GRID_COLS = 7;
+    const SQ = 28;
+    const GAP = 6;
 
-    const GRID_COLS = 7;   // 每行格子数
-    const SQ = 28;          // 格子 px
-    const GAP = 6;          // 间距 px
-
-    // ============================================================
-    // 工具
-    // ============================================================
     function todayCN() {
       const d = new Date();
       return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
@@ -105,6 +108,17 @@
       return '#ff4444';
     }
 
+    function statusColor(s) {
+      if (s === 'in_project')     return '#44cc77';
+      if (s === 'back_to_office') return '#4f8ef7';
+      return '#ffaa00';
+    }
+    function statusBg(s) {
+      if (s === 'in_project')     return 'rgba(68,204,119,.15)';
+      if (s === 'back_to_office') return 'rgba(79,142,247,.15)';
+      return 'rgba(255,170,0,.15)';
+    }
+
     // ============================================================
     // Modal 组件
     // ============================================================
@@ -112,7 +126,7 @@
       if (!show) return null;
       return (
         <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center"
-             style={{ background: 'rgba(0,0,0,.75)' }}
+             style={{ background:'rgba(0,0,0,.75)' }}
              onClick={onClose}>
           <div className="modal-content rounded-xl border"
                style={{ background:'#111', borderColor:'#333', minWidth:360, maxWidth:480 }}
@@ -128,32 +142,87 @@
                 ✕
               </button>
             </div>
-            <div className="px-6 py-5">
-              {children}
+            <div className="px-6 py-5">{children}</div>
+          </div>
+        </div>
+      );
+    }
+
+    // ============================================================
+    // 顶部左侧 — 在职工程师总数卡片
+    // ============================================================
+    function TotalCard({ count }) {
+      return (
+        <div className="rounded-xl border flex flex-col justify-center items-center h-full"
+             style={{ background:'var(--bg-card)', borderColor:'var(--border)', padding:'24px 16px', minWidth:0 }}>
+          <div style={{ color:'#888', fontSize:13, fontWeight:500, letterSpacing:'.5px' }}>在职工程师</div>
+          <div className="font-black tracking-tight" style={{ fontSize:56, lineHeight:1.1, marginTop:8 }}>
+            {count}
+          </div>
+          <div style={{ color:'#555', fontSize:12, marginTop:6 }}>人</div>
+        </div>
+      );
+    }
+
+    // ============================================================
+    // 顶部中间 — 日期 + 提交统计
+    // ============================================================
+    function DateStatsCard({ submitted, notSubmitted, onNotSubmittedClick }) {
+      return (
+        <div className="rounded-xl border flex flex-col justify-center items-center h-full"
+             style={{ background:'var(--bg-card)', borderColor:'var(--border)', padding:'20px 16px', minWidth:0 }}>
+          <div className="font-bold tracking-tight text-center" style={{ fontSize:22, lineHeight:1.3 }}>
+            {todayCN()}
+          </div>
+          <div className="flex gap-3 w-full mt-4" style={{ maxWidth:220 }}>
+            <div className="flex-1 rounded-lg border text-center py-3"
+                 style={{ background:'#0d0d0d', borderColor:'#2a2a2a' }}>
+              <div className="font-bold" style={{ fontSize:24, color:'#44cc77' }}>{submitted}</div>
+              <div style={{ fontSize:11, color:'#666' }}>已提交</div>
+            </div>
+            <div className="flex-1 rounded-lg border text-center py-3 cursor-pointer transition"
+                 style={{ background:'#0d0d0d', borderColor:'#2a2a2a' }}
+                 onClick={onNotSubmittedClick}
+                 onMouseOver={e => { e.currentTarget.style.borderColor='#ff4444'; e.currentTarget.style.background='#1a0a0a'; }}
+                 onMouseOut={e => { e.currentTarget.style.borderColor='#2a2a2a'; e.currentTarget.style.background='#0d0d0d'; }}>
+              <div className="font-bold" style={{ fontSize:24, color:'#ff4444' }}>{notSubmitted}</div>
+              <div style={{ fontSize:11, color:'#ff4444' }}>未提交</div>
             </div>
           </div>
         </div>
       );
     }
 
-    // 颜色辅助
-    function statusBg(s) {
-      if (s === 'in_project')     return 'rgba(68,204,119,.15)';
-      if (s === 'back_to_office') return 'rgba(79,142,247,.15)';
-      return 'rgba(255,170,0,.15)';
-    }
-    function statusColor(s) {
-      if (s === 'in_project')     return '#44cc77';
-      if (s === 'back_to_office') return '#4f8ef7';
-      return '#ffaa00';
-    }
-    function statusDot(s) {
-      const c = statusColor(s);
-      return <span style={{ width:6, height:6, borderRadius:'50%', background:c, display:'inline-block' }}></span>;
+    // ============================================================
+    // 顶部右侧 — 日报提交情况格子图
+    // ============================================================
+    function SubmissionGrid({ engineers, onRedClick, onTooltip, hideTooltip }) {
+      return (
+        <div className="rounded-xl border flex-1 flex flex-col h-full"
+             style={{ background:'var(--bg-card)', borderColor:'var(--border)', padding:'20px' }}>
+          <div style={{ fontSize:13, fontWeight:600, color:'#ccc', marginBottom:12 }}>日报提交情况</div>
+          <div className="flex justify-center items-center flex-1">
+            <div className="grid" style={{ gridTemplateColumns:`repeat(${GRID_COLS},${SQ}px)`, gap:GAP }}>
+              {engineers.map(e => (
+                <div key={e.id}
+                     className="grid-sq"
+                     style={{ background: e.submitted ? '#44cc77' : '#ff4444' }}
+                     onClick={() => { if (!e.submitted) onRedClick(e); }}
+                     onMouseEnter={e2 => {
+                       const rect = e2.target.getBoundingClientRect();
+                       onTooltip(e.name + (e.submitted ? ' · 已提交' : ' · 未提交'), rect.right + 8, rect.top - 4);
+                     }}
+                     onMouseLeave={hideTooltip}>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
     }
 
     // ============================================================
-    // EngineerOverview 组件（工程师概览弹窗）
+    // 工程师详情弹窗
     // ============================================================
     function EngineerOverview({ engineer, onClose }) {
       if (!engineer) return null;
@@ -197,7 +266,7 @@
                 <div style={{ color:'#888', fontSize:12, marginBottom:2 }}>明日去向</div>
                 <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium"
                       style={{ background: statusBg(engineer.tomorrowStatus), color: statusColor(engineer.tomorrowStatus) }}>
-                  {statusDot(engineer.tomorrowStatus)}
+                  <span style={{ width:6, height:6, borderRadius:'50%', background: statusColor(engineer.tomorrowStatus), display:'inline-block' }}></span>
                   {TOMORROW_LABEL[engineer.tomorrowStatus]}
                 </span>
               </div>
@@ -214,89 +283,16 @@
     }
 
     // ============================================================
-    // 顶部左侧 — 在职工程师总数卡片
-    // ============================================================
-    function TotalCard({ count }) {
-      return (
-        <div className="rounded-xl border flex flex-col justify-center items-center"
-             style={{ background:'#111', borderColor:'#222', padding:'24px 16px', minWidth:0 }}>
-          <div style={{ color:'#888', fontSize:13, fontWeight:500, letterSpacing:'.5px' }}>在职工程师</div>
-          <div className="font-black tracking-tight" style={{ fontSize:56, lineHeight:1.1, marginTop:8 }}>
-            {count}
-          </div>
-          <div style={{ color:'#555', fontSize:12, marginTop:6 }}>人</div>
-        </div>
-      );
-    }
-
-    // ============================================================
-    // 顶部中间 — 日期 + 提交统计
-    // ============================================================
-    function DateStatsCard({ submitted, notSubmitted, onNotSubmittedClick }) {
-      return (
-        <div className="rounded-xl border flex flex-col justify-center items-center"
-             style={{ background:'#111', borderColor:'#222', padding:'20px 16px', minWidth:0 }}>
-          <div className="font-bold tracking-tight text-center" style={{ fontSize:22, lineHeight:1.3 }}>
-            {todayCN()}
-          </div>
-          <div className="flex gap-3 w-full mt-4" style={{ maxWidth:220 }}>
-            <div className="flex-1 rounded-lg border text-center py-3"
-                 style={{ background:'#0d0d0d', borderColor:'#2a2a2a' }}>
-              <div className="font-bold" style={{ fontSize:24, color:'#44cc77' }}>{submitted}</div>
-              <div style={{ fontSize:11, color:'#666' }}>已提交</div>
-            </div>
-            <div className="flex-1 rounded-lg border text-center py-3 cursor-pointer transition"
-                 style={{ background:'#0d0d0d', borderColor:'#2a2a2a' }}
-                 onClick={onNotSubmittedClick}
-                 onMouseOver={e => { e.currentTarget.style.borderColor='#ff4444'; e.currentTarget.style.background='#1a0a0a'; }}
-                 onMouseOut={e => { e.currentTarget.style.borderColor='#2a2a2a'; e.currentTarget.style.background='#0d0d0d'; }}>
-              <div className="font-bold" style={{ fontSize:24, color:'#ff4444' }}>{notSubmitted}</div>
-              <div style={{ fontSize:11, color:'#ff4444' }}>未提交</div>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    // ============================================================
-    // 顶部右侧 — 日报提交情况格子图
-    // ============================================================
-    function SubmissionGrid({ engineers, onRedClick, onTooltip, hideTooltip }) {
-      return (
-        <div className="rounded-xl border flex-1 flex flex-col"
-             style={{ background:'#111', borderColor:'#222', padding:'20px' }}>
-          <div style={{ fontSize:13, fontWeight:600, color:'#ccc', marginBottom:12 }}>日报提交情况</div>
-          <div className="flex justify-center items-center flex-1">
-            <div className="grid" style={{ gridTemplateColumns:`repeat(${GRID_COLS},${SQ}px)`, gap:GAP }}>
-              {engineers.map(e => (
-                <div key={e.id}
-                     className="grid-sq"
-                     style={{ background: e.submitted ? '#44cc77' : '#ff4444' }}
-                     onClick={() => { if (!e.submitted) onRedClick(e); }}
-                     onMouseEnter={e2 => {
-                       const rect = e2.target.getBoundingClientRect();
-                       onTooltip(e.name + (e.submitted ? ' · 已提交' : ' · 未提交'), rect.right + 8, rect.top - 4);
-                     }}
-                     onMouseLeave={hideTooltip}>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    // ============================================================
     // 底部左侧 — 工程师状态列表
     // ============================================================
     function EngineerStatusList({ engineers, onRowClick }) {
       return (
-        <div className="rounded-xl border flex flex-col"
-             style={{ background:'#111', borderColor:'#222', padding:'16px 0' }}>
-          <div style={{ fontSize:13, fontWeight:600, color:'#ccc', padding:'0 16px 12px', borderBottom:'1px solid #222' }}>
+        <div className="rounded-xl border flex flex-col h-full"
+             style={{ background:'var(--bg-card)', borderColor:'var(--border)' }}>
+          <div style={{ fontSize:13, fontWeight:600, color:'#ccc', padding:'16px 16px 12px', borderBottom:'1px solid #222' }}>
             工程师状态
           </div>
-          <div className="flex-1 scrollbar-dark" style={{ overflowY:'auto', minHeight:0 }}>
+          <div className="flex-1" style={{ overflowY:'auto', minHeight:0 }}>
             {engineers.map(e => (
               <div key={e.id} className="eng-row flex items-center px-4 py-2.5"
                    style={{ borderBottom:'1px solid rgba(255,255,255,.04)' }}
@@ -341,19 +337,17 @@
         { color:'#ffaa00', label:'请假' },
       ];
       return (
-        <div className="rounded-xl border flex flex-col"
-             style={{ background:'#111', borderColor:'#222', padding:'20px' }}>
+        <div className="rounded-xl border flex flex-col h-full"
+             style={{ background:'var(--bg-card)', borderColor:'var(--border)', padding:'20px' }}>
           <div style={{ fontSize:13, fontWeight:600, color:'#ccc', marginBottom:12 }}>明日出勤情况</div>
-          {/* 图例 */}
           <div className="flex gap-4 mb-3">
             {legendItems.map(item => (
               <div key={item.color} className="flex items-center gap-1.5">
-                <span style={{ width:12, height:12, borderRadius:3, background:item.color, display:'inline-block', flexShrink:0 }}></span>
+                <span className="legend-sq" style={{ background:item.color }}></span>
                 <span style={{ fontSize:11, color:'#888' }}>{item.label}</span>
               </div>
             ))}
           </div>
-          {/* 格子 */}
           <div className="flex justify-center items-center flex-1">
             <div className="grid" style={{ gridTemplateColumns:`repeat(${GRID_COLS},${SQ}px)`, gap:GAP }}>
               {engineers.map(e => {
@@ -411,34 +405,45 @@
     // App 主组件
     // ============================================================
     function App() {
-      const engineers = MOCK_ENGINEERS;
+      const engineers = [
+        { id:1,  name:'王涛',   abbr:'王', project:'清科管理·AnyShare部署',   progress:75, submitted:true,  tomorrowStatus:'in_project',     tomorrowTarget:'清科管理·AnyShare部署' },
+        { id:2,  name:'张宏洋', abbr:'张', project:'某银行核心系统升级',       progress:100, submitted:true,  tomorrowStatus:'back_to_office' },
+        { id:3,  name:'周继成', abbr:'周', project:'数据中心网络迁移',         progress:45,  submitted:false, tomorrowStatus:'in_project',     tomorrowTarget:'数据中心网络迁移' },
+        { id:4,  name:'张学龙', abbr:'学', project:'医院HIS系统对接',          progress:60,  submitted:true,  tomorrowStatus:'back_to_office' },
+        { id:5,  name:'李明',   abbr:'李', project:'政务云平台部署',           progress:90,  submitted:false, tomorrowStatus:'unavailable' },
+        { id:6,  name:'赵强',   abbr:'赵', project:'ERP系统调试优化',          progress:30,  submitted:true,  tomorrowStatus:'in_project',     tomorrowTarget:'ERP系统调试优化' },
+        { id:7,  name:'刘洋',   abbr:'刘', project:'网络安全加固方案',          progress:80,  submitted:true,  tomorrowStatus:'in_project',     tomorrowTarget:'网络安全加固方案' },
+        { id:8,  name:'陈伟',   abbr:'陈', project:'Oracle数据库迁移',         progress:55,  submitted:true,  tomorrowStatus:'back_to_office' },
+        { id:9,  name:'孙鹏',   abbr:'孙', project:'OA系统上线支持',           progress:70,  submitted:false, tomorrowStatus:'in_project',     tomorrowTarget:'OA系统上线支持' },
+        { id:10, name:'黄磊',   abbr:'黄', project:'Zabbix监控部署',          progress:85,  submitted:true,  tomorrowStatus:'back_to_office' },
+        { id:11, name:'吴鑫',   abbr:'吴', project:'容灾演练方案实施',          progress:40,  submitted:true,  tomorrowStatus:'in_project',     tomorrowTarget:'容灾演练方案实施' },
+        { id:12, name:'郑宇',   abbr:'郑', project:'IDC机房季度巡检',          progress:95,  submitted:true,  tomorrowStatus:'unavailable' },
+        { id:13, name:'林峰',   abbr:'林', project:'K8s集群搭建',              progress:20,  submitted:false, tomorrowStatus:'in_project',     tomorrowTarget:'K8s集群搭建' },
+        { id:14, name:'何杰',   abbr:'何', project:'备份系统数据恢复测试',      progress:50,  submitted:true,  tomorrowStatus:'back_to_office' },
+        { id:15, name:'高阳',   abbr:'高', project:'VMware虚拟化部署',         progress:65,  submitted:true,  tomorrowStatus:'in_project',     tomorrowTarget:'VMware虚拟化部署' },
+        { id:16, name:'马超',   abbr:'马', project:'存储系统扩容',              progress:35,  submitted:false, tomorrowStatus:'back_to_office' },
+        { id:17, name:'梁宇',   abbr:'梁', project:'JumpServer堡垒机安装',     progress:100, submitted:true,  tomorrowStatus:'in_project',     tomorrowTarget:'JumpServer堡垒机安装' },
+        { id:18, name:'宋涛',   abbr:'宋', project:'ELK日志平台搭建',          progress:10,  submitted:false, tomorrowStatus:'unavailable' },
+        { id:19, name:'唐杰',   abbr:'唐', project:'APM全链路监控接入',        progress:88,  submitted:true,  tomorrowStatus:'in_project',     tomorrowTarget:'APM全链路监控接入' },
+        { id:20, name:'韩冰',   abbr:'韩', project:'等保安全审计',              progress:72,  submitted:true,  tomorrowStatus:'back_to_office' },
+      ];
+
       const total = engineers.length;
       const submitted = engineers.filter(e => e.submitted).length;
       const notSubmitted = total - submitted;
 
-      // 弹窗状态
-      const [modal, setModal] = useState(null); // { type:'notSubmitted'|'redSquare'|'engineerOverview'|'attendanceDetail', data }
-      const [tooltip, setTooltip] = useState(null); // { text, x, y }
+      const [modal, setModal] = useState(null);
+      const [tooltip, setTooltip] = useState(null);
 
       const showTooltip = useCallback((text, x, y) => setTooltip({ text, x, y }), []);
       const hideTooltip = useCallback(() => setTooltip(null), []);
 
-      // 点击未提交卡片
       const handleNotSubmittedClick = () => setModal({ type:'notSubmitted' });
-
-      // 点击红色格子
       const handleRedClick = (eng) => setModal({ type:'redSquare', data:eng });
-
-      // 点击工程师行 — 弹出工程师概览
       const handleRowClick = (eng) => setModal({ type:'engineerOverview', data:eng });
-
-      // 点击出勤格子
       const handleAttendanceClick = (eng) => setModal({ type:'attendanceDetail', data:eng });
-
-      // 关闭弹窗
       const closeModal = () => setModal(null);
 
-      // 明日出勤详情弹窗
       const renderAttendanceDetail = () => {
         const e = modal?.data;
         if (!e) return null;
@@ -454,7 +459,7 @@
               </div>
               <div className="flex items-center gap-2 rounded-lg px-3 py-2.5"
                    style={{ background:'#0d0d0d' }}>
-                <span style={{ width:10, height:10, borderRadius:3, background: statusColor(e.tomorrowStatus), display:'inline-block' }}></span>
+                <span style={{ width:10, height:10, borderRadius:3, background:statusColor(e.tomorrowStatus), display:'inline-block' }}></span>
                 <span>明日状态：<strong>{TOMORROW_LABEL[e.tomorrowStatus]}</strong></span>
               </div>
               {e.tomorrowTarget && (
@@ -475,10 +480,9 @@
       };
 
       return (
-        <div className="h-full w-full flex flex-col p-4 gap-4"
-             style={{ background:'#000', minHeight:0 }}>
-          {/* ============ 顶栏 ============ */}
-          <div className="flex gap-4 flex-shrink-0" style={{ height:'45%' }}>
+        <>
+          {/* ============ 上半部 ============ */}
+          <div className="flex gap-4 flex-shrink-0" style={{ height:'45%', minHeight:0 }}>
             {/* 左侧：在职工程师 */}
             <div className="flex-shrink-0" style={{ width:'18%' }}>
               <TotalCard count={total} />
@@ -497,14 +501,14 @@
             </div>
           </div>
 
-          {/* ============ 底栏 ============ */}
+          {/* ============ 下半部 ============ */}
           <div className="flex gap-4 flex-1 min-h-0">
             {/* 左侧：工程师状态列表 */}
-            <div className="flex-1 min-w-0" style={{ width:'50%' }}>
+            <div className="flex-1 min-w-0">
               <EngineerStatusList engineers={engineers} onRowClick={handleRowClick} />
             </div>
             {/* 右侧：出勤情况格子 */}
-            <div className="flex-1 min-w-0" style={{ width:'50%' }}>
+            <div className="flex-1 min-w-0">
               <AttendanceGrid engineers={engineers}
                               onSquareClick={handleAttendanceClick}
                               onTooltip={showTooltip}
@@ -513,12 +517,10 @@
           </div>
 
           {/* ============ Modals ============ */}
-          {/* 未提交列表 */}
           <NotSubmittedModal engineers={engineers}
                              show={modal?.type === 'notSubmitted'}
                              onClose={closeModal} />
 
-          {/* 红色格子点击 — 未提交详情 */}
           {modal?.type === 'redSquare' && (
             <Modal show={true} onClose={closeModal} title="未提交日报">
               <div className="flex items-center gap-3 mb-3">
@@ -536,29 +538,86 @@
             </Modal>
           )}
 
-          {/* 工程师概览 */}
           {modal?.type === 'engineerOverview' && (
             <EngineerOverview engineer={modal.data} onClose={closeModal} />
           )}
 
-          {/* 明日出勤详情 */}
           {modal?.type === 'attendanceDetail' && renderAttendanceDetail()}
 
-          {/* ============ Tooltip ============ */}
+          {/* Tooltip */}
           {tooltip && (
-            <div className="tooltip-el" style={{ left: tooltip.x, top: tooltip.y }}>
+            <div className="tooltip-el" style={{ left:tooltip.x, top:tooltip.y }}>
               {tooltip.text}
             </div>
           )}
-        </div>
+        </>
       );
     }
 
     // ============================================================
-    // 渲染
+    // 认证逻辑
     // ============================================================
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
+    let appRoot = null;
+
+    function initApp() {
+      if (!appRoot) {
+        appRoot = ReactDOM.createRoot(document.getElementById('root'));
+      }
+      appRoot.render(<App />);
+    }
+
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/leader/me');
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('authOverlay').style.display = 'none';
+          document.getElementById('mainContent').style.display = '';
+          if (data.data && data.data.role) {
+            document.getElementById('topbarRole').textContent = data.data.role === 'viewer' ? '查看者' : '管理员';
+          }
+          initApp();
+          return;
+        }
+      } catch (e) {}
+      document.getElementById('authOverlay').style.display = '';
+      document.getElementById('authUsername').focus();
+    }
+
+    async function doAuth() {
+      const username = document.getElementById('authUsername').value;
+      const pw = document.getElementById('authPassword').value;
+      if (!username || !pw) return;
+      const btn = document.getElementById('authBtn');
+      btn.textContent = '验证中...';
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/leader/login', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({username, password: pw})
+        });
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('authOverlay').style.display = 'none';
+          document.getElementById('mainContent').style.display = '';
+          initApp();
+          return;
+        }
+        document.getElementById('authError').style.display = '';
+      } catch (e) {
+        document.getElementById('authError').style.display = '';
+      }
+      btn.textContent = '进入';
+      btn.disabled = false;
+    }
+
+    async function logout() {
+      await fetch('/api/leader/logout', { method: 'POST' });
+      window.location.reload();
+    }
+
+    document.addEventListener('DOMContentLoaded', checkAuth);
   </script>
 </body>
 </html>
