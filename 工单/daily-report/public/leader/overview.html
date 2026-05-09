@@ -58,7 +58,6 @@
     <div class="sidebar">
       <div class="sidebar-title">统计面板</div>
       <div class="sidebar-nav">
-        <a class="nav-item" href="index.html">今日概览</a>
         <a class="nav-item active" href="overview.html">日报概览</a>
         <a class="nav-item" href="attendance.html">出勤格子</a>
         <a class="nav-item" href="engineer.html">工程师概况</a>
@@ -81,6 +80,61 @@
   </div>
 
   <script src="/admin/admin.js"></script>
+  <script>
+    // 认证逻辑 — 独立于 babel，避免 async/await 编译问题
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/leader/me');
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('authOverlay').style.display = 'none';
+          document.getElementById('mainContent').style.display = '';
+          if (data.data && data.data.role) {
+            document.getElementById('topbarRole').textContent = data.data.role === 'viewer' ? '查看者' : '管理员';
+          }
+          document.dispatchEvent(new Event('authReady'));
+          return;
+        }
+      } catch (e) {}
+      document.getElementById('authOverlay').style.display = '';
+      document.getElementById('authUsername').focus();
+    }
+
+    async function doAuth() {
+      const username = document.getElementById('authUsername').value;
+      const pw = document.getElementById('authPassword').value;
+      if (!username || !pw) return;
+      const btn = document.getElementById('authBtn');
+      btn.textContent = '验证中...';
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/leader/login', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({username, password: pw})
+        });
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('authOverlay').style.display = 'none';
+          document.getElementById('mainContent').style.display = '';
+          document.dispatchEvent(new Event('authReady'));
+          return;
+        }
+        document.getElementById('authError').style.display = '';
+      } catch (e) {
+        document.getElementById('authError').style.display = '';
+      }
+      btn.textContent = '进入';
+      btn.disabled = false;
+    }
+
+    async function logout() {
+      await fetch('/api/leader/logout', { method: 'POST' });
+      window.location.reload();
+    }
+
+    document.addEventListener('DOMContentLoaded', checkAuth);
+  </script>
   <script type="text/babel">
     const { useState, useCallback } = React;
 
@@ -555,69 +609,12 @@
     }
 
     // ============================================================
-    // 认证逻辑
+    // 认证成功后渲染 React
     // ============================================================
-    let appRoot = null;
-
-    function initApp() {
-      if (!appRoot) {
-        appRoot = ReactDOM.createRoot(document.getElementById('root'));
-      }
-      appRoot.render(<App />);
-    }
-
-    async function checkAuth() {
-      try {
-        const res = await fetch('/api/leader/me');
-        const data = await res.json();
-        if (data.success) {
-          document.getElementById('authOverlay').style.display = 'none';
-          document.getElementById('mainContent').style.display = '';
-          if (data.data && data.data.role) {
-            document.getElementById('topbarRole').textContent = data.data.role === 'viewer' ? '查看者' : '管理员';
-          }
-          initApp();
-          return;
-        }
-      } catch (e) {}
-      document.getElementById('authOverlay').style.display = '';
-      document.getElementById('authUsername').focus();
-    }
-
-    async function doAuth() {
-      const username = document.getElementById('authUsername').value;
-      const pw = document.getElementById('authPassword').value;
-      if (!username || !pw) return;
-      const btn = document.getElementById('authBtn');
-      btn.textContent = '验证中...';
-      btn.disabled = true;
-      try {
-        const res = await fetch('/api/leader/login', {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({username, password: pw})
-        });
-        const data = await res.json();
-        if (data.success) {
-          document.getElementById('authOverlay').style.display = 'none';
-          document.getElementById('mainContent').style.display = '';
-          initApp();
-          return;
-        }
-        document.getElementById('authError').style.display = '';
-      } catch (e) {
-        document.getElementById('authError').style.display = '';
-      }
-      btn.textContent = '进入';
-      btn.disabled = false;
-    }
-
-    async function logout() {
-      await fetch('/api/leader/logout', { method: 'POST' });
-      window.location.reload();
-    }
-
-    document.addEventListener('DOMContentLoaded', checkAuth);
+    document.addEventListener('authReady', () => {
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<App />);
+    });
   </script>
 </body>
 </html>
