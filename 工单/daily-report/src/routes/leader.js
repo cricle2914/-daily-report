@@ -395,4 +395,124 @@ router.get('/hours/trend', viewerOrUser, async (req, res, next) => {
   }
 });
 
+// ==================== 工程师概况 ====================
+router.get('/engineer/profile', viewerOrUser, async (req, res, next) => {
+  try {
+    const { id } = req.query;
+    if (!id) {
+      return res.status(400).json({ success: false, message: '请指定工程师' });
+    }
+
+    // 工程师基本信息
+    const [engRows] = await pool.query(
+      'SELECT id, name, abbr, hire_date, created_at FROM engineers WHERE id = ?',
+      [id]
+    );
+    if (engRows.length === 0) {
+      return res.json({ success: false, message: '工程师未找到' });
+    }
+    const eng = engRows[0];
+
+    // 总工时
+    const [hoursRows] = await pool.query(
+      'SELECT COALESCE(SUM(hours),0) AS total_hours FROM work_hours WHERE engineer_id = ?',
+      [id]
+    );
+    const totalHours = parseFloat(hoursRows[0].total_hours);
+
+    // 工程师参与的项目（含项目状态）
+    const [projRows] = await pool.query(
+      `SELECT p.id, p.name
+       FROM engineer_projects ep
+       JOIN projects p ON ep.project_id = p.id
+       WHERE ep.engineer_id = ?
+       ORDER BY p.name`,
+      [id]
+    );
+
+    // 判断每个项目是否有近60天工时（在实施）或仅有历史工时（已完成）
+    const projectIds = projRows.map(p => p.id);
+    let activeProjectIds = new Set();
+    if (projectIds.length > 0) {
+      const [activeRows] = await pool.query(
+        `SELECT DISTINCT project_id FROM work_hours
+         WHERE engineer_id = ? AND project_id IN (?) AND report_date >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)`,
+        [id, projectIds]
+      );
+      activeProjectIds = new Set(activeRows.map(r => r.project_id));
+    }
+
+    const projects = projRows.map(p => ({
+      id: p.id,
+      name: p.name,
+      is_active: activeProjectIds.has(p.id)
+    }));
+
+    const completedCount = projects.filter(p => !p.is_active).length;
+    const ongoingCount = projects.filter(p => p.is_active).length;
+
+    // 入职时长（天）
+    const startDate = eng.hire_date || eng.created_at;
+    const tenureDays = startDate
+      ? Math.floor((Date.now() - new Date(startDate).getTime()) / (86400000))
+      : 0;
+
+    // 近8周工时趋势
+    const [weeklyRows] = await pool.query(
+      `SELECT
+         DATE_FORMAT(report_date, '%Y-%u') AS week_key,
+         MIN(report_date) AS week_start,
+         COALESCE(SUM(hours),0) AS total_hours
+       FROM work_hours
+       WHERE engineer_id = ? AND report_date >= DATE_SUB(CURDATE(), INTERVAL 8 WEEK)
+       GROUP BY week_key
+       ORDER BY week_key`,
+      [id]
+    );
+
+    // 补全最近8周数据
+    const weeklyHours = [];
+    const now = new Date();
+    for (let i = 7; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i * 7);
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const label = `${month}-${day}`;
+
+      const found = weeklyRows.find(r => {
+        const ws = r.week_start instanceof Date ? r.week_start : new Date(r.week_start);
+        const diff = Math.abs(ws.getTime() - d.getTime());
+        return diff < 4 * 86400000;
+      });
+
+      weeklyHours.push({
+        label,
+        hours: found ? parseFloat(found.total_hours) : 0
+      });
+    }
+
+    // 用于UI显示的projects（最多20个）
+    const displayProjects = projects.slice(0, 20);
+
+    res.json({
+      success: true,
+      data: {
+        id: eng.id,
+        name: eng.name,
+        abbr: eng.abbr,
+        total_hours: totalHours,
+        project_count: projects.length,
+        tenure_days: tenureDays,
+        completed_projects: completedCount,
+        ongoing_projects: ongoingCount,
+        projects: displayProjects,
+        weekly_hours: weeklyHours
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

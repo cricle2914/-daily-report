@@ -76,6 +76,11 @@ app.use('/admin', authMiddleware(), express.static(path.join(__dirname, '../publ
 // 领导侧页面（前端 JS 自行处理 viewer 认证）
 app.use('/leader', express.static(path.join(__dirname, '../public/leader')));
 
+// 日报概览（React + Tailwind SPA）
+app.get('/leader/overview', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/leader/overview.html'));
+});
+
 // 全局错误处理
 app.use((err, req, res, next) => {
   console.error('服务器错误:', err);

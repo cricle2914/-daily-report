@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>工程师概况 - 统计面板</title>
+  <link rel="stylesheet" href="leader.css">
+  <style>
+    /* 页面标题行：选择器 + 标题 */
+    .profile-header {
+      display:flex; align-items:center; gap:16px; margin-bottom:28px;
+    }
+    .profile-header select {
+      font-size:15px; padding:8px 14px; min-width:180px;
+      background:var(--bg-card); border:1px solid var(--border);
+      border-radius:var(--radius-sm); color:var(--text-primary);
+      font-family:inherit; outline:none; cursor:pointer;
+    }
+    .profile-header select:focus { border-color:var(--accent); }
+    .profile-header select option { background:var(--bg-card); color:var(--text-primary); }
+
+    /* 主布局：左40% 右60% */
+    .profile-body {
+      display:flex; gap:24px; align-items:stretch;
+    }
+
+    /* ========== 左侧卡片 ========== */
+    .profile-left {
+      flex:0 0 38%; min-width:280px;
+      background:var(--bg-card); border:1px solid var(--border);
+      border-radius:var(--radius); padding:32px 28px;
+      display:flex; flex-direction:column; justify-content:center;
+    }
+    .profile-name {
+      font-size:40px; font-weight:800; letter-spacing:-1px;
+      margin-bottom:28px; line-height:1.1;
+    }
+    .stat-block { margin-bottom:20px; }
+    .stat-row {
+      display:flex; align-items:baseline; gap:8px; padding:8px 0;
+    }
+    .stat-row:not(:last-child) { border-bottom:1px solid rgba(255,255,255,.04); }
+    .stat-label { font-size:13px; color:var(--text-secondary); min-width:80px; }
+    .stat-value { font-size:22px; font-weight:700; }
+
+    .divider {
+      height:1px; background:var(--border); margin:16px 0;
+    }
+
+    .sub-stat-row {
+      display:flex; gap:24px; padding:4px 0;
+    }
+    .sub-stat-item { flex:1; }
+    .sub-stat-item .lbl { font-size:12px; color:var(--text-secondary); margin-bottom:2px; }
+    .sub-stat-item .val { font-size:18px; font-weight:700; }
+
+    /* ========== 右侧上：项目格子 ========== */
+    .profile-right {
+      flex:1; display:flex; flex-direction:column; gap:20px;
+    }
+    .project-grid-card {
+      flex:1;
+      background:var(--bg-card); border:1px solid var(--border);
+      border-radius:var(--radius); padding:24px;
+      display:flex; flex-direction:column;
+    }
+    .project-grid-card .card-label {
+      font-size:13px; font-weight:600; color:var(--text-secondary);
+      text-transform:uppercase; letter-spacing:1px; margin-bottom:16px;
+    }
+    .project-grid {
+      flex:1; display:grid;
+      grid-template-columns:repeat(auto-fill, minmax(56px, 1fr));
+      gap:8px; align-content:start;
+    }
+    .project-cell {
+      aspect-ratio:1; border-radius:6px; display:flex;
+      align-items:center; justify-content:center;
+      font-size:10px; font-weight:600; color:rgba(255,255,255,.7);
+      cursor:pointer; transition:all .15s; position:relative;
+      min-height:48px;
+    }
+    .project-cell.active { background:var(--accent); }
+    .project-cell.completed { background:rgba(255,255,255,.08); }
+    .project-cell:hover { transform:scale(1.08); opacity:.85; }
+    .project-cell .tip {
+      display:none; position:absolute; bottom:calc(100% + 4px);
+      left:50%; transform:translateX(-50%);
+      padding:4px 8px; border-radius:4px; background:#222;
+      color:#fff; font-size:10px; white-space:nowrap; z-index:2;
+      border:1px solid #444;
+    }
+    .project-cell:hover .tip { display:block; }
+    .project-empty {
+      color:var(--text-dim); font-size:13px;
+      display:flex; align-items:center; justify-content:center; height:100%;
+    }
+
+    /* ========== 右侧下：折线图 ========== */
+    .chart-card {
+      flex:0 0 auto; height:200px;
+      background:var(--bg-card); border:1px solid var(--border);
+      border-radius:var(--radius); padding:20px 24px;
+    }
+    .chart-card .card-label {
+      font-size:13px; font-weight:600; color:var(--text-secondary);
+      text-transform:uppercase; letter-spacing:1px; margin-bottom:12px;
+    }
+    .chart-card svg { width:100%; height:calc(100% - 28px); }
+
+    .empty-state { text-align:center; padding:60px 20px; color:var(--text-secondary); font-size:14px; }
+  </style>
+</head>
+<body>
+  <!-- 认证遮罩 -->
+  <div class="auth-overlay" id="authOverlay">
+    <div class="auth-box">
+      <h2>统计面板</h2>
+      <p>请输入账户密码</p>
+      <div class="error" id="authError">用户名或密码错误</div>
+      <input class="form-input" id="authUsername" type="text" placeholder="用户名"
+        style="margin-bottom:8px" autofocus>
+      <input class="form-input" id="authPassword" type="password" placeholder="密码"
+        onkeydown="if(event.key==='Enter')doAuth()">
+      <button class="btn btn-primary" id="authBtn" onclick="doAuth()">进入</button>
+    </div>
+  </div>
+
+  <div class="layout" id="mainContent" style="display:none">
+    <div class="sidebar">
+      <div class="sidebar-title">统计面板</div>
+      <div class="sidebar-nav">
+        <a class="nav-item" href="index.html">今日概览</a>
+        <a class="nav-item" href="overview.html">日报概览</a>
+        <a class="nav-item" href="attendance.html">出勤格子</a>
+        <a class="nav-item" href="engineer.html">工程师概况</a>
+        <a class="nav-item" href="stats.html">工时统计</a>
+      </div>
+      <div style="padding:12px 20px;border-top:1px solid var(--border)">
+        <span style="font-size:11px;color:var(--text-dim)">统计面板 v1.0</span>
+      </div>
+    </div>
+    <div class="main">
+      <div class="topbar">
+        <span class="topbar-user" id="topbarUser"></span>
+        <span class="topbar-user" id="topbarRole"></span>
+        <button class="topbar-btn" onclick="logout()">退出</button>
+      </div>
+
+      <!-- 选择工程师 -->
+      <div class="profile-header">
+        <select id="engineerSelect" onchange="switchEngineer(this.value)">
+          <option value="">选择工程师</option>
+        </select>
+      </div>
+
+      <!-- 主体 -->
+      <div class="profile-body" id="profileBody" style="display:none">
+        <!-- 左侧：个人信息 -->
+        <div class="profile-left">
+          <div class="profile-name" id="engName">-</div>
+
+          <div class="stat-block">
+            <div class="stat-row">
+              <span class="stat-label">总工时</span>
+              <span class="stat-value" id="totalHours">-</span>
+              <span style="font-size:13px;color:var(--text-secondary)">小时</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">项目总数</span>
+              <span class="stat-value" id="projectCount">-</span>
+              <span style="font-size:13px;color:var(--text-secondary)">个</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">入职时长</span>
+              <span class="stat-value" id="tenureDays">-</span>
+              <span style="font-size:13px;color:var(--text-secondary)">天</span>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="sub-stat-row">
+            <div class="sub-stat-item">
+              <div class="lbl">完成项目</div>
+              <div class="val" id="completedCount" style="color:var(--text-secondary)">-</div>
+            </div>
+            <div class="sub-stat-item">
+              <div class="lbl">在实施项目</div>
+              <div class="val" id="ongoingCount" style="color:var(--accent)">-</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右侧 -->
+        <div class="profile-right">
+          <!-- 项目格子 -->
+          <div class="project-grid-card">
+            <div class="card-label">项目统计</div>
+            <div class="project-grid" id="projectGrid"></div>
+          </div>
+
+          <!-- 折线图 -->
+          <div class="chart-card">
+            <div class="card-label">工时趋势</div>
+            <svg id="hoursChart" viewBox="0 0 500 150" preserveAspectRatio="xMidYMid meet"></svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="empty-state" id="emptyState">请选择工程师</div>
+    </div>
+  </div>
+  <script src="/admin/admin.js"></script>
+  <script>
+    let currentEngineerId = '';
+    let allEngineers = [];
+
+    // ====== 加载工程师列表 ======
+    async function loadEngineers() {
+      try {
+        const data = (await api('/api/leader/today')).data;
+        allEngineers = data.engineers || [];
+        const sel = document.getElementById('engineerSelect');
+        sel.innerHTML = '<option value="">选择工程师</option>';
+        allEngineers.forEach(e => {
+          sel.innerHTML += `<option value="${e.id}">${e.name}</option>`;
+        });
+      } catch (err) {}
+    }
+
+    // ====== 切换工程师 ======
+    async function switchEngineer(id) {
+      if (!id) {
+        document.getElementById('profileBody').style.display = 'none';
+        document.getElementById('emptyState').style.display = '';
+        document.getElementById('emptyState').textContent = '请选择工程师';
+        return;
+      }
+      currentEngineerId = id;
+      document.getElementById('emptyState').style.display = 'none';
+      document.getElementById('profileBody').style.display = 'flex';
+      await loadProfile(id);
+    }
+
+    // ====== 加载概况数据 ======
+    async function loadProfile(id) {
+      try {
+        const data = (await api(`/api/leader/engineer/profile?id=${id}`)).data;
+        renderProfile(data);
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // ====== 渲染页面 ======
+    function renderProfile(data) {
+      document.getElementById('engName').textContent = data.name;
+      document.getElementById('totalHours').textContent = Math.round(data.total_hours * 10) / 10;
+      document.getElementById('projectCount').textContent = data.project_count;
+      document.getElementById('tenureDays').textContent = data.tenure_days;
+      document.getElementById('completedCount').textContent = data.completed_projects;
+      document.getElementById('ongoingCount').textContent = data.ongoing_projects;
+
+      renderProjectGrid(data.projects);
+      renderChart(data.weekly_hours);
+    }
+
+    // ====== 项目格子 ======
+    function renderProjectGrid(projects) {
+      const grid = document.getElementById('projectGrid');
+      if (!projects || projects.length === 0) {
+        grid.innerHTML = '<div class="project-empty">暂无项目数据</div>';
+        return;
+      }
+      grid.innerHTML = projects.map(p => {
+        const cls = p.is_active ? 'active' : 'completed';
+        // 取项目名前2-3个字作为标识
+        const short = p.name.replace(/[（(].*[）)]/g, '').slice(0, 3);
+        return `<div class="project-cell ${cls}" title="${p.name}">
+          ${short}
+          <span class="tip">${p.name}</span>
+        </div>`;
+      }).join('');
+    }
+
+    // ====== 工时趋势折线图 ======
+    function renderChart(weeklyHours) {
+      const svg = document.getElementById('hoursChart');
+      if (!weeklyHours || weeklyHours.length === 0) {
+        svg.innerHTML = '';
+        return;
+      }
+
+      const W = 500, H = 150;
+      const pad = { top: 10, right: 16, bottom: 24, left: 36 };
+      const chartW = W - pad.left - pad.right;
+      const chartH = H - pad.top - pad.bottom;
+
+      const values = weeklyHours.map(w => w.hours);
+      const maxVal = Math.max(...values, 1);
+
+      // Y轴刻度（0, maxVal/2, maxVal）
+      const yTicks = [0, Math.round(maxVal / 2), maxVal];
+
+      const stepX = weeklyHours.length > 1 ? chartW / (weeklyHours.length - 1) : chartW;
+
+      // 生成路径
+      const points = weeklyHours.map((w, i) => ({
+        x: pad.left + i * stepX,
+        y: pad.top + chartH - (w.hours / maxVal) * chartH,
+        h: w.hours,
+        label: w.label
+      }));
+
+      const linePath = points.map((p, i) =>
+        `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`
+      ).join(' ');
+
+      const areaPath = linePath + ` L${points[points.length-1].x},${pad.top + chartH} L${points[0].x},${pad.top + chartH} Z`;
+
+      // 网格线
+      let gridHtml = '';
+      yTicks.forEach(val => {
+        const y = pad.top + chartH - (val / maxVal) * chartH;
+        gridHtml += `<line x1="${pad.left}" y1="${y}" x2="${W - pad.right}" y2="${y}" stroke="rgba(255,255,255,.06)" stroke-width="1"/>`;
+        gridHtml += `<text x="${pad.left - 4}" y="${y + 3}" text-anchor="end" fill="var(--text-dim)" font-size="9">${val}</text>`;
+      });
+
+      // X轴标签
+      const labelInterval = Math.max(1, Math.floor(weeklyHours.length / 6));
+      const xLabels = points.filter((_, i) => i % labelInterval === 0 || i === points.length - 1);
+
+      // 数据点圆圈
+      const dots = points.map(p =>
+        `<circle cx="${p.x}" cy="${p.y}" r="3" fill="var(--accent)" stroke="var(--bg-card)" stroke-width="1.5"
+          onmouseenter="showTip(event, '${p.label} | ${p.h}h')" onmouseleave="hideTip()" style="cursor:pointer"/>`
+      ).join('');
+
+      svg.innerHTML = `
+        ${gridHtml}
+        <path d="${areaPath}" fill="rgba(79,142,247,.08)" />
+        <path d="${linePath}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        ${dots}
+        ${xLabels.map(p =>
+          `<text x="${p.x}" y="${pad.top + chartH + 16}" text-anchor="middle" fill="var(--text-dim)" font-size="9">${p.label}</text>`
+        ).join('')}
+      `;
+    }
+
+    // tooltip
+    function showTip(e, text) {
+      let el = document.getElementById('chartTip');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'chartTip';
+        el.style.cssText = 'position:fixed;padding:4px 8px;border-radius:4px;background:#222;color:#fff;font-size:11px;white-space:nowrap;pointer-events:none;z-index:999;border:1px solid #444;opacity:0;transition:opacity .12s';
+        document.body.appendChild(el);
+      }
+      el.textContent = text;
+      el.style.left = (e.clientX + 10) + 'px';
+      el.style.top = (e.clientY - 10) + 'px';
+      el.style.opacity = '1';
+    }
+    function hideTip() {
+      const el = document.getElementById('chartTip');
+      if (el) el.style.opacity = '0';
+    }
+
+    // ====== 认证 ======
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/leader/me');
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('authOverlay').style.display = 'none';
+          document.getElementById('mainContent').style.display = '';
+          if (data.data.role) {
+            document.getElementById('topbarRole').textContent = data.data.role === 'viewer' ? '查看者' : '管理员';
+          }
+          loadEngineers();
+          return;
+        }
+      } catch(e) {}
+      document.getElementById('authOverlay').style.display = '';
+      document.getElementById('authUsername').focus();
+    }
+
+    async function doAuth() {
+      const username = document.getElementById('authUsername').value;
+      const pw = document.getElementById('authPassword').value;
+      if (!username || !pw) return;
+      const btn = document.getElementById('authBtn');
+      btn.textContent = '验证中...';
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/leader/login', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({username, password: pw})
+        });
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('authOverlay').style.display = 'none';
+          document.getElementById('mainContent').style.display = '';
+          loadEngineers();
+          return;
+        }
+        document.getElementById('authError').style.display = '';
+      } catch(e) {
+        document.getElementById('authError').style.display = '';
+      }
+      btn.textContent = '进入';
+      btn.disabled = false;
+    }
+
+    async function logout() {
+      await fetch('/api/leader/logout', { method: 'POST' });
+      window.location.reload();
+    }
+
+    document.addEventListener('DOMContentLoaded', checkAuth);
+  </script>
+</body>
+</html>
