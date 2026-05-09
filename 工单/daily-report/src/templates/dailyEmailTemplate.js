@@ -183,4 +183,101 @@ function buildDailyEmailHtml(data) {
 </html>`;
 }
 
-module.exports = buildDailyEmailHtml;
+/**
+ * 单条日报邮件模板
+ */
+function buildSingleReportEmailHtml(report) {
+  const statusClr = statusColor(report.status);
+  const statusTxt = statusText(report.status);
+  const tasks = Array.isArray(report.tasks)
+    ? report.tasks
+    : (typeof report.tasks === 'string' ? JSON.parse(report.tasks) : []);
+
+  const taskItems = tasks.length > 0
+    ? tasks.map(t => `<tr><td style="padding:2px 0 2px 16px; font-size:13px; color:#333; position:relative;">
+        <span style="position:absolute; left:0;">•</span>
+        ${escapeHtml(t.content || t)}</td></tr>`).join('')
+    : '<tr><td style="padding:2px 0 2px 16px; font-size:13px; color:#999;">（无）</td></tr>';
+
+  return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0; padding:0; background:#f0f2f5; font-family:'Microsoft YaHei','PingFang SC','Helvetica Neue',Arial,sans-serif;">
+  <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f0f2f5;">
+    <tr><td align="center" style="padding:30px 10px 20px;">
+      <table cellpadding="0" cellspacing="0" border="0" style="max-width:600px; width:100%;">
+        <tr>
+          <td style="background:linear-gradient(135deg,#1a1a2e,#16213e); border-radius:10px 10px 0 0; padding:24px 20px;">
+            <table cellpadding="0" cellspacing="0" border="0" width="100%">
+              <tr>
+                <td><div style="font-size:18px; font-weight:700; color:#ffffff;">日报详情</div></td>
+                <td align="right"><div style="font-size:13px; color:rgba(255,255,255,.6);">${escapeHtml(report.report_date || '')}</div></td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#ffffff; padding:20px;">
+            <table cellpadding="0" cellspacing="0" border="0" width="100%">
+              <tr>
+                <td style="padding:0 0 12px; border-bottom:1px solid #e8ecf1;">
+                  <div style="font-size:16px; font-weight:700; color:#1a1a2e;">${escapeHtml(report.engineer_name)} <span style="font-size:13px; font-weight:400; color:#8899aa;">(${escapeHtml(report.engineer_abbr || '')})</span></div>
+                  <div style="font-size:13px; color:#556677; margin-top:4px;">
+                    ${escapeHtml(report.project_name)}
+                    <span style="margin:0 8px; color:#ccc;">|</span>
+                    进度 ${report.progress}%
+                    <span style="margin:0 8px; color:#ccc;">|</span>
+                    <span style="color:${statusClr}; font-weight:600;">${statusTxt}</span>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:12px 0 0;">
+                  <div style="font-size:12px; font-weight:600; color:#8899aa; margin-bottom:4px;">今日任务</div>
+                  <table cellpadding="0" cellspacing="0" border="0">${taskItems}</table>
+                </td>
+              </tr>
+              ${report.plan_title ? `
+              <tr>
+                <td style="padding:10px 0 0;">
+                  <div style="font-size:12px; font-weight:600; color:#8899aa; margin-bottom:2px;">计划标题</div>
+                  <div style="font-size:13px; color:#333;">${escapeHtml(report.plan_title)}</div>
+                </td>
+              </tr>` : ''}
+              ${report.issues ? `
+              <tr>
+                <td style="padding:10px 0 0;">
+                  <div style="font-size:12px; font-weight:600; color:#8899aa; margin-bottom:2px;">存在问题</div>
+                  <div style="font-size:13px; color:#333;">${escapeHtml(report.issues)}</div>
+                </td>
+              </tr>` : ''}
+              ${report.next_plan ? `
+              <tr>
+                <td style="padding:10px 0 0;">
+                  <div style="font-size:12px; font-weight:600; color:#8899aa; margin-bottom:2px;">明日计划</div>
+                  <div style="font-size:13px; color:#333;">${escapeHtml(report.next_plan)}</div>
+                </td>
+              </tr>` : ''}
+              ${report.impl_day ? `
+              <tr>
+                <td style="padding:10px 0 0;">
+                  <div style="font-size:12px; font-weight:600; color:#8899aa; margin-bottom:2px;">实施天数</div>
+                  <div style="font-size:13px; color:#333;">第 ${report.impl_day} 天</div>
+                </td>
+              </tr>` : ''}
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f7f8fa; border-radius:0 0 10px 10px; border-top:1px solid #e8ecf1; padding:14px 20px; text-align:center;">
+            <div style="font-size:11px; color:#aab5c0;">本邮件由日报系统自动发送</div>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+module.exports = { buildDailyEmailHtml, buildSingleReportEmailHtml };

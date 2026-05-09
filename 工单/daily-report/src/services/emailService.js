@@ -1,6 +1,7 @@
 const nodemailer = require('nodemailer');
 const pool = require('../database');
-const buildDailyEmailHtml = require('../templates/dailyEmailTemplate');
+const buildDailyEmailHtml = require('../templates/dailyEmailTemplate').buildDailyEmailHtml;
+const buildSingleReportEmailHtml = require('../templates/dailyEmailTemplate').buildSingleReportEmailHtml;
 
 let transporter = null;
 
@@ -131,4 +132,66 @@ async function sendDailyReport() {
   }
 }
 
-module.exports = { sendDailyReport };
+/**
+ * 发送单条日报邮件
+ * @param {number} reportId - 日报 ID
+ * @returns {Promise<{success: boolean, message: string, data?: object}>}
+ */
+async function sendSingleReport(reportId) {
+  const transporter = getTransporter();
+  if (!transporter) {
+    return { success: false, message: '邮件服务未配置（MAIL_HOST 为空）' };
+  }
+
+  // 查询日报详情
+  const [rows] = await pool.query(
+    `SELECT dr.*, e.name AS engineer_name, e.abbr AS engineer_abbr,
+            p.name AS project_name
+     FROM daily_reports dr
+     JOIN engineers e ON dr.engineer_id = e.id
+     JOIN projects p ON dr.project_id = p.id
+     WHERE dr.id = ?`,
+    [reportId]
+  );
+
+  if (rows.length === 0) {
+    return { success: false, message: '日报不存在' };
+  }
+
+  const report = {
+    ...rows[0],
+    tasks: typeof rows[0].tasks === 'string' ? JSON.parse(rows[0].tasks) : (rows[0].tasks || []),
+    report_date: rows[0].report_date ? rows[0].report_date.toISOString().split('T')[0] : '',
+  };
+
+  const html = buildSingleReportEmailHtml(report);
+
+  const toList = (process.env.MAIL_TO || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (toList.length === 0) {
+    return { success: false, message: '未配置收件人（MAIL_TO 为空）' };
+  }
+
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.MAIL_FROM || process.env.MAIL_USER,
+      to: toList.join(', '),
+      subject: `日报 - ${report.engineer_name} ${report.report_date}`,
+      html,
+    });
+
+    return {
+      success: true,
+      message: '邮件发送成功',
+      data: {
+        messageId: info.messageId,
+        accepted: info.accepted,
+        report: { id: reportId, engineer: report.engineer_name, date: report.report_date },
+      },
+    };
+  } catch (err) {
+    console.error('[单条邮件发送失败]', err.message);
+    return { success: false, message: `邮件发送失败: ${err.message}` };
+  }
+}
+
+module.exports = { sendDailyReport, sendSingleReport };

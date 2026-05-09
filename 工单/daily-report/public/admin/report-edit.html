@@ -86,7 +86,9 @@
         <div class="btn-group">
           <button class="btn btn-primary" id="saveBtn" onclick="saveReport()">保存</button>
           <button class="btn btn-secondary" onclick="location.href='reports.html'">返回</button>
+          <button class="btn btn-primary" id="emailBtn" onclick="sendReportEmail()" style="margin-left:auto;background:transparent;color:var(--accent);border:1px solid var(--accent)">发送该日报邮件</button>
         </div>
+        <div class="email-result" id="emailResult" style="display:none;margin-top:12px"></div>
       </div>
     </div>
   </div>
@@ -213,6 +215,29 @@
         showToast('已保存');
       } catch (err) {
         showToast(err.message, 'error');
+      } finally {
+        setLoading(btn, false);
+      }
+    }
+
+    // 发送该日报邮件
+    async function sendReportEmail() {
+      if (!confirm('确认将这份日报发送到邮箱？')) return;
+      const btn = document.getElementById('emailBtn');
+      const resultEl = document.getElementById('emailResult');
+      setLoading(btn, true);
+      resultEl.style.display = 'none';
+      try {
+        const res = await api(`/api/admin/reports/${reportId}/send-email`, { method: 'POST' });
+        const d = res.data;
+        resultEl.className = 'email-result success';
+        resultEl.innerHTML = `<div class="email-result-title">✓ 邮件发送成功</div>
+          <div style="font-size:12px;color:var(--text-dim);">收件人: ${d.accepted.join(', ')}</div>`;
+        resultEl.style.display = 'block';
+      } catch (err) {
+        resultEl.className = 'email-result error';
+        resultEl.innerHTML = `<div class="email-result-title">✗ 发送失败</div><div>${err.message}</div>`;
+        resultEl.style.display = 'block';
       } finally {
         setLoading(btn, false);
       }

@@ -575,6 +575,23 @@ router.put('/reports/:id', auth(), async (req, res, next) => {
   }
 });
 
+// ==================== 发送单条日报邮件 ====================
+
+// 发送指定日报的邮件（仅 admin）
+router.post('/reports/:id/send-email', auth('admin'), async (req, res, next) => {
+  try {
+    const emailService = require('../services/emailService');
+    const result = await emailService.sendSingleReport(req.params.id);
+    if (result.success) {
+      res.json({ success: true, data: result.data });
+    } else {
+      res.json({ success: false, message: result.message });
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ==================== 账户管理（仅 admin） ====================
 
 // 账户列表（含关联工程师信息）

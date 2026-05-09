@@ -11,7 +11,6 @@
     <div class="sidebar">
       <div class="sidebar-title">日报管理</div>
       <div class="sidebar-nav">
-        <a class="nav-item" href="index.html">📊 仪表盘</a>
         <a class="nav-item" href="engineers.html">👤 员工管理</a>
         <a class="nav-item" href="projects.html">📁 项目管理</a>
         <a class="nav-item" href="reports.html">📋 日报管理</a>
@@ -52,14 +51,6 @@
       <div class="form-card" id="notSubmittedSection" style="display:none">
         <div class="form-card-title">未提交日报名单</div>
         <div class="name-list" id="notSubmittedList"></div>
-      </div>
-
-      <div class="form-card">
-        <div class="form-card-title">邮件操作</div>
-        <div class="email-action">
-          <button class="btn btn-primary" onclick="sendDailyEmail()" id="sendEmailBtn">发送日报邮件</button>
-          <div class="email-result" id="emailResult" style="display:none"></div>
-        </div>
       </div>
 
       <div class="form-card">
@@ -104,37 +95,6 @@
         }).join('');
       } catch (err) {
         showToast(err.message, 'error');
-      }
-    }
-
-    // 发送日报邮件
-    async function sendDailyEmail() {
-      if (!confirm('确认发送今日日报汇总邮件？')) return;
-      const btn = document.getElementById('sendEmailBtn');
-      const resultEl = document.getElementById('emailResult');
-      setLoading(btn, true);
-      resultEl.style.display = 'none';
-      try {
-        const res = await api('/api/admin/send-email');
-        const d = res.data;
-        resultEl.className = 'email-result success';
-        resultEl.innerHTML = `
-          <div class="email-result-title">✓ 邮件发送成功</div>
-          <div class="email-result-stats">
-            <span>总人数 ${d.stats.total}</span>
-            <span>已提交 ${d.stats.submitted}</span>
-            <span>未提交 ${d.stats.notSubmitted}</span>
-            <span>在外实施 ${d.stats.inField}</span>
-          </div>
-          <div class="email-result-msg">收件人: ${d.accepted.join(', ')}</div>
-        `;
-        resultEl.style.display = 'block';
-      } catch (err) {
-        resultEl.className = 'email-result error';
-        resultEl.innerHTML = `<div class="email-result-title">✗ 发送失败</div><div>${err.message}</div>`;
-        resultEl.style.display = 'block';
-      } finally {
-        setLoading(btn, false);
       }
     }
 
