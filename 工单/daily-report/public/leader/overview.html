@@ -24,6 +24,8 @@
     .list-scroll::-webkit-scrollbar { width:3px; }
     .list-scroll::-webkit-scrollbar-thumb { background:#333; border-radius:2px; }
     .list-scroll::-webkit-scrollbar-track { background:transparent; }
+    .nav-btn { padding:0 7px; border:1px solid var(--border); border-radius:4px; font-size:10px; background:transparent; color:var(--text-secondary); cursor:pointer; line-height:20px; transition:all .12s; }
+    .nav-btn:hover { border-color:var(--text-primary); color:var(--text-primary); }
   </style>
 </head>
 <body>
@@ -115,7 +117,7 @@
     const TOMORROW = {
       in_project:'有项目在外', back_to_office:'在公司', unavailable:'请假',
     };
-    const SQ = 36, GAP = 6;
+    const SQ = 36, GAP = 6, GCOLS = 7;
 
     const MOCK = [
       { id:1,  name:'王涛',   abbr:'王', project:'清科管理·AnyShare部署', progress:75, submitted:true,  tomorrowStatus:'in_project',     tomorrowTarget:'清科管理·AnyShare部署' },
@@ -146,17 +148,9 @@
     function sc(s) { return s==='in_project'?'#44cc77':s==='back_to_office'?'#4f8ef7':'#ffaa00'; }
     function sbg(s) { return s==='in_project'?'rgba(68,204,119,.15)':s==='back_to_office'?'rgba(79,142,247,.15)':'rgba(255,170,0,.15)'; }
 
-    // 自动计算最优列数
-    function calcCols(total, w) {
-      const itemW = SQ + GAP;
-      const max = Math.max(1, Math.floor((w + GAP) / itemW));
-      for (let c = max; c >= 1; c--) if (total % c === 0) return c;
-      return Math.min(total, max);
-    }
-
     // ====== Modal ======
     function Modal({ show, onClose, title, children }) {
-      if (!show) return null;
+      if(!show) return null;
       return (
         <div className="modal-overlay fixed inset-0 z-50 flex items-center justify-center"
              style={{ background:'rgba(0,0,0,.75)' }} onClick={onClose}>
@@ -173,9 +167,9 @@
       );
     }
 
-    // ====== 左上部 — 日期 + 统计 ======
+    // ====== 左上部 — 统计卡片（左右分栏） ======
     function StatsCard({ dateStr, total, submitted, notSubmitted, onDateChange, onNotSubmitClick }) {
-      const [showPicker,setShowPicker] = useState(false);
+      const [showPicker, setShowPicker] = useState(false);
       const pickerRef = useRef(null);
       useEffect(() => {
         function h(e) { if(pickerRef.current&&!pickerRef.current.contains(e.target)) setShowPicker(false); }
@@ -183,38 +177,45 @@
         return ()=>document.removeEventListener('mousedown',h);
       },[showPicker]);
 
+      const shift = d => {
+        const dt = new Date(dateStr+'T00:00:00');
+        dt.setDate(dt.getDate()+d);
+        onDateChange(dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0'));
+      };
+
       return (
-        <div className="rounded-xl border h-full flex flex-col" style={{ background:'var(--bg-card)', borderColor:'var(--border)', padding:'18px 24px' }}>
-          {/* 日期 — 缩小 */}
-          <div className="flex items-center gap-2 flex-shrink-0" style={{ fontSize:15, color:'var(--text-secondary)' }}>
-            <span style={{ cursor:'pointer' }} onClick={()=>setShowPicker(true)}>{fmtDate(dateStr)}</span>
-            <span style={{ fontSize:13, cursor:'pointer' }} onClick={()=>setShowPicker(true)}>📅</span>
-            {showPicker && <div ref={pickerRef} style={{ position:'relative' }}>
-              <input type="date" value={dateStr} className="form-input" autoFocus
-                     onChange={e=>{onDateChange(e.target.value);setShowPicker(false)}}
-                     style={{ position:'absolute',top:-2,left:0,width:150,fontSize:12,zIndex:20 }} />
-            </div>}
+        <div className="rounded-xl border h-full flex" style={{ background:'var(--bg-card)', borderColor:'var(--border)' }}>
+          {/* 左 40% — 在职人数 */}
+          <div className="flex flex-col items-center justify-center" style={{ width:'40%', borderRight:'1px solid var(--border)', padding:'12px' }}>
+            <span style={{ fontSize:11, color:'var(--text-secondary)', marginBottom:2 }}>在职人数</span>
+            <span className="font-black tracking-tight" style={{ fontSize:72, lineHeight:1.1 }}>{total}</span>
           </div>
-
-          {/* 在职工程师 — hero 数字 */}
-          <div className="flex flex-col items-center justify-center" style={{ flex:1 }}>
-            <span className="font-black tracking-tight" style={{ fontSize:60, lineHeight:1 }}>{total}</span>
-            <span style={{ fontSize:13, color:'var(--text-secondary)', marginTop:2 }}>在职工程师</span>
-          </div>
-
-          {/* 已提交 / 未提交 */}
-          <div className="flex items-center justify-center gap-6 flex-shrink-0" style={{ paddingBottom:2 }}>
-            <div className="text-center">
-              <span className="font-bold" style={{ fontSize:36, lineHeight:1.2, color:'var(--success)' }}>{submitted}</span>
-              <div style={{ fontSize:11, color:'#666' }}>已提交</div>
+          {/* 右 60% — 日期导航 + 提报统计 */}
+          <div className="flex flex-col justify-center" style={{ flex:1, padding:'10px 16px' }}>
+            <div className="flex items-center gap-1.5" style={{ marginBottom:8 }}>
+              <span style={{ fontSize:12, color:'var(--text-secondary)', cursor:'pointer', whiteSpace:'nowrap' }} onClick={()=>setShowPicker(true)}>{fmtDate(dateStr)}</span>
+              <span style={{ fontSize:10, cursor:'pointer' }} onClick={()=>setShowPicker(true)}>📅</span>
+              <button className="nav-btn" onClick={()=>shift(-1)}>◀</button>
+              <button className="nav-btn" onClick={()=>shift(1)}>▶</button>
+              {showPicker && <div ref={pickerRef} style={{ position:'relative' }}>
+                <input type="date" value={dateStr} className="form-input" autoFocus
+                       onChange={e=>{onDateChange(e.target.value);setShowPicker(false)}}
+                       style={{ position:'absolute',top:0,left:0,width:120,fontSize:11,zIndex:20 }} />
+              </div>}
             </div>
-            <div className="text-center cursor-pointer transition rounded px-3 py-1"
-                 style={{ margin:'-4px 0' }}
-                 onClick={onNotSubmitClick}
-                 onMouseOver={e=>{e.currentTarget.style.background='rgba(255,68,68,.08)'}}
-                 onMouseOut={e=>{e.currentTarget.style.background='transparent'}}>
-              <span className="font-bold" style={{ fontSize:36, lineHeight:1.2, color:'var(--danger)' }}>{notSubmitted}</span>
-              <div style={{ fontSize:11, color:'var(--danger)' }}>未提交</div>
+            <div className="flex gap-3">
+              <div className="flex-1 text-center">
+                <div className="font-bold" style={{ fontSize:36, lineHeight:1.2, color:'var(--success)' }}>{submitted}</div>
+                <div style={{ fontSize:11, color:'var(--text-secondary)' }}>已提交</div>
+              </div>
+              <div className="flex-1 text-center" style={{ position:'relative' }}>
+                <div className="font-bold" style={{ fontSize:36, lineHeight:1.2, color:'var(--danger)' }}>{notSubmitted}</div>
+                <div style={{ fontSize:11, color:'var(--danger)' }}>未提交</div>
+                <div style={{ position:'absolute',inset:0,cursor:'pointer' }}
+                     onClick={onNotSubmitClick}
+                     onMouseOver={e=>e.currentTarget.style.background='rgba(255,68,68,.06)'}
+                     onMouseOut={e=>e.currentTarget.style.background='transparent'} />
+              </div>
             </div>
           </div>
         </div>
@@ -252,23 +253,13 @@
       );
     }
 
-    // ====== 右上部 — 日报提交情况 ======
+    // ====== 右上部 — 日报提交情况（7列固定居中） ======
     function SubmitGrid({ engineers, onRedClick, onTooltip, hideTooltip }) {
-      const ref = useRef(null);
-      const [cols, setCols] = useState(10);
-
-      useEffect(() => {
-        if (ref.current) {
-          const w = ref.current.clientWidth;
-          setCols(calcCols(engineers.length, w));
-        }
-      }, [engineers.length]);
-
       return (
         <div className="rounded-xl border flex flex-col" style={{ background:'var(--bg-card)', borderColor:'var(--border)', height:'100%', padding:'16px 20px' }}>
-          <div style={{ fontSize:13, fontWeight:600, color:'#ccc', paddingBottom:8, flexShrink:0 }}>日报提交情况</div>
-          <div ref={ref} className="flex-1 flex items-center justify-center" style={{ minHeight:0 }}>
-            <div className="grid" style={{ gridTemplateColumns:`repeat(${cols}, ${SQ}px)`, gap:`${GAP}px` }}>
+          <div style={{ fontSize:13, fontWeight:600, color:'#ccc', marginBottom:'auto', paddingBottom:8 }}>日报提交情况</div>
+          <div className="flex-1 flex items-center justify-center" style={{ minHeight:0 }}>
+            <div className="grid" style={{ gridTemplateColumns:`repeat(${GCOLS}, ${SQ}px)`, gap:`${GAP}px` }}>
               {engineers.map(e => (
                 <div key={e.id} className="sq-36" style={{ background:e.submitted?'#44cc77':'#ff4444' }}
                      onClick={()=>{if(!e.submitted) onRedClick(e);}}
@@ -281,27 +272,17 @@
       );
     }
 
-    // ====== 右下部 — 明日出勤情况 ======
+    // ====== 右下部 — 明日出勤情况（7列固定居中） ======
     function AttendGrid({ engineers, onSquareClick, onTooltip, hideTooltip }) {
-      const ref = useRef(null);
-      const [cols, setCols] = useState(10);
-
-      useEffect(() => {
-        if (ref.current) {
-          const w = ref.current.clientWidth;
-          setCols(calcCols(engineers.length, w));
-        }
-      }, [engineers.length]);
-
       const inP = engineers.filter(e=>e.tomorrowStatus==='in_project').length;
       const inO = engineers.filter(e=>e.tomorrowStatus==='back_to_office').length;
       const onL = engineers.filter(e=>e.tomorrowStatus==='unavailable').length;
-
       return (
         <div className="rounded-xl border flex flex-col" style={{ background:'var(--bg-card)', borderColor:'var(--border)', height:'100%', padding:'16px 20px' }}>
+          {/* 标题 */}
           <div style={{ fontSize:13, fontWeight:600, color:'#ccc', flexShrink:0 }}>明日出勤情况</div>
           {/* 图例 */}
-          <div className="flex gap-3 flex-shrink-0" style={{ padding:'6px 0 4px' }}>
+          <div className="flex gap-3 flex-shrink-0" style={{ padding:'6px 0 2px' }}>
             {[{c:'#44cc77',l:'有项目在外'},{c:'#4f8ef7',l:'在公司'},{c:'#ffaa00',l:'请假'}].map(i=>(
               <div key={i.c} className="flex items-center gap-1.5">
                 <span className="legend-sq" style={{ background:i.c }}></span>
@@ -310,8 +291,8 @@
             ))}
           </div>
           {/* 格子 */}
-          <div ref={ref} className="flex items-center justify-center" style={{ flex:1, minHeight:0 }}>
-            <div className="grid" style={{ gridTemplateColumns:`repeat(${cols}, ${SQ}px)`, gap:`${GAP}px` }}>
+          <div className="flex items-center justify-center" style={{ flex:1, minHeight:0 }}>
+            <div className="grid" style={{ gridTemplateColumns:`repeat(${GCOLS}, ${SQ}px)`, gap:`${GAP}px` }}>
               {engineers.map(e => {
                 const bg = e.tomorrowStatus==='in_project'?'#44cc77':e.tomorrowStatus==='back_to_office'?'#4f8ef7':'#ffaa00';
                 return (
@@ -434,7 +415,7 @@
       return (
         <div style={{ height:'100%', display:'flex', flexDirection:'column' }}>
           <div className="flex gap-4 flex-1 min-h-0">
-            {/* 左 55% */}
+            {/* ===== 左 55% ===== */}
             <div className="flex flex-col gap-3" style={{ flex:'55', minWidth:0, minHeight:0 }}>
               <div style={{ height:'30%', minHeight:0 }} className="flex-shrink-0">
                 <StatsCard dateStr={selDate} total={total} submitted={sub} notSubmitted={notSub}
@@ -444,7 +425,7 @@
                 <EngineerList engineers={engineers} onRowClick={hRow} />
               </div>
             </div>
-            {/* 右 45% */}
+            {/* ===== 右 45% ===== */}
             <div className="flex flex-col gap-3" style={{ flex:'45', minWidth:0, minHeight:0 }}>
               <div style={{ flex:1, minHeight:0 }}>
                 <SubmitGrid engineers={engineers} onRedClick={hRed} onTooltip={showTip} hideTooltip={hideTip} />
