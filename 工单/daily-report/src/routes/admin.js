@@ -754,4 +754,21 @@ router.get('/hours', auth(), async (req, res, next) => {
   }
 });
 
+// ==================== 发送日报邮件 ====================
+
+// 发送今日日报汇总邮件（仅 admin）
+router.post('/send-email', auth('admin'), async (req, res, next) => {
+  try {
+    const emailService = require('../services/emailService');
+    const result = await emailService.sendDailyReport();
+    if (result.success) {
+      res.json({ success: true, data: result.data });
+    } else {
+      res.json({ success: false, message: result.message });
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

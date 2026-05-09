@@ -11,7 +11,7 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
     body { overflow: hidden; }
-    .sq-36 { width:36px; height:36px; border-radius:4px; transition:all .12s; cursor:pointer; }
+    .sq-36 { width:28px; height:28px; border-radius:4px; transition:all .12s; cursor:pointer; }
     .sq-36:hover { transform:scale(1.12); opacity:.85; }
     .tooltip-el { position:fixed; pointer-events:none; z-index:9999; padding:5px 10px; border-radius:6px; font-size:12px; background:#1a1a1a; color:#fff; border:1px solid #333; white-space:nowrap; }
     @keyframes fadeIn { from{opacity:0} to{opacity:1} }
@@ -117,30 +117,9 @@
     const TOMORROW = {
       in_project:'有项目在外', back_to_office:'在公司', unavailable:'请假',
     };
-    const SQ = 36, GAP = 6, GCOLS = 7;
+    const SQ = 28, GAP = 4, GCOLS = 7;
 
-    const MOCK = [
-      { id:1,  name:'王涛',   abbr:'王', project:'清科管理·AnyShare部署', progress:75, submitted:true,  tomorrowStatus:'in_project',     tomorrowTarget:'清科管理·AnyShare部署' },
-      { id:2,  name:'张宏洋', abbr:'张', project:'某银行核心系统升级',   progress:100, submitted:true,  tomorrowStatus:'back_to_office' },
-      { id:3,  name:'周继成', abbr:'周', project:'数据中心网络迁移',     progress:45,  submitted:false, tomorrowStatus:'in_project',     tomorrowTarget:'数据中心网络迁移' },
-      { id:4,  name:'张学龙', abbr:'学', project:'医院HIS系统对接',      progress:60,  submitted:true,  tomorrowStatus:'back_to_office' },
-      { id:5,  name:'李明',   abbr:'李', project:'政务云平台部署',       progress:90,  submitted:false, tomorrowStatus:'unavailable' },
-      { id:6,  name:'赵强',   abbr:'赵', project:'ERP系统调试优化',      progress:30,  submitted:true,  tomorrowStatus:'in_project',     tomorrowTarget:'ERP系统调试优化' },
-      { id:7,  name:'刘洋',   abbr:'刘', project:'网络安全加固方案',     progress:80,  submitted:true,  tomorrowStatus:'in_project',     tomorrowTarget:'网络安全加固方案' },
-      { id:8,  name:'陈伟',   abbr:'陈', project:'Oracle数据库迁移',     progress:55,  submitted:true,  tomorrowStatus:'back_to_office' },
-      { id:9,  name:'孙鹏',   abbr:'孙', project:'OA系统上线支持',       progress:70,  submitted:false, tomorrowStatus:'in_project',     tomorrowTarget:'OA系统上线支持' },
-      { id:10, name:'黄磊',   abbr:'黄', project:'Zabbix监控部署',      progress:85,  submitted:true,  tomorrowStatus:'back_to_office' },
-      { id:11, name:'吴鑫',   abbr:'吴', project:'容灾演练方案实施',     progress:40,  submitted:true,  tomorrowStatus:'in_project',     tomorrowTarget:'容灾演练方案实施' },
-      { id:12, name:'郑宇',   abbr:'郑', project:'IDC机房季度巡检',     progress:95,  submitted:true,  tomorrowStatus:'unavailable' },
-      { id:13, name:'林峰',   abbr:'林', project:'K8s集群搭建',          progress:20,  submitted:false, tomorrowStatus:'in_project',     tomorrowTarget:'K8s集群搭建' },
-      { id:14, name:'何杰',   abbr:'何', project:'备份系统数据恢复测试', progress:50,  submitted:true,  tomorrowStatus:'back_to_office' },
-      { id:15, name:'高阳',   abbr:'高', project:'VMware虚拟化部署',     progress:65,  submitted:true,  tomorrowStatus:'in_project',     tomorrowTarget:'VMware虚拟化部署' },
-      { id:16, name:'马超',   abbr:'马', project:'存储系统扩容',          progress:35,  submitted:false, tomorrowStatus:'back_to_office' },
-      { id:17, name:'梁宇',   abbr:'梁', project:'JumpServer堡垒机安装', progress:100, submitted:true,  tomorrowStatus:'in_project',     tomorrowTarget:'JumpServer堡垒机安装' },
-      { id:18, name:'宋涛',   abbr:'宋', project:'ELK日志平台搭建',      progress:10,  submitted:false, tomorrowStatus:'unavailable' },
-      { id:19, name:'唐杰',   abbr:'唐', project:'APM全链路监控接入',    progress:88,  submitted:true,  tomorrowStatus:'in_project',     tomorrowTarget:'APM全链路监控接入' },
-      { id:20, name:'韩冰',   abbr:'韩', project:'等保安全审计',          progress:72,  submitted:true,  tomorrowStatus:'back_to_office' },
-    ];
+    const MOCK = [];
 
     function getToday() { const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
     function fmtDate(s) { const d=new Date(s+'T00:00:00'); return d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日'; }
@@ -191,7 +170,7 @@
             <span className="font-black tracking-tight" style={{ fontSize:72, lineHeight:1.1 }}>{total}</span>
           </div>
           {/* 右 60% — 日期导航 + 提报统计 */}
-          <div className="flex flex-col justify-center" style={{ flex:1, padding:'10px 16px' }}>
+          <div className="flex flex-col justify-center" style={{ flex:1, padding:'12px 18px' }}>
             <div className="flex items-center gap-1.5" style={{ marginBottom:8 }}>
               <span style={{ fontSize:24, fontWeight:'bold', color:'var(--text-primary)', cursor:'pointer', whiteSpace:'nowrap' }} onClick={()=>setShowPicker(true)}>{fmtDate(dateStr)}</span>
               <span style={{ fontSize:10, cursor:'pointer' }} onClick={()=>setShowPicker(true)}>📅</span>
@@ -227,27 +206,29 @@
       return (
         <div className="rounded-xl border flex flex-col" style={{ background:'var(--bg-card)', borderColor:'var(--border)', height:'100%' }}>
           <div style={{ fontSize:13, fontWeight:600, color:'#ccc', padding:'14px 18px 10px', borderBottom:'1px solid #222' }}>工程师状态</div>
-          <div className="list-scroll flex-1" style={{ overflowY:'auto', minHeight:0 }}>
-            {engineers.map(e => (
-              <div key={e.id} className="eng-row flex items-center gap-2.5 px-4"
-                   style={{ padding:'7px 16px', borderBottom:'1px solid rgba(255,255,255,.04)', fontSize:13 }}
-                   onClick={()=>onRowClick(e)}>
-                <div className="flex items-center justify-center rounded font-black flex-shrink-0"
-                     style={{ width:24,height:24,background:'#fff',color:'#000',fontSize:10 }}>{e.abbr}</div>
-                <span className="font-semibold flex-shrink-0" style={{ fontSize:13, minWidth:36 }}>{e.name}</span>
-                <span className="truncate" style={{ fontSize:12, color:'#999', minWidth:0, maxWidth:'30%' }}>{e.project}</span>
-                <span className="font-medium flex-shrink-0" style={{ fontSize:12, color:pc(e.progress), minWidth:34 }}>{e.progress}%</span>
-                <span className="inline-flex items-center gap-1 rounded px-1.5 flex-shrink-0"
-                      style={{ fontSize:11, background:e.submitted?'rgba(68,204,119,.12)':'rgba(255,68,68,.12)', color:e.submitted?'#44cc77':'#ff4444', lineHeight:'18px' }}>
-                  {e.submitted?'已提交':'未提交'}
-                </span>
-                <span className="inline-flex items-center gap-1 rounded px-1.5 flex-shrink-0"
-                      style={{ fontSize:11, background:sbg(e.tomorrowStatus), color:sc(e.tomorrowStatus), lineHeight:'18px' }}>
-                  <span style={{ width:5,height:5,borderRadius:'50%',background:sc(e.tomorrowStatus),display:'inline-block' }}></span>
-                  {TOMORROW[e.tomorrowStatus]}
-                </span>
-              </div>
-            ))}
+          <div className="list-scroll flex-1 flex items-center justify-center" style={{ overflowY:'auto', minHeight:0 }}>
+            {engineers.length === 0
+              ? <span style={{ color:'var(--text-dim)', fontSize:13 }}>暂无数据</span>
+              : engineers.map(e => (
+                <div key={e.id} className="eng-row flex items-center gap-2.5 px-4"
+                     style={{ padding:'7px 16px', borderBottom:'1px solid rgba(255,255,255,.04)', fontSize:13 }}
+                     onClick={()=>onRowClick(e)}>
+                  <div className="flex items-center justify-center rounded font-black flex-shrink-0"
+                       style={{ width:24,height:24,background:'#fff',color:'#000',fontSize:10 }}>{e.abbr}</div>
+                  <span className="font-semibold flex-shrink-0" style={{ fontSize:13, minWidth:36 }}>{e.name}</span>
+                  <span className="truncate" style={{ fontSize:12, color:'#999', minWidth:0, maxWidth:'30%' }}>{e.project}</span>
+                  <span className="font-medium flex-shrink-0" style={{ fontSize:12, color:pc(e.progress), minWidth:34 }}>{e.progress}%</span>
+                  <span className="inline-flex items-center gap-1 rounded px-1.5 flex-shrink-0"
+                        style={{ fontSize:11, background:e.submitted?'rgba(68,204,119,.12)':'rgba(255,68,68,.12)', color:e.submitted?'#44cc77':'#ff4444', lineHeight:'18px' }}>
+                    {e.submitted?'已提交':'未提交'}
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded px-1.5 flex-shrink-0"
+                        style={{ fontSize:11, background:sbg(e.tomorrowStatus), color:sc(e.tomorrowStatus), lineHeight:'18px' }}>
+                    <span style={{ width:5,height:5,borderRadius:'50%',background:sc(e.tomorrowStatus),display:'inline-block' }}></span>
+                    {TOMORROW[e.tomorrowStatus]}
+                  </span>
+                </div>
+              ))}
           </div>
         </div>
       );
@@ -259,14 +240,16 @@
         <div className="rounded-xl border flex flex-col" style={{ background:'var(--bg-card)', borderColor:'var(--border)', height:'100%', padding:'16px 20px' }}>
           <div style={{ fontSize:13, fontWeight:600, color:'#ccc', marginBottom:'auto', paddingBottom:8 }}>日报提交情况</div>
           <div className="flex-1 flex items-center justify-center" style={{ minHeight:0 }}>
-            <div className="grid" style={{ gridTemplateColumns:`repeat(${GCOLS}, ${SQ}px)`, gap:`${GAP}px` }}>
-              {engineers.map(e => (
-                <div key={e.id} className="sq-36" style={{ background:e.submitted?'#44cc77':'#ff4444' }}
-                     onClick={()=>{if(!e.submitted) onRedClick(e);}}
-                     onMouseEnter={e2=>{const r=e2.target.getBoundingClientRect();onTooltip(e.name+(e.submitted?' · 已提交':' · 未提交'),r.right+8,r.top-4)}}
-                     onMouseLeave={hideTooltip} />
-              ))}
-            </div>
+            {engineers.length === 0
+              ? <span style={{ color:'var(--text-dim)', fontSize:13 }}>暂无数据</span>
+              : <div className="grid" style={{ gridTemplateColumns:`repeat(${GCOLS}, ${SQ}px)`, gap:`${GAP}px` }}>
+                  {engineers.map(e => (
+                    <div key={e.id} className="sq-36" style={{ background:e.submitted?'#44cc77':'#ff4444' }}
+                         onClick={()=>{if(!e.submitted) onRedClick(e);}}
+                         onMouseEnter={e2=>{const r=e2.target.getBoundingClientRect();onTooltip(e.name+(e.submitted?' · 已提交':' · 未提交'),r.right+8,r.top-4)}}
+                         onMouseLeave={hideTooltip} />
+                  ))}
+                </div>}
           </div>
         </div>
       );
@@ -277,39 +260,44 @@
       const inP = engineers.filter(e=>e.tomorrowStatus==='in_project').length;
       const inO = engineers.filter(e=>e.tomorrowStatus==='back_to_office').length;
       const onL = engineers.filter(e=>e.tomorrowStatus==='unavailable').length;
+      const empty = engineers.length === 0;
       return (
         <div className="rounded-xl border flex flex-col" style={{ background:'var(--bg-card)', borderColor:'var(--border)', height:'100%', padding:'16px 20px' }}>
           {/* 标题 */}
           <div style={{ fontSize:13, fontWeight:600, color:'#ccc', flexShrink:0 }}>明日出勤情况</div>
-          {/* 图例 */}
-          <div className="flex gap-3 flex-shrink-0" style={{ padding:'6px 0 2px' }}>
-            {[{c:'#44cc77',l:'有项目在外'},{c:'#4f8ef7',l:'在公司'},{c:'#ffaa00',l:'请假'}].map(i=>(
-              <div key={i.c} className="flex items-center gap-1.5">
-                <span className="legend-sq" style={{ background:i.c }}></span>
-                <span style={{ fontSize:11, color:'#888' }}>{i.l}</span>
+          {empty
+            ? <div className="flex-1 flex items-center justify-center"><span style={{ color:'var(--text-dim)', fontSize:13 }}>暂无数据</span></div>
+            : <>
+              {/* 图例 */}
+              <div className="flex gap-3 flex-shrink-0" style={{ padding:'6px 0 2px' }}>
+                {[{c:'#44cc77',l:'有项目在外'},{c:'#4f8ef7',l:'在公司'},{c:'#ffaa00',l:'请假'}].map(i=>(
+                  <div key={i.c} className="flex items-center gap-1.5">
+                    <span className="legend-sq" style={{ background:i.c }}></span>
+                    <span style={{ fontSize:11, color:'#888' }}>{i.l}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          {/* 格子 */}
-          <div className="flex items-center justify-center" style={{ flex:1, minHeight:0 }}>
-            <div className="grid" style={{ gridTemplateColumns:`repeat(${GCOLS}, ${SQ}px)`, gap:`${GAP}px` }}>
-              {engineers.map(e => {
-                const bg = e.tomorrowStatus==='in_project'?'#44cc77':e.tomorrowStatus==='back_to_office'?'#4f8ef7':'#ffaa00';
-                return (
-                  <div key={e.id} className="sq-36" style={{ background:bg }}
-                       onClick={()=>onSquareClick(e)}
-                       onMouseEnter={e2=>{const r=e2.target.getBoundingClientRect();const lb=e.name+' · '+TOMORROW[e.tomorrowStatus]+(e.tomorrowTarget?' · '+e.tomorrowTarget:'');onTooltip(lb,r.right+8,r.top-4)}}
-                       onMouseLeave={hideTooltip} />
-                );
-              })}
-            </div>
-          </div>
-          {/* 汇总 */}
-          <div className="flex gap-4 justify-center flex-shrink-0" style={{ paddingTop:8 }}>
-            <span style={{ fontSize:12, color:'var(--text-secondary)' }}>有项目在外 <strong style={{ color:'#44cc77' }}>{inP}</strong>人</span>
-            <span style={{ fontSize:12, color:'var(--text-secondary)' }}>在公司 <strong style={{ color:'#4f8ef7' }}>{inO}</strong>人</span>
-            <span style={{ fontSize:12, color:'var(--text-secondary)' }}>请假 <strong style={{ color:'#ffaa00' }}>{onL}</strong>人</span>
-          </div>
+              {/* 格子 */}
+              <div className="flex items-center justify-center" style={{ flex:1, minHeight:0 }}>
+                <div className="grid" style={{ gridTemplateColumns:`repeat(${GCOLS}, ${SQ}px)`, gap:`${GAP}px` }}>
+                  {engineers.map(e => {
+                    const bg = e.tomorrowStatus==='in_project'?'#44cc77':e.tomorrowStatus==='back_to_office'?'#4f8ef7':'#ffaa00';
+                    return (
+                      <div key={e.id} className="sq-36" style={{ background:bg }}
+                           onClick={()=>onSquareClick(e)}
+                           onMouseEnter={e2=>{const r=e2.target.getBoundingClientRect();const lb=e.name+' · '+TOMORROW[e.tomorrowStatus]+(e.tomorrowTarget?' · '+e.tomorrowTarget:'');onTooltip(lb,r.right+8,r.top-4)}}
+                           onMouseLeave={hideTooltip} />
+                    );
+                  })}
+                </div>
+              </div>
+              {/* 汇总 */}
+              <div className="flex gap-4 justify-center flex-shrink-0" style={{ paddingTop:8 }}>
+                <span style={{ fontSize:12, color:'var(--text-secondary)' }}>有项目在外 <strong style={{ color:'#44cc77' }}>{inP}</strong>人</span>
+                <span style={{ fontSize:12, color:'var(--text-secondary)' }}>在公司 <strong style={{ color:'#4f8ef7' }}>{inO}</strong>人</span>
+                <span style={{ fontSize:12, color:'var(--text-secondary)' }}>请假 <strong style={{ color:'#ffaa00' }}>{onL}</strong>人</span>
+              </div>
+            </>}
         </div>
       );
     }

@@ -9,3 +9,10 @@ data:
   DB_HOST: "mysql-service"
   DB_PORT: "3306"
   DB_NAME: "daily_report"
+
+  # SMTP 邮件配置（非敏感）
+  MAIL_HOST: "smtp.qiye.163.com"
+  MAIL_PORT: "465"
+  MAIL_SECURE: "true"
+  MAIL_FROM: "日报系统 <noreply@company.com>"
+  MAIL_TO: "leader@company.com,manager@company.com"
