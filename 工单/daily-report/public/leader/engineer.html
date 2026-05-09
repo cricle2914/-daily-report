@@ -226,6 +226,13 @@
         allEngineers.forEach(e => {
           sel.innerHTML += `<option value="${e.id}">${e.name}</option>`;
         });
+        // 解析 URL 参数，自动加载对应工程师
+        const params = new URLSearchParams(window.location.search);
+        const id = params.get('id');
+        if (id && allEngineers.some(e => e.id == id)) {
+          sel.value = id;
+          switchEngineer(id);
+        }
       } catch (err) {}
     }
 
