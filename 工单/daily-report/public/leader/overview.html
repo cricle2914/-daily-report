@@ -187,13 +187,13 @@
         <div className="rounded-xl border h-full flex" style={{ background:'var(--bg-card)', borderColor:'var(--border)' }}>
           {/* 左 40% — 在职人数 */}
           <div className="flex flex-col items-center justify-center" style={{ width:'40%', borderRight:'1px solid var(--border)', padding:'12px' }}>
-            <span style={{ fontSize:11, color:'var(--text-secondary)', marginBottom:2 }}>在职人数</span>
+            <span style={{ fontSize:18, color:'var(--text-secondary)', marginBottom:2 }}>在职人数</span>
             <span className="font-black tracking-tight" style={{ fontSize:72, lineHeight:1.1 }}>{total}</span>
           </div>
           {/* 右 60% — 日期导航 + 提报统计 */}
           <div className="flex flex-col justify-center" style={{ flex:1, padding:'10px 16px' }}>
             <div className="flex items-center gap-1.5" style={{ marginBottom:8 }}>
-              <span style={{ fontSize:12, color:'var(--text-secondary)', cursor:'pointer', whiteSpace:'nowrap' }} onClick={()=>setShowPicker(true)}>{fmtDate(dateStr)}</span>
+              <span style={{ fontSize:24, fontWeight:'bold', color:'var(--text-primary)', cursor:'pointer', whiteSpace:'nowrap' }} onClick={()=>setShowPicker(true)}>{fmtDate(dateStr)}</span>
               <span style={{ fontSize:10, cursor:'pointer' }} onClick={()=>setShowPicker(true)}>📅</span>
               <button className="nav-btn" onClick={()=>shift(-1)}>◀</button>
               <button className="nav-btn" onClick={()=>shift(1)}>▶</button>
@@ -427,10 +427,10 @@
             </div>
             {/* ===== 右 45% ===== */}
             <div className="flex flex-col gap-3" style={{ flex:'45', minWidth:0, minHeight:0 }}>
-              <div style={{ flex:1, minHeight:0 }}>
+              <div style={{ flex:45, minHeight:0 }}>
                 <SubmitGrid engineers={engineers} onRedClick={hRed} onTooltip={showTip} hideTooltip={hideTip} />
               </div>
-              <div style={{ flex:1, minHeight:0 }}>
+              <div style={{ flex:55, minHeight:0 }}>
                 <AttendGrid engineers={engineers} onSquareClick={hAtt} onTooltip={showTip} hideTooltip={hideTip} />
               </div>
             </div>
