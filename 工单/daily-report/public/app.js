@@ -485,7 +485,6 @@ document.getElementById('drawer').addEventListener('touchend', function(e) {
   this.style.transform = '';
   if (dy > 60) closeDrawer();
 }, { passive: true });
-}
 
 async function createProject() {
   const name = document.getElementById('drawerName').value.trim();
