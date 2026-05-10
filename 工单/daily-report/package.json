@@ -14,7 +14,8 @@
     "express-mysql-session": "^3.0.3",
     "express-session": "^1.19.0",
     "mysql2": "^3.6.0",
-    "nodemailer": "^8.0.7"
+    "nodemailer": "^8.0.7",
+    "pinyin-pro": "^3.28.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.0"

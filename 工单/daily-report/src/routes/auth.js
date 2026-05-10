@@ -34,8 +34,16 @@ router.post('/login', async (req, res, next) => {
     };
 
     let redirect = '/admin/';
-    if (account.role === 'viewer') {
+    if (account.role === 'viewer' || account.role === 'leader') {
       redirect = '/leader/';
+    }
+
+    let engineer = null;
+    if (account.engineer_id) {
+      const [engRows] = await pool.query('SELECT id, name, abbr FROM engineers WHERE id = ?', [account.engineer_id]);
+      if (engRows.length > 0) {
+        engineer = engRows[0];
+      }
     }
 
     res.json({
@@ -43,6 +51,8 @@ router.post('/login', async (req, res, next) => {
       data: {
         username: account.username,
         role: account.role,
+        engineer_id: account.engineer_id,
+        engineer,
         redirect
       }
     });

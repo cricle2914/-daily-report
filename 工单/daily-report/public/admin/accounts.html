@@ -101,7 +101,7 @@
         <label class="form-label">角色</label>
         <select class="form-select" id="newRole" onchange="toggleEngineerSelect()">
           <option value="admin">管理员</option>
-          <option value="leader">领导</option>
+          <option value="leader">组长</option>
           <option value="engineer">员工</option>
         </select>
       </div>
@@ -129,6 +129,30 @@
       <div class="modal-actions">
         <button class="btn btn-secondary" onclick="closePasswordModal()">取消</button>
         <button class="btn btn-primary" id="resetBtn" onclick="resetPassword()">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 修改角色弹窗 -->
+  <div class="modal-overlay" id="roleModal">
+    <div class="modal">
+      <div class="modal-title">修改角色</div>
+      <div class="form-group">
+        <label class="form-label">用户名</label>
+        <div id="roleUsername" style="font-size:15px;font-weight:600;margin-bottom:12px"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">新角色</label>
+        <select class="form-select" id="roleSelect">
+          <option value="admin">管理员</option>
+          <option value="leader">组长</option>
+          <option value="engineer">员工</option>
+          <option value="viewer">查看者</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeRoleModal()">取消</button>
+        <button class="btn btn-primary" id="roleBtn" onclick="updateRole()">确认</button>
       </div>
     </div>
   </div>
@@ -176,7 +200,7 @@
           return;
         }
         tbody.innerHTML = data.map(a => {
-          const roleMap = { admin: '管理员', leader: '领导', engineer: '员工', viewer: '查看者' };
+          const roleMap = { admin: '管理员', leader: '组长', engineer: '员工', viewer: '查看者' };
           const badgeCls = { admin: 'badge-active', leader: 'badge-ongoing', engineer: 'badge-info', viewer: 'badge-warning' };
           return `<tr>
             <td><strong>${a.username}</strong></td>
@@ -185,6 +209,7 @@
             <td>${formatDateTime(a.created_at)}</td>
             <td>
               <div class="btn-group">
+                <button class="btn btn-secondary btn-sm" onclick="showRoleModal(${a.id}, '${a.username}', '${a.role}')">修改角色</button>
                 <button class="btn btn-secondary btn-sm" onclick="showPermModal(${a.id})">管理权限</button>
                 <button class="btn btn-secondary btn-sm" onclick="showPasswordModal(${a.id})">重置密码</button>
                 <button class="btn btn-danger btn-sm" onclick="deleteAccount(${a.id}, '${a.username}')">删除</button>
@@ -288,6 +313,43 @@
         loadAccounts();
       } catch (err) {
         showToast(err.message, 'error');
+      }
+    }
+
+    // ====== 修改角色 ======
+
+    let roleAccountId = null;
+
+    function showRoleModal(id, username, currentRole) {
+      roleAccountId = id;
+      document.getElementById('roleUsername').textContent = username + '（当前角色：' +
+        ({ admin: '管理员', leader: '组长', engineer: '员工', viewer: '查看者' }[currentRole] || currentRole) + '）';
+      document.getElementById('roleSelect').value = currentRole;
+      document.getElementById('roleModal').classList.add('show');
+    }
+
+    function closeRoleModal() {
+      roleAccountId = null;
+      document.getElementById('roleModal').classList.remove('show');
+    }
+
+    async function updateRole() {
+      const role = document.getElementById('roleSelect').value;
+      if (!roleAccountId) return;
+      const btn = document.getElementById('roleBtn');
+      setLoading(btn, true);
+      try {
+        await api(`/api/admin/accounts/${roleAccountId}/role`, {
+          method: 'PUT',
+          body: JSON.stringify({ role })
+        });
+        showToast('角色已更新');
+        closeRoleModal();
+        loadAccounts();
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        setLoading(btn, false);
       }
     }
 

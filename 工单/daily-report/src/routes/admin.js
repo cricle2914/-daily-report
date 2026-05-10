@@ -1,8 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
+const { pinyin } = require('pinyin-pro');
 const pool = require('../database');
 const auth = require('../middleware/authMiddleware');
+
+// 根据中文名生成用户名：第一个字全拼 + 后续字首字母
+// 例：周继成 → zhoujc, 张宏洋 → zhanghy, 王涛 → wangt
+function generateUsername(name) {
+  const chars = pinyin(name, { toneType: 'none', type: 'array' });
+  if (chars.length === 0) return '';
+  return chars[0] + chars.slice(1).map(p => p[0]).join('');
+}
 
 // ====== 权限辅助函数：获取当前用户可查看的工程师ID列表 ======
 async function getAuthorizedEngineerIds(user) {
@@ -176,7 +185,7 @@ router.get('/engineers/:id', auth(), async (req, res, next) => {
   }
 });
 
-// 新建员工
+// 新建员工（自动创建工程师账号）
 router.post('/engineers', auth(), async (req, res, next) => {
   try {
     const { name, abbr, phone, email, department, position, hire_date } = req.body;
@@ -187,7 +196,33 @@ router.post('/engineers', auth(), async (req, res, next) => {
       'INSERT INTO engineers (name, abbr, phone, email, department, position, hire_date) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [name, abbr, phone || null, email || null, department || null, position || null, hire_date || null]
     );
-    res.json({ success: true, data: { id: result.insertId } });
+
+    // 自动创建工程师账户：用户名 = 姓名拼音规则，默认密码 123456
+    const engineerId = result.insertId;
+    let username = generateUsername(name);
+    if (!username) username = abbr;
+    // 处理用户名重复，追加数字
+    let suffix = '';
+    let finalUsername = username;
+    while (true) {
+      const [existing] = await pool.query('SELECT id FROM accounts WHERE username = ?', [finalUsername]);
+      if (existing.length === 0) break;
+      suffix = (parseInt(suffix || 0) + 1).toString();
+      finalUsername = username + suffix;
+    }
+    const hash = await bcrypt.hash('123456', 10);
+    await pool.query(
+      'INSERT INTO accounts (username, password_hash, role, engineer_id) VALUES (?, ?, ?, ?)',
+      [finalUsername, hash, 'engineer', engineerId]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        id: engineerId,
+        account: { username: finalUsername, password: '123456' }
+      }
+    });
   } catch (err) {
     if (err.code === 'ER_DUP_ENTRY') {
       return res.status(400).json({ success: false, message: '该员工名已存在' });
@@ -654,6 +689,24 @@ router.put('/accounts/:id/password', auth('admin'), async (req, res, next) => {
     await pool.query('UPDATE accounts SET password_hash = ? WHERE id = ?', [hash, id]);
 
     res.json({ success: true, data: { message: '密码已重置' } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// 修改账户角色
+router.put('/accounts/:id/role', auth('admin'), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+
+    if (!['admin', 'leader', 'engineer', 'viewer'].includes(role)) {
+      return res.status(400).json({ success: false, message: '角色无效' });
+    }
+
+    await pool.query('UPDATE accounts SET role = ? WHERE id = ?', [role, id]);
+
+    res.json({ success: true, data: { message: '角色已更新' } });
   } catch (err) {
     next(err);
   }

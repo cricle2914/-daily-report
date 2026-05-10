@@ -249,9 +249,13 @@
           await api(`/api/admin/engineers/${editId}`, { method: 'PUT', body: JSON.stringify(body) });
           showToast('已保存');
         } else {
-          await api('/api/admin/engineers', { method: 'POST', body: JSON.stringify(body) });
-          showToast('已创建');
-          setTimeout(() => { location.href = 'engineers.html'; }, 500);
+          const result = await api('/api/admin/engineers', { method: 'POST', body: JSON.stringify(body) });
+          if (result && result.data && result.data.account) {
+            showToast('已创建，用户名: ' + result.data.account.username + '，密码: ' + result.data.account.password);
+          } else {
+            showToast('已创建');
+          }
+          setTimeout(() => { location.href = 'engineers.html'; }, 1500);
         }
       } catch (err) {
         showToast(err.message, 'error');

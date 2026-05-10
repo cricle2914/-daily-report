@@ -18,11 +18,37 @@
         <div class="top-bar-prog-step"></div>
         <div class="top-bar-prog-step"></div>
         <div class="top-bar-prog-step"></div>
+        <div class="top-bar-prog-step"></div>
+      </div>
+    </div>
+
+    <!-- ====== Page 0: 登录 ====== -->
+    <div class="page active" id="page-0">
+      <div class="page1-hero">
+        <h1 class="page1-greeting">
+          <span class="greeting-good">Good</span><br>
+          <span class="greeting-day">day!</span>
+        </h1>
+        <p class="page1-sub" style="margin-top:12px">
+          <span class="sub-line1">请登录后开始填写日报</span>
+        </p>
+      </div>
+      <div class="login-form">
+        <div class="form-group">
+          <label class="form-label">用户名</label>
+          <input class="form-input" id="loginUsername" type="text" placeholder="请输入用户名" autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label class="form-label">密码</label>
+          <input class="form-input" id="loginPassword" type="password" placeholder="请输入密码" autocomplete="current-password">
+        </div>
+        <button class="btn btn-primary btn-block" id="loginBtn" onclick="doLogin()">登 录</button>
+        <div class="login-error hidden" id="loginError"></div>
       </div>
     </div>
 
     <!-- ====== Page 1: 选工程师 & 选项目 ====== -->
-    <div class="page active" id="page-1">
+    <div class="page" id="page-1">
       <!-- 搜索展开背景 -->
       <div class="search-backdrop" id="searchBackdrop"></div>
 

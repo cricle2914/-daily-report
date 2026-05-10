@@ -39,23 +39,29 @@ function showPage(pageId) {
   const page = document.getElementById(pageId);
   if (page) page.classList.add('active');
 
-  // 更新进度条（5 步）
+  // 更新进度条（6 步：page-0 登录 ~ page-5 完成）
   const steps = document.querySelectorAll('.top-bar-prog-step');
   steps.forEach(s => s.classList.remove('active'));
-  if (pageId === 'page-1') {
+  if (pageId === 'page-0') {
     steps[0]?.classList.add('active');
+  } else if (pageId === 'page-1') {
+    steps[0]?.classList.add('active');
+    steps[1]?.classList.add('active');
   } else if (pageId === 'page-2') {
     steps[0]?.classList.add('active');
     steps[1]?.classList.add('active');
+    steps[2]?.classList.add('active');
   } else if (pageId === 'page-3') {
     steps[0]?.classList.add('active');
     steps[1]?.classList.add('active');
     steps[2]?.classList.add('active');
+    steps[3]?.classList.add('active');
   } else if (pageId === 'page-4') {
     steps[0]?.classList.add('active');
     steps[1]?.classList.add('active');
     steps[2]?.classList.add('active');
     steps[3]?.classList.add('active');
+    steps[4]?.classList.add('active');
   } else if (pageId === 'page-5') {
     steps.forEach(s => s.classList.add('active'));
   }
@@ -162,6 +168,66 @@ function typeHelloWithName(name) {
 }
 
 document.addEventListener('DOMContentLoaded', startTypingAnimation);
+
+// ====== Page 0: 登录 ======
+
+// 回车键触发登录
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('loginPassword').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') doLogin();
+  });
+});
+
+async function doLogin() {
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value.trim();
+  const errorEl = document.getElementById('loginError');
+
+  if (!username || !password) {
+    errorEl.textContent = '请输入用户名和密码';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true;
+  btn.textContent = '登录中...';
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const result = await res.json();
+
+    if (!result.success) {
+      errorEl.textContent = result.message || '登录失败';
+      errorEl.classList.remove('hidden');
+      btn.disabled = false;
+      btn.textContent = '登 录';
+      return;
+    }
+
+    const data = result.data;
+    if (data.role !== 'engineer' || !data.engineer) {
+      errorEl.textContent = '该账号不是工程师账号，请使用工程师账号登录';
+      errorEl.classList.remove('hidden');
+      btn.disabled = false;
+      btn.textContent = '登 录';
+      return;
+    }
+
+    // 自动选择工程师并跳转 page-2
+    showToast('登录成功');
+    await selectEngineer(data.engineer);
+  } catch (err) {
+    errorEl.textContent = '网络错误: ' + err.message;
+    errorEl.classList.remove('hidden');
+    btn.disabled = false;
+    btn.textContent = '登 录';
+  }
+}
 
 // ====== Page 1: 搜索工程师 ======
 
