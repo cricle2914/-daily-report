@@ -712,6 +712,27 @@ router.put('/accounts/:id/role', auth('admin'), async (req, res, next) => {
   }
 });
 
+// 修改用户名
+router.put('/accounts/:id/username', auth('admin'), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { username } = req.body;
+
+    if (!username || username.trim().length < 2) {
+      return res.status(400).json({ success: false, message: '用户名至少2个字符' });
+    }
+
+    await pool.query('UPDATE accounts SET username = ? WHERE id = ?', [username.trim(), id]);
+
+    res.json({ success: true, data: { message: '用户名已更新' } });
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ success: false, message: '用户名已存在' });
+    }
+    next(err);
+  }
+});
+
 // 删除账户
 router.delete('/accounts/:id', auth('admin'), async (req, res, next) => {
   try {

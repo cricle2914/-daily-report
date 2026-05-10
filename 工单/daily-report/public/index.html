@@ -29,18 +29,19 @@
           <span class="greeting-good">Good</span><br>
           <span class="greeting-day">day!</span>
         </h1>
-        <p class="page1-sub" style="margin-top:12px">
-          <span class="sub-line1">请登录后开始填写日报</span>
+        <p class="page1-sub" id="typingSub">
+          <span class="sub-line1" id="typingLine1"></span><br>
+          <span class="sub-line2" id="typingLine2"></span><span class="type-cursor">|</span>
         </p>
       </div>
       <div class="login-form">
         <div class="form-group">
           <label class="form-label">用户名</label>
-          <input class="form-input" id="loginUsername" type="text" placeholder="请输入用户名" autocomplete="username">
+          <input class="form-input" id="loginUsername" type="text" placeholder="是那位天才呀！？" autocomplete="username">
         </div>
         <div class="form-group">
           <label class="form-label">密码</label>
-          <input class="form-input" id="loginPassword" type="password" placeholder="请输入密码" autocomplete="current-password">
+          <input class="form-input" id="loginPassword" type="password" placeholder="你猜！你猜！你猜？" autocomplete="current-password">
         </div>
         <button class="btn btn-primary btn-block" id="loginBtn" onclick="doLogin()">登 录</button>
         <div class="login-error hidden" id="loginError"></div>

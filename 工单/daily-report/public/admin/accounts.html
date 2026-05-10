@@ -133,6 +133,21 @@
     </div>
   </div>
 
+  <!-- 修改用户名弹窗 -->
+  <div class="modal-overlay" id="usernameModal">
+    <div class="modal">
+      <div class="modal-title">修改用户名</div>
+      <div class="form-group">
+        <label class="form-label">新用户名</label>
+        <input class="form-input" id="editUsername" placeholder="请输入新用户名">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeUsernameModal()">取消</button>
+        <button class="btn btn-primary" id="usernameBtn" onclick="updateUsername()">确认</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 修改角色弹窗 -->
   <div class="modal-overlay" id="roleModal">
     <div class="modal">
@@ -209,6 +224,7 @@
             <td>${formatDateTime(a.created_at)}</td>
             <td>
               <div class="btn-group">
+                <button class="btn btn-secondary btn-sm" onclick="showUsernameModal(${a.id}, '${a.username}')">修改用户名</button>
                 <button class="btn btn-secondary btn-sm" onclick="showRoleModal(${a.id}, '${a.username}', '${a.role}')">修改角色</button>
                 <button class="btn btn-secondary btn-sm" onclick="showPermModal(${a.id})">管理权限</button>
                 <button class="btn btn-secondary btn-sm" onclick="showPasswordModal(${a.id})">重置密码</button>
@@ -345,6 +361,46 @@
         });
         showToast('角色已更新');
         closeRoleModal();
+        loadAccounts();
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        setLoading(btn, false);
+      }
+    }
+
+    // ====== 修改用户名 ======
+
+    let usernameAccountId = null;
+
+    function showUsernameModal(id, currentUsername) {
+      usernameAccountId = id;
+      document.getElementById('editUsername').value = currentUsername;
+      document.getElementById('usernameModal').classList.add('show');
+      setTimeout(() => document.getElementById('editUsername').focus(), 100);
+    }
+
+    function closeUsernameModal() {
+      usernameAccountId = null;
+      document.getElementById('usernameModal').classList.remove('show');
+    }
+
+    async function updateUsername() {
+      const username = document.getElementById('editUsername').value.trim();
+      if (!username || username.length < 2) {
+        showToast('用户名至少2个字符', 'error');
+        return;
+      }
+      if (!usernameAccountId) return;
+      const btn = document.getElementById('usernameBtn');
+      setLoading(btn, true);
+      try {
+        await api(`/api/admin/accounts/${usernameAccountId}/username`, {
+          method: 'PUT',
+          body: JSON.stringify({ username })
+        });
+        showToast('用户名已更新');
+        closeUsernameModal();
         loadAccounts();
       } catch (err) {
         showToast(err.message, 'error');
