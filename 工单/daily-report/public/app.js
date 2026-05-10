@@ -434,6 +434,13 @@ function buildProjectCard(p) {
       btn.textContent = isOpen ? '▼' : '▶';
       return;
     }
+    // 已选中则取消
+    if (card.classList.contains('selected')) {
+      card.classList.remove('selected');
+      state.project = null;
+      document.getElementById('nextStepArea').classList.add('hidden');
+      return;
+    }
     document.querySelectorAll('.project-card').forEach(c => c.classList.remove('selected'));
     card.classList.add('selected');
     state.project = { id: p.id, name: p.name, impl_days: p.impl_days, detail: p };

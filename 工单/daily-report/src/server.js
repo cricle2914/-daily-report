@@ -48,9 +48,6 @@ app.use(session({
 app.use(cors());
 app.use(express.json());
 
-// 静态文件服务
-app.use(express.static(path.join(__dirname, '../public')));
-
 // 健康检查
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', time: new Date() });
@@ -69,9 +66,12 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/login.html'));
 });
 
-// 管理侧页面（需验证登录）
+// 管理侧页面（需验证登录——必须在通用静态之前，防止未登录直接访问）
 const authMiddleware = require('./middleware/authMiddleware');
 app.use('/admin', authMiddleware(), express.static(path.join(__dirname, '../public/admin')));
+
+// 通用静态文件服务（放在 admin 之后，确保 admin 静态文件受 auth 保护）
+app.use(express.static(path.join(__dirname, '../public')));
 
 // 领导侧页面（前端 JS 自行处理 viewer 认证）
 app.use('/leader', express.static(path.join(__dirname, '../public/leader')));
