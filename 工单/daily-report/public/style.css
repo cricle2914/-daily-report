@@ -154,16 +154,16 @@ html, body {
 }
 #page-2.search-expanded .page2-search-area {
   position: fixed;
-  top: 15%;
+  top: 18px;
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, 0);
   width: calc(100% - 40px);
   max-width: 440px;
   z-index: 210;
   padding-top: 0;
   margin-top: 0;
   border-top: none;
-  animation: searchExpandIn 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  animation: searchExpandToTop 0.35s cubic-bezier(0.32, 0.72, 0, 1);
 }
 #page-2.search-expanded .search-box {
   font-size: 18px;
@@ -321,6 +321,18 @@ html, body {
   }
 }
 
+/* page-2 搜索框展开——到顶部 */
+@keyframes searchExpandToTop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
 /* 移动端：position:absolute + 100dvh 避免键盘弹出时 fixed 定位偏移 */
 @media (max-width: 768px) {
   #page-1.search-expanded {
@@ -357,16 +369,16 @@ html, body {
   }
   #page-2.search-expanded .page2-search-area {
     position: absolute;
-    top: 15%;
+    top: 12px;
     left: 50%;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, 0);
     width: calc(100% - 40px);
     max-width: 440px;
     z-index: 210;
     padding-top: 0;
     margin-top: 0;
     border-top: none;
-    animation: searchExpandIn 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+    animation: searchExpandToTop 0.35s cubic-bezier(0.32, 0.72, 0, 1);
   }
   #page-2.search-expanded .page2-search-hint {
     display: none;
