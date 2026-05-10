@@ -151,7 +151,7 @@ async function sendSingleReport(reportId) {
     `SELECT dr.*, e.name AS engineer_name, e.abbr AS engineer_abbr, e.phone AS engineer_phone,
             p.name AS project_name, p.customer, p.manufacturer, p.agent,
             p.tech_lead, p.contact_name, p.contact_phone, p.service_manager,
-            p.install_address, p.product_version, p.order_no
+            p.install_address, p.product_version, p.order_no, p.order_type
      FROM daily_reports dr
      JOIN engineers e ON dr.engineer_id = e.id
      JOIN projects p ON dr.project_id = p.id
@@ -170,7 +170,7 @@ async function sendSingleReport(reportId) {
     `SELECT dr.*, e.name AS engineer_name, e.abbr AS engineer_abbr, e.phone AS engineer_phone,
             p.name AS project_name, p.customer, p.manufacturer, p.agent,
             p.tech_lead, p.contact_name, p.contact_phone, p.service_manager,
-            p.install_address, p.product_version, p.order_no
+            p.install_address, p.product_version, p.order_no, p.order_type
      FROM daily_reports dr
      JOIN engineers e ON dr.engineer_id = e.id
      JOIN projects p ON dr.project_id = p.id
@@ -192,6 +192,7 @@ async function sendSingleReport(reportId) {
       customer: current.customer,
       project_name: current.project_name,
       order_no: current.order_no,
+      order_type: current.order_type,
       manufacturer: current.manufacturer,
       agent: current.agent,
       tech_lead: current.tech_lead,

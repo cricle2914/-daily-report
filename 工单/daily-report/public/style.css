@@ -154,7 +154,7 @@ html, body {
 }
 #page-2.search-expanded .page2-search-area {
   position: fixed;
-  top: 15%;
+  top: 30%;
   left: 50%;
   transform: translate(-50%, -50%);
   width: calc(100% - 40px);
@@ -357,7 +357,7 @@ html, body {
   }
   #page-2.search-expanded .page2-search-area {
     position: absolute;
-    top: 50%;
+    top: 30%;
     left: 50%;
     transform: translate(-50%, -50%);
     width: calc(100% - 40px);

@@ -456,6 +456,8 @@ async function selectEngineerOnPage2(eng) {
 
 // ====== 新建项目抽屉 ======
 
+let drawerTouchStartY = 0;
+
 function openDrawer() {
   document.getElementById('drawerOverlay').classList.add('show');
   document.getElementById('drawer').classList.add('show');
@@ -464,6 +466,25 @@ function openDrawer() {
 function closeDrawer() {
   document.getElementById('drawerOverlay').classList.remove('show');
   document.getElementById('drawer').classList.remove('show');
+}
+
+// 抽屉下滑关闭
+document.getElementById('drawer').addEventListener('touchstart', function(e) {
+  drawerTouchStartY = e.touches[0].clientY;
+}, { passive: true });
+
+document.getElementById('drawer').addEventListener('touchmove', function(e) {
+  const dy = e.touches[0].clientY - drawerTouchStartY;
+  if (dy > 0) {
+    this.style.transform = `translateX(-50%) translateY(${Math.min(dy, 80)}px)`;
+  }
+}, { passive: true });
+
+document.getElementById('drawer').addEventListener('touchend', function(e) {
+  const dy = e.changedTouches[0].clientY - drawerTouchStartY;
+  this.style.transform = '';
+  if (dy > 60) closeDrawer();
+}, { passive: true });
 }
 
 async function createProject() {
@@ -862,6 +883,7 @@ document.getElementById('p3ExpandBackdrop').onclick = exitP3Expand;
 document.getElementById('p3ExpandClose').onclick = exitP3Expand;
 
 function enterP3Expand() {
+  document.body.style.overflow = 'hidden';
   document.getElementById('p3ExpandBackdrop').classList.remove('hidden');
   document.getElementById('p3ExpandBackdrop').classList.add('show');
   document.getElementById('p3ExpandContainer').classList.remove('hidden');
@@ -900,15 +922,15 @@ function enterP3Expand() {
         <input class="proj-expand-detail-input" value="${String(p.customer || '').replace(/"/g,'&quot;')}" data-field="customer">
       </div>
       <div class="proj-expand-detail-row">
-        <span class="label">工单号</span>
-        <input class="proj-expand-detail-input" value="${String(p.order_no || '').replace(/"/g,'&quot;')}" data-field="order_no">
-      </div>
-      <div class="proj-expand-detail-row">
         <span class="label">工单类型</span>
         <input class="proj-expand-detail-input" value="${String(p.order_type || '').replace(/"/g,'&quot;')}" data-field="order_type">
       </div>
       <div class="proj-expand-detail-row">
-        <span class="label">联系人</span>
+        <span class="label">工单号</span>
+        <input class="proj-expand-detail-input" value="${String(p.order_no || '').replace(/"/g,'&quot;')}" data-field="order_no">
+      </div>
+      <div class="proj-expand-detail-row">
+        <span class="label">客户联系人</span>
         <input class="proj-expand-detail-input" value="${String(p.contact_name || '').replace(/"/g,'&quot;')}" data-field="contact_name">
       </div>
       <div class="proj-expand-detail-row">
@@ -949,12 +971,14 @@ function enterP3Expand() {
     if (result) {
       showToast('项目信息已更新');
       if (p) Object.assign(p, body);
+      exitP3Expand();
     }
   };
   list.appendChild(card);
 }
 
 function exitP3Expand() {
+  document.body.style.overflow = '';
   document.getElementById('p3ExpandBackdrop').classList.remove('show');
   document.getElementById('p3ExpandBackdrop').classList.add('hidden');
   document.getElementById('p3ExpandContainer').classList.remove('show');

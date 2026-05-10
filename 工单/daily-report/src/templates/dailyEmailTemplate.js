@@ -227,7 +227,7 @@ function buildSingleReportEmailHtml(data) {
     <td style="padding:16px 20px;background:#4472c4;color:#fff;">
       <table cellpadding="0" cellspacing="0" border="0" width="100%">
         <tr>
-          <td style="font-size:16px;font-weight:700;">${escapeHtml(project.customer || project.project_name)}${project.order_no ? `(原厂工单-${project.order_no})` : ''}</td>
+          <td style="font-size:16px;font-weight:700;">${escapeHtml(project.customer || project.project_name)}${project.order_type ? `[${escapeHtml(project.order_type)}]` : ''}${project.order_no ? `(原厂工单-${project.order_no})` : ''}</td>
           <td align="right" style="font-size:13px;">报告日期：${latestDate}</td>
         </tr>
       </table>
