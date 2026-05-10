@@ -210,7 +210,7 @@ function buildSingleReportEmailHtml(data) {
       <td style="padding:5px 8px;vertical-align:top;white-space:pre-wrap;">${escapeHtml(r.plan_title || '')}</td>
       <td style="padding:5px 8px;vertical-align:top;white-space:pre-wrap;">${escapeHtml(workContent)}</td>
       <td style="padding:5px 8px;vertical-align:top;white-space:pre-wrap;">${escapeHtml(completionText)}</td>
-      <td style="padding:5px 8px;text-align:center;vertical-align:top;">${(r.progress / 100).toFixed(2)}</td>
+      <td style="padding:5px 8px;text-align:center;vertical-align:top;">${r.progress}%</td>
     </tr>`;
   }).join('');
 
@@ -242,35 +242,25 @@ function buildSingleReportEmailHtml(data) {
           <td style="background:#f2f2f2;font-weight:600;width:15%;padding:4px 8px;">客户名称</td>
           <td style="width:35%;padding:4px 8px;">${escapeHtml(project.customer || '')}</td>
           <td style="background:#f2f2f2;font-weight:600;width:15%;padding:4px 8px;">项目整体进度</td>
-          <td style="width:35%;padding:4px 8px;">${(latestProgress / 100).toFixed(2)}</td>
+          <td style="width:35%;padding:4px 8px;">${latestProgress}%</td>
         </tr>
         <tr>
-          <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">客户决策人</td>
-          <td style="padding:4px 8px;">/</td>
           <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">客户联系人</td>
           <td style="padding:4px 8px;">${escapeHtml(project.contact_name || '/')}${project.contact_phone ? '/' + project.contact_phone : ''}</td>
-        </tr>
-        <tr>
-          <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">厂商名称</td>
-          <td style="padding:4px 8px;">${escapeHtml(project.manufacturer || '')}</td>
           <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">技术经理</td>
           <td style="padding:4px 8px;">${escapeHtml(techLeadName)}</td>
         </tr>
         <tr>
-          <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">实施技术负责人</td>
-          <td style="padding:4px 8px;">${escapeHtml(techLeadName)}</td>
           <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">实施工程师</td>
           <td style="padding:4px 8px;">${escapeHtml(engineerInfo)}</td>
-        </tr>
-        <tr>
-          <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">服务经理</td>
-          <td style="padding:4px 8px;">${escapeHtml(project.service_manager || '/')}</td>
           <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">代理商</td>
           <td style="padding:4px 8px;">${escapeHtml(project.agent || '/')}</td>
         </tr>
         <tr>
-          <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">交付模式</td>
-          <td colspan="3" style="padding:4px 8px;">任务工单</td>
+          <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">厂商名称</td>
+          <td style="padding:4px 8px;">${escapeHtml(project.manufacturer || '')}</td>
+          <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">服务经理</td>
+          <td style="padding:4px 8px;">${escapeHtml(project.service_manager || '/')}</td>
         </tr>
       </table>
     </td>
@@ -284,18 +274,14 @@ function buildSingleReportEmailHtml(data) {
         <tr>
           <td style="background:#f2f2f2;font-weight:600;width:12%;padding:4px 8px;">安装地址</td>
           <td style="width:23%;padding:4px 8px;">${escapeHtml(project.install_address || '')}</td>
-          <td style="background:#f2f2f2;font-weight:600;width:12%;padding:4px 8px;">合同号</td>
+          <td style="background:#f2f2f2;font-weight:600;width:12%;padding:4px 8px;">工单号</td>
           <td style="width:23%;padding:4px 8px;">${escapeHtml(project.order_no || '/')}</td>
           <td style="background:#f2f2f2;font-weight:600;width:10%;padding:4px 8px;">版本</td>
           <td style="width:20%;padding:4px 8px;">${escapeHtml(project.product_version || '/')}</td>
         </tr>
         <tr>
-          <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">设备型号</td>
-          <td style="padding:4px 8px;">/</td>
-          <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">序列号</td>
-          <td style="padding:4px 8px;">/</td>
           <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">进度</td>
-          <td style="padding:4px 8px;">${(latestProgress / 100).toFixed(2)}</td>
+          <td colspan="5" style="padding:4px 8px;">${latestProgress}%</td>
         </tr>
       </table>
     </td>
@@ -308,11 +294,9 @@ function buildSingleReportEmailHtml(data) {
       <table cellpadding="4" cellspacing="0" border="1" style="width:100%;border-collapse:collapse;border-color:#d0d0d0;font-size:12px;">
         <tr>
           <td style="background:#f2f2f2;font-weight:600;width:12%;padding:4px 8px;">项目需求说明</td>
-          <td style="width:23%;padding:4px 8px;">${escapeHtml(latest.plan_title || '技术支持')}</td>
-          <td style="background:#f2f2f2;font-weight:600;width:12%;padding:4px 8px;">设备用途</td>
-          <td style="width:23%;padding:4px 8px;">${escapeHtml(project.project_name || '')}</td>
-          <td style="background:#f2f2f2;font-weight:600;width:10%;padding:4px 8px;">实施天数</td>
-          <td style="width:20%;padding:4px 8px;">第 ${reports.length} 天</td>
+          <td style="width:38%;padding:4px 8px;">${escapeHtml(latest.plan_title || '技术支持')}</td>
+          <td style="background:#f2f2f2;font-weight:600;width:12%;padding:4px 8px;">实施天数</td>
+          <td style="width:38%;padding:4px 8px;">第 ${reports.length} 天</td>
         </tr>
       </table>
     </td>
