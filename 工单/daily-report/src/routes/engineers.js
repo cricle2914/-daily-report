@@ -29,7 +29,7 @@ router.get('/:id/projects', async (req, res, next) => {
   try {
     const { id } = req.params;
     const [rows] = await pool.query(
-      `SELECT p.id, p.name, p.order_no, p.customer,
+      `SELECT p.id, p.name, p.order_no, p.order_type, p.customer,
               p.contact_name, p.contact_phone, p.product_version,
               p.install_address, p.manufacturer, p.agent, p.tech_lead, p.service_manager,
               ep.impl_days,

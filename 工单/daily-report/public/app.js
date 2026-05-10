@@ -184,23 +184,7 @@ searchInput.addEventListener('input', () => {
 
 // 搜索框聚焦：展开动画 + 磨玻璃背景
 searchInput.addEventListener('focus', function() {
-  const page1 = document.getElementById('page-1');
-  page1.classList.add('search-expanded');
-  // 移动端：键盘弹出时 visualViewport 缩小，用 JS 确保搜索框在可视区
-  if (window.visualViewport) {
-    const adjustPos = () => {
-      const wrap = document.querySelector('#page-1 .search-wrap');
-      if (!wrap) return;
-      const vh = window.visualViewport.height;
-      const wrapRect = wrap.getBoundingClientRect();
-      if (wrapRect.bottom > vh || wrapRect.top < 0) {
-        wrap.style.top = Math.max(20, (vh - wrapRect.height) / 2) + 'px';
-      }
-    };
-    window.visualViewport.addEventListener('resize', adjustPos);
-    // 聚焦 400ms 后再检查一次（键盘完全弹出后）
-    setTimeout(adjustPos, 400);
-  }
+  document.getElementById('page-1').classList.add('search-expanded');
 });
 
 // 搜索框失焦：延迟收起，让点击事件先触发
@@ -413,19 +397,6 @@ searchInput2.addEventListener('input', () => {
 
 searchInput2.addEventListener('focus', function() {
   document.getElementById('page-2').classList.add('search-expanded');
-  if (window.visualViewport) {
-    const adjustPos = () => {
-      const wrap = document.querySelector('#page-2 .search-wrap');
-      if (!wrap) return;
-      const vh = window.visualViewport.height;
-      const wrapRect = wrap.getBoundingClientRect();
-      if (wrapRect.bottom > vh || wrapRect.top < 0) {
-        wrap.style.top = Math.max(20, (vh - wrapRect.height) / 2) + 'px';
-      }
-    };
-    window.visualViewport.addEventListener('resize', adjustPos);
-    setTimeout(adjustPos, 400);
-  }
 });
 
 searchInput2.addEventListener('blur', function() {
@@ -509,6 +480,7 @@ async function createProject() {
       name,
       customer,
       order_no: document.getElementById('drawerOrder').value.trim() || undefined,
+      order_type: document.getElementById('drawerOrderType').value.trim() || undefined,
       contact_name: document.getElementById('drawerContact').value.trim() || undefined,
       contact_phone: document.getElementById('drawerPhone').value.trim() || undefined,
       product_version: document.getElementById('drawerVersion').value.trim() || undefined,
@@ -534,7 +506,7 @@ async function createProject() {
         id: data.id,
         name: data.name,
         impl_days: 0,
-        detail: { customer: data.customer }
+        detail: { customer: data.customer, order_no: data.order_no, order_type: data.order_type }
       };
       document.getElementById('nextStepArea').classList.remove('hidden');
     }
@@ -932,6 +904,10 @@ function enterP3Expand() {
         <input class="proj-expand-detail-input" value="${String(p.order_no || '').replace(/"/g,'&quot;')}" data-field="order_no">
       </div>
       <div class="proj-expand-detail-row">
+        <span class="label">工单类型</span>
+        <input class="proj-expand-detail-input" value="${String(p.order_type || '').replace(/"/g,'&quot;')}" data-field="order_type">
+      </div>
+      <div class="proj-expand-detail-row">
         <span class="label">联系人</span>
         <input class="proj-expand-detail-input" value="${String(p.contact_name || '').replace(/"/g,'&quot;')}" data-field="contact_name">
       </div>
@@ -1016,6 +992,7 @@ async function submitTomorrow(overwriteMode) {
     body.new_project_customer = customer;
     body.new_project_name = name;
     body.new_project_order = document.getElementById('newProjOrder').value.trim() || undefined;
+    body.new_project_order_type = document.getElementById('newProjOrderType').value.trim() || undefined;
     body.new_project_contact = document.getElementById('newProjContact').value.trim() || undefined;
     body.new_project_phone = document.getElementById('newProjPhone').value.trim() || undefined;
     body.new_project_version = document.getElementById('newProjVersion').value.trim() || undefined;

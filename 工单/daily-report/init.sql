@@ -102,6 +102,9 @@ ALTER TABLE projects ADD COLUMN agent VARCHAR(100) AFTER manufacturer;
 ALTER TABLE projects ADD COLUMN tech_lead VARCHAR(50) AFTER agent;
 ALTER TABLE projects ADD COLUMN service_manager VARCHAR(50) AFTER tech_lead;
 
+ALTER TABLE projects ADD COLUMN order_type VARCHAR(50) AFTER order_no;
+ALTER TABLE tomorrow_plans ADD COLUMN new_project_order_type VARCHAR(50) AFTER new_project_order;
+
 CREATE TABLE IF NOT EXISTS work_hours (
   id INT PRIMARY KEY AUTO_INCREMENT,
   engineer_id INT NOT NULL,

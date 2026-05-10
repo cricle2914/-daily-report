@@ -135,7 +135,7 @@ router.put('/', async (req, res, next) => {
 router.post('/tomorrow', async (req, res, next) => {
   try {
     const { engineer_id, report_date, destination, project_id,
-            new_project_customer, new_project_name, new_project_order,
+            new_project_customer, new_project_name, new_project_order, new_project_order_type,
             new_project_contact, new_project_phone, new_project_version,
             new_project_address, new_project_manufacturer, new_project_agent,
             new_project_tech_lead, new_project_service_manager,
@@ -191,10 +191,10 @@ router.post('/tomorrow', async (req, res, next) => {
         }
 
         const [result] = await conn.query(
-          `INSERT INTO projects (name, order_no, customer, contact_name, contact_phone, product_version, install_address, created_by,
+          `INSERT INTO projects (name, order_no, order_type, customer, contact_name, contact_phone, product_version, install_address, created_by,
             manufacturer, agent, tech_lead, service_manager)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [new_project_name, new_project_order || null, new_project_customer,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [new_project_name, new_project_order || null, new_project_order_type || null, new_project_customer,
            new_project_contact || null, new_project_phone || null,
            new_project_version || null, new_project_address || null, engineer_id,
            new_project_manufacturer || null, new_project_agent || null,
@@ -213,12 +213,12 @@ router.post('/tomorrow', async (req, res, next) => {
       await conn.query(
         `INSERT INTO tomorrow_plans
          (engineer_id, report_date, destination, project_id,
-          new_project_customer, new_project_name, new_project_order,
+          new_project_customer, new_project_name, new_project_order, new_project_order_type,
           new_project_contact, new_project_phone, new_project_version,
           new_project_address, other_reason)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [engineer_id, report_date, destination, finalProjectId,
-         new_project_customer || null, new_project_name || null, new_project_order || null,
+         new_project_customer || null, new_project_name || null, new_project_order || null, new_project_order_type || null,
          new_project_contact || null, new_project_phone || null,
          new_project_version || null, new_project_address || null, other_reason || null]
       );

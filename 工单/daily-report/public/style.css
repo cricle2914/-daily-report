@@ -287,7 +287,7 @@ html, body {
 
 #page-1.search-expanded .search-wrap {
   position: fixed;
-  top: 15%;
+  top: 30%;
   left: 50%;
   transform: translate(-50%, -50%);
   width: calc(100% - 40px);
@@ -321,13 +321,55 @@ html, body {
   }
 }
 
-/* 移动端微调：确保搜索在 backdrop 之上 */
+/* 移动端：position:absolute + 100dvh 避免键盘弹出时 fixed 定位偏移 */
 @media (max-width: 768px) {
+  #page-1.search-expanded {
+    position: relative;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+  #page-1.search-expanded .search-backdrop {
+    position: absolute;
+    inset: 0;
+  }
   #page-1.search-expanded .search-wrap {
-    top: 25%;
+    position: absolute;
+    top: 30%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: calc(100% - 40px);
+    max-width: 440px;
+    z-index: 210;
+    padding: 0;
+    margin: 0;
+    animation: searchExpandIn 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  #page-2.search-expanded {
+    position: relative;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+  #page-2.search-expanded .page2-search-backdrop {
+    position: absolute;
+    inset: 0;
   }
   #page-2.search-expanded .page2-search-area {
-    top: 25%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: calc(100% - 40px);
+    max-width: 440px;
+    z-index: 210;
+    padding-top: 0;
+    margin-top: 0;
+    border-top: none;
+    animation: searchExpandIn 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  #page-2.search-expanded .page2-search-hint {
+    display: none;
   }
 }
 

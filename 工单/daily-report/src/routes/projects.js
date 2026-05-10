@@ -6,7 +6,7 @@ const pool = require('../database');
 router.post('/', async (req, res, next) => {
   try {
     const {
-      engineer_id, name, customer, order_no,
+      engineer_id, name, customer, order_no, order_type,
       contact_name, contact_phone, product_version, install_address,
       manufacturer, agent, tech_lead, service_manager
     } = req.body;
@@ -25,9 +25,9 @@ router.post('/', async (req, res, next) => {
 
       // 创建项目
       const [result] = await conn.query(
-        `INSERT INTO projects (name, order_no, customer, contact_name, contact_phone, product_version, install_address, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [name, order_no || null, customer, contact_name || null,
+        `INSERT INTO projects (name, order_no, order_type, customer, contact_name, contact_phone, product_version, install_address, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [name, order_no || null, order_type || null, customer, contact_name || null,
          contact_phone || null, product_version || null, install_address || null, engineer_id]
       );
 
@@ -43,7 +43,7 @@ router.post('/', async (req, res, next) => {
 
       res.json({
         success: true,
-        data: { id: projectId, name, customer, order_no }
+        data: { id: projectId, name, customer, order_no, order_type }
       });
     } catch (err) {
       await conn.rollback();
@@ -60,13 +60,13 @@ router.post('/', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { customer, contact_name, contact_phone, product_version, install_address,
+    const { customer, order_no, order_type, contact_name, contact_phone, product_version, install_address,
             manufacturer, agent, tech_lead, service_manager } = req.body;
 
     await pool.query(
-      `UPDATE projects SET customer = ?, contact_name = ?, contact_phone = ?, product_version = ?, install_address = ?,
+      `UPDATE projects SET customer = ?, order_no = ?, order_type = ?, contact_name = ?, contact_phone = ?, product_version = ?, install_address = ?,
         manufacturer = ?, agent = ?, tech_lead = ?, service_manager = ? WHERE id = ?`,
-      [customer || null, contact_name || null, contact_phone || null, product_version || null, install_address || null,
+      [customer || null, order_no || null, order_type || null, contact_name || null, contact_phone || null, product_version || null, install_address || null,
        manufacturer || null, agent || null, tech_lead || null, service_manager || null, id]
     );
 
