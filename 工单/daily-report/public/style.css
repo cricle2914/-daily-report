@@ -154,7 +154,7 @@ html, body {
 }
 #page-2.search-expanded .page2-search-area {
   position: fixed;
-  top: 30%;
+  top: 15%;
   left: 50%;
   transform: translate(-50%, -50%);
   width: calc(100% - 40px);
@@ -357,7 +357,7 @@ html, body {
   }
   #page-2.search-expanded .page2-search-area {
     position: absolute;
-    top: 30%;
+    top: 15%;
     left: 50%;
     transform: translate(-50%, -50%);
     width: calc(100% - 40px);
@@ -381,6 +381,7 @@ html, body {
 
 .login-form {
   margin-top: auto;
+  margin-bottom: 10vh;
   padding: 20px 20px 24px;
   animation: fadeUp 0.4s ease 0.2s both;
 }
@@ -1552,6 +1553,13 @@ html, body {
 .proj-expand-close:hover {
   border-color: var(--text);
   color: var(--text);
+}
+
+#p3ExpandList {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 20px 40px;
 }
 
 #projExpandList {

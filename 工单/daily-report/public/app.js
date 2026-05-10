@@ -443,26 +443,33 @@ function buildProjectCard(p) {
   return card;
 }
 
-// ====== Page 2: 搜索工程师（底部） ======
+// ====== Page 2: 搜索项目 ======
 
 const searchInput2 = document.getElementById('searchInput2');
 let searchTimer2 = null;
 
 searchInput2.addEventListener('input', () => {
   clearTimeout(searchTimer2);
-  const val = searchInput2.value.trim();
-  if (!val) {
-    document.getElementById('searchDropdown2').classList.remove('show');
-    return;
+  const val = searchInput2.value.trim().toLowerCase();
+  // 实时过滤项目列表
+  const filtered = val
+    ? state.projects.filter(p => p.name.toLowerCase().includes(val))
+    : state.projects;
+  renderProjectList(filtered);
+  // 展开全部可用按钮
+  document.getElementById('expandAllBtn').style.display = 'none';
+
+  if (val) {
+    document.getElementById('page-2').classList.add('search-expanded');
+  } else {
+    document.getElementById('page-2').classList.remove('search-expanded');
   }
-  if (state.engineer && searchInput2.value !== state.engineer.name) {
-    resetEngineerSelection(false);
-  }
-  searchTimer2 = setTimeout(() => searchEngineers2(val), 300);
 });
 
 searchInput2.addEventListener('focus', function() {
-  document.getElementById('page-2').classList.add('search-expanded');
+  if (searchInput2.value.trim()) {
+    document.getElementById('page-2').classList.add('search-expanded');
+  }
 });
 
 searchInput2.addEventListener('blur', function() {
@@ -474,51 +481,9 @@ searchInput2.addEventListener('blur', function() {
 document.getElementById('searchBackdrop2').addEventListener('click', function() {
   document.getElementById('page-2').classList.remove('search-expanded');
   searchInput2.blur();
+  searchInput2.value = '';
+  renderProjectList(state.projects);
 });
-
-async function searchEngineers2(name) {
-  const data = await request(`/api/engineers/search?name=${encodeURIComponent(name)}`);
-  if (!data) return;
-  const dropdown = document.getElementById('searchDropdown2');
-  dropdown.innerHTML = '';
-  if (data.length === 0) {
-    dropdown.classList.remove('show');
-    return;
-  }
-  data.forEach(eng => {
-    const item = document.createElement('div');
-    item.className = 'dropdown-item';
-    item.innerHTML = `<div class="dropdown-avatar">${eng.abbr}</div>
-      <div>
-        <div class="dropdown-name">${eng.name}</div>
-        <div class="dropdown-sub">${eng.project_count} 个项目</div>
-      </div>`;
-    item.onclick = () => selectEngineerOnPage2(eng);
-    dropdown.appendChild(item);
-  });
-  dropdown.classList.add('show');
-}
-
-async function selectEngineerOnPage2(eng) {
-  state.engineer = eng;
-  state.project = null;
-  searchInput2.value = eng.name;
-  document.getElementById('searchDropdown2').classList.remove('show');
-  document.getElementById('avatar').textContent = eng.abbr;
-  document.getElementById('engineerName').textContent = eng.name;
-
-  // 停止旧动画，修改问候语
-  if (_stopTyping) _stopTyping();
-  document.querySelector('.page1-greeting').innerHTML = '<span style="font-size:84px;font-weight:900;letter-spacing:-.04em">Hello!</span>';
-  typeHelloWithName(eng.name);
-  document.getElementById('page-1').classList.add('has-selection');
-
-  // 同步 page-1 搜索框
-  searchInput.value = eng.name;
-
-  await loadProjects(eng.id);
-  // 保持在 page-2
-}
 
 // ====== 新建项目抽屉 ======
 
