@@ -184,98 +184,167 @@ function buildDailyEmailHtml(data) {
 }
 
 /**
- * 单条日报邮件模板
+ * 单条日报邮件模板 — 项目实施日报格式（含历史记录）
+ * data: { reports: [...], project: { customer, project_name, ... } }
  */
-function buildSingleReportEmailHtml(report) {
-  const statusClr = statusColor(report.status);
-  const statusTxt = statusText(report.status);
-  const tasks = Array.isArray(report.tasks)
-    ? report.tasks
-    : (typeof report.tasks === 'string' ? JSON.parse(report.tasks) : []);
+function buildSingleReportEmailHtml(data) {
+  const { reports, project } = data;
+  const latest = reports[0] || {};
 
-  const taskItems = tasks.length > 0
-    ? tasks.map(t => `<tr><td style="padding:2px 0 2px 16px; font-size:13px; color:#333; position:relative;">
-        <span style="position:absolute; left:0;">•</span>
-        ${escapeHtml(t.content || t)}</td></tr>`).join('')
-    : '<tr><td style="padding:2px 0 2px 16px; font-size:13px; color:#999;">（无）</td></tr>';
+  const latestDate = latest.report_date || '';
+  const latestProgress = latest.progress || 0;
+  const techLeadName = project.tech_lead || '/';
+  const engineerInfo = `${project.engineer_name}${project.engineer_phone ? '/' + project.engineer_phone : ''}`;
+
+  // 生成每日工作计划及完成情况表格行
+  const historyRows = reports.map(r => {
+    const tasks = Array.isArray(r.tasks) ? r.tasks : (typeof r.tasks === 'string' ? JSON.parse(r.tasks) : []);
+    const workContent = tasks.map(t => (t.content || t)).join('\n');
+    const statusTxt = statusText(r.status);
+    let completionText = `完成情况：${statusTxt === '已完成' ? '完成' : statusTxt === '进行中' ? '部分完成' : '未完成'}`;
+    if (r.issues) completionText += `\n遗留问题：${r.issues}`;
+    if (r.next_plan) completionText += `\n下一步计划：${r.next_plan}`;
+
+    return `<tr>
+      <td style="padding:5px 8px;text-align:center;vertical-align:top;white-space:nowrap;">${escapeHtml(r.report_date || '')}</td>
+      <td style="padding:5px 8px;vertical-align:top;white-space:pre-wrap;">${escapeHtml(r.plan_title || '')}</td>
+      <td style="padding:5px 8px;vertical-align:top;white-space:pre-wrap;">${escapeHtml(workContent)}</td>
+      <td style="padding:5px 8px;vertical-align:top;white-space:pre-wrap;">${escapeHtml(completionText)}</td>
+      <td style="padding:5px 8px;text-align:center;vertical-align:top;">${(r.progress / 100).toFixed(2)}</td>
+    </tr>`;
+  }).join('');
 
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
-<body style="margin:0; padding:0; background:#f0f2f5; font-family:'Microsoft YaHei','PingFang SC','Helvetica Neue',Arial,sans-serif;">
-  <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f0f2f5;">
-    <tr><td align="center" style="padding:30px 10px 20px;">
-      <table cellpadding="0" cellspacing="0" border="0" style="max-width:600px; width:100%;">
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:'Microsoft YaHei','PingFang SC',Arial,sans-serif;font-size:12px;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f5f5f5;">
+<tr><td align="center" style="padding:20px 10px;">
+<table cellpadding="0" cellspacing="0" border="0" style="max-width:800px;width:100%;background:#fff;border:1px solid #d0d0d0;">
+
+  <!-- ====== 标题行 ====== -->
+  <tr>
+    <td style="padding:16px 20px;background:#4472c4;color:#fff;">
+      <table cellpadding="0" cellspacing="0" border="0" width="100%">
         <tr>
-          <td style="background:linear-gradient(135deg,#1a1a2e,#16213e); border-radius:10px 10px 0 0; padding:24px 20px;">
-            <table cellpadding="0" cellspacing="0" border="0" width="100%">
-              <tr>
-                <td><div style="font-size:18px; font-weight:700; color:#ffffff;">日报详情</div></td>
-                <td align="right"><div style="font-size:13px; color:rgba(255,255,255,.6);">${escapeHtml(report.report_date || '')}</div></td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-        <tr>
-          <td style="background:#ffffff; padding:20px;">
-            <table cellpadding="0" cellspacing="0" border="0" width="100%">
-              <tr>
-                <td style="padding:0 0 12px; border-bottom:1px solid #e8ecf1;">
-                  <div style="font-size:16px; font-weight:700; color:#1a1a2e;">${escapeHtml(report.engineer_name)} <span style="font-size:13px; font-weight:400; color:#8899aa;">(${escapeHtml(report.engineer_abbr || '')})</span></div>
-                  <div style="font-size:13px; color:#556677; margin-top:4px;">
-                    ${escapeHtml(report.project_name)}
-                    <span style="margin:0 8px; color:#ccc;">|</span>
-                    进度 ${report.progress}%
-                    <span style="margin:0 8px; color:#ccc;">|</span>
-                    <span style="color:${statusClr}; font-weight:600;">${statusTxt}</span>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td style="padding:12px 0 0;">
-                  <div style="font-size:12px; font-weight:600; color:#8899aa; margin-bottom:4px;">今日任务</div>
-                  <table cellpadding="0" cellspacing="0" border="0">${taskItems}</table>
-                </td>
-              </tr>
-              ${report.plan_title ? `
-              <tr>
-                <td style="padding:10px 0 0;">
-                  <div style="font-size:12px; font-weight:600; color:#8899aa; margin-bottom:2px;">计划标题</div>
-                  <div style="font-size:13px; color:#333;">${escapeHtml(report.plan_title)}</div>
-                </td>
-              </tr>` : ''}
-              ${report.issues ? `
-              <tr>
-                <td style="padding:10px 0 0;">
-                  <div style="font-size:12px; font-weight:600; color:#8899aa; margin-bottom:2px;">存在问题</div>
-                  <div style="font-size:13px; color:#333;">${escapeHtml(report.issues)}</div>
-                </td>
-              </tr>` : ''}
-              ${report.next_plan ? `
-              <tr>
-                <td style="padding:10px 0 0;">
-                  <div style="font-size:12px; font-weight:600; color:#8899aa; margin-bottom:2px;">明日计划</div>
-                  <div style="font-size:13px; color:#333;">${escapeHtml(report.next_plan)}</div>
-                </td>
-              </tr>` : ''}
-              ${report.impl_day ? `
-              <tr>
-                <td style="padding:10px 0 0;">
-                  <div style="font-size:12px; font-weight:600; color:#8899aa; margin-bottom:2px;">实施天数</div>
-                  <div style="font-size:13px; color:#333;">第 ${report.impl_day} 天</div>
-                </td>
-              </tr>` : ''}
-            </table>
-          </td>
-        </tr>
-        <tr>
-          <td style="background:#f7f8fa; border-radius:0 0 10px 10px; border-top:1px solid #e8ecf1; padding:14px 20px; text-align:center;">
-            <div style="font-size:11px; color:#aab5c0;">本邮件由日报系统自动发送</div>
-          </td>
+          <td style="font-size:16px;font-weight:700;">${escapeHtml(project.customer || project.project_name)}${project.order_no ? `(原厂工单-${project.order_no})` : ''}</td>
+          <td align="right" style="font-size:13px;">报告日期：${latestDate}</td>
         </tr>
       </table>
-    </td></tr>
-  </table>
+    </td>
+  </tr>
+
+  <!-- ====== 项目信息头 ====== -->
+  <tr>
+    <td style="padding:12px 20px 0;">
+      <table cellpadding="4" cellspacing="0" border="1" style="width:100%;border-collapse:collapse;border-color:#d0d0d0;font-size:12px;">
+        <tr>
+          <td style="background:#f2f2f2;font-weight:600;width:15%;padding:4px 8px;">客户名称</td>
+          <td style="width:35%;padding:4px 8px;">${escapeHtml(project.customer || '')}</td>
+          <td style="background:#f2f2f2;font-weight:600;width:15%;padding:4px 8px;">项目整体进度</td>
+          <td style="width:35%;padding:4px 8px;">${(latestProgress / 100).toFixed(2)}</td>
+        </tr>
+        <tr>
+          <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">客户决策人</td>
+          <td style="padding:4px 8px;">/</td>
+          <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">客户联系人</td>
+          <td style="padding:4px 8px;">${escapeHtml(project.contact_name || '/')}${project.contact_phone ? '/' + project.contact_phone : ''}</td>
+        </tr>
+        <tr>
+          <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">厂商名称</td>
+          <td style="padding:4px 8px;">${escapeHtml(project.manufacturer || '')}</td>
+          <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">技术经理</td>
+          <td style="padding:4px 8px;">${escapeHtml(techLeadName)}</td>
+        </tr>
+        <tr>
+          <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">实施技术负责人</td>
+          <td style="padding:4px 8px;">${escapeHtml(techLeadName)}</td>
+          <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">实施工程师</td>
+          <td style="padding:4px 8px;">${escapeHtml(engineerInfo)}</td>
+        </tr>
+        <tr>
+          <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">服务经理</td>
+          <td style="padding:4px 8px;">${escapeHtml(project.service_manager || '/')}</td>
+          <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">代理商</td>
+          <td style="padding:4px 8px;">${escapeHtml(project.agent || '/')}</td>
+        </tr>
+        <tr>
+          <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">交付模式</td>
+          <td colspan="3" style="padding:4px 8px;">任务工单</td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- ====== 项目基本信息 ====== -->
+  <tr>
+    <td style="padding:16px 20px 0;">
+      <div style="font-size:13px;font-weight:700;color:#4472c4;margin-bottom:6px;">项目基本信息</div>
+      <table cellpadding="4" cellspacing="0" border="1" style="width:100%;border-collapse:collapse;border-color:#d0d0d0;font-size:12px;">
+        <tr>
+          <td style="background:#f2f2f2;font-weight:600;width:12%;padding:4px 8px;">安装地址</td>
+          <td style="width:23%;padding:4px 8px;">${escapeHtml(project.install_address || '')}</td>
+          <td style="background:#f2f2f2;font-weight:600;width:12%;padding:4px 8px;">合同号</td>
+          <td style="width:23%;padding:4px 8px;">${escapeHtml(project.order_no || '/')}</td>
+          <td style="background:#f2f2f2;font-weight:600;width:10%;padding:4px 8px;">版本</td>
+          <td style="width:20%;padding:4px 8px;">${escapeHtml(project.product_version || '/')}</td>
+        </tr>
+        <tr>
+          <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">设备型号</td>
+          <td style="padding:4px 8px;">/</td>
+          <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">序列号</td>
+          <td style="padding:4px 8px;">/</td>
+          <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">进度</td>
+          <td style="padding:4px 8px;">${(latestProgress / 100).toFixed(2)}</td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- ====== 项目整体计划 ====== -->
+  <tr>
+    <td style="padding:12px 20px 0;">
+      <div style="font-size:13px;font-weight:700;color:#4472c4;margin-bottom:6px;">项目整体计划</div>
+      <table cellpadding="4" cellspacing="0" border="1" style="width:100%;border-collapse:collapse;border-color:#d0d0d0;font-size:12px;">
+        <tr>
+          <td style="background:#f2f2f2;font-weight:600;width:12%;padding:4px 8px;">项目需求说明</td>
+          <td style="width:23%;padding:4px 8px;">${escapeHtml(latest.plan_title || '技术支持')}</td>
+          <td style="background:#f2f2f2;font-weight:600;width:12%;padding:4px 8px;">设备用途</td>
+          <td style="width:23%;padding:4px 8px;">${escapeHtml(project.project_name || '')}</td>
+          <td style="background:#f2f2f2;font-weight:600;width:10%;padding:4px 8px;">实施天数</td>
+          <td style="width:20%;padding:4px 8px;">第 ${reports.length} 天</td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- ====== 每日工作计划及完成情况（全部历史记录） ====== -->
+  <tr>
+    <td style="padding:16px 20px 0;">
+      <div style="font-size:13px;font-weight:700;color:#4472c4;margin-bottom:6px;">每日工作计划及完成情况</div>
+      <table cellpadding="5" cellspacing="0" border="1" style="width:100%;border-collapse:collapse;border-color:#d0d0d0;font-size:12px;">
+        <tr style="background:#4472c4;color:#fff;">
+          <th style="padding:5px 8px;text-align:center;width:10%;font-weight:600;">日期</th>
+          <th style="padding:5px 8px;text-align:center;width:22%;font-weight:600;">工作计划</th>
+          <th style="padding:5px 8px;text-align:center;width:30%;font-weight:600;">工作内容</th>
+          <th style="padding:5px 8px;text-align:center;font-weight:600;">计划完成情况及遗留问题</th>
+          <th style="padding:5px 8px;text-align:center;width:10%;font-weight:600;">完成比例</th>
+        </tr>
+        ${historyRows}
+      </table>
+    </td>
+  </tr>
+
+  <!-- ====== 底部 ====== -->
+  <tr>
+    <td style="padding:14px 20px;text-align:center;border-top:1px solid #d0d0d0;font-size:11px;color:#888;margin-top:16px;">
+      本邮件由日报系统自动生成 · 仅供内部查阅
+    </td>
+  </tr>
+
+</table>
+</td></tr>
+</table>
 </body>
 </html>`;
 }

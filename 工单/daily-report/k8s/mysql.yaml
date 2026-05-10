@@ -30,7 +30,7 @@ spec:
     spec:
       containers:
       - name: mysql
-        image: mysql:8.0
+        image: 110.42.231.162:5000/mysql:8.0
         ports:
         - containerPort: 3306
         env:

@@ -19,6 +19,9 @@ function getTransporter() {
       user: process.env.MAIL_USER || '',
       pass: process.env.MAIL_PASS || '',
     },
+    tls: {
+      rejectUnauthorized: false,
+    },
   });
   return transporter;
 }
@@ -133,7 +136,7 @@ async function sendDailyReport() {
 }
 
 /**
- * 发送单条日报邮件
+ * 发送单条日报邮件（含该项目所有历史日报记录）
  * @param {number} reportId - 日报 ID
  * @returns {Promise<{success: boolean, message: string, data?: object}>}
  */
@@ -143,10 +146,12 @@ async function sendSingleReport(reportId) {
     return { success: false, message: '邮件服务未配置（MAIL_HOST 为空）' };
   }
 
-  // 查询日报详情
+  // 查询当前日报详情（含项目和工程师完整信息）
   const [rows] = await pool.query(
-    `SELECT dr.*, e.name AS engineer_name, e.abbr AS engineer_abbr,
-            p.name AS project_name
+    `SELECT dr.*, e.name AS engineer_name, e.abbr AS engineer_abbr, e.phone AS engineer_phone,
+            p.name AS project_name, p.customer, p.manufacturer, p.agent,
+            p.tech_lead, p.contact_name, p.contact_phone, p.service_manager,
+            p.install_address, p.product_version, p.order_no
      FROM daily_reports dr
      JOIN engineers e ON dr.engineer_id = e.id
      JOIN projects p ON dr.project_id = p.id
@@ -158,24 +163,62 @@ async function sendSingleReport(reportId) {
     return { success: false, message: '日报不存在' };
   }
 
-  const report = {
-    ...rows[0],
-    tasks: typeof rows[0].tasks === 'string' ? JSON.parse(rows[0].tasks) : (rows[0].tasks || []),
-    report_date: rows[0].report_date ? rows[0].report_date.toISOString().split('T')[0] : '',
-  };
+  const current = rows[0];
 
-  const html = buildSingleReportEmailHtml(report);
+  // 查询该项目下该工程师的所有历史日报（按日期升序）
+  const [history] = await pool.query(
+    `SELECT dr.*, e.name AS engineer_name, e.abbr AS engineer_abbr, e.phone AS engineer_phone,
+            p.name AS project_name, p.customer, p.manufacturer, p.agent,
+            p.tech_lead, p.contact_name, p.contact_phone, p.service_manager,
+            p.install_address, p.product_version, p.order_no
+     FROM daily_reports dr
+     JOIN engineers e ON dr.engineer_id = e.id
+     JOIN projects p ON dr.project_id = p.id
+     WHERE dr.engineer_id = ? AND dr.project_id = ?
+     ORDER BY dr.report_date DESC`,
+    [current.engineer_id, current.project_id]
+  );
+
+  // 解析所有记录的 tasks JSON，格式化日期
+  const allReports = history.map(r => ({
+    ...r,
+    tasks: typeof r.tasks === 'string' ? JSON.parse(r.tasks) : (r.tasks || []),
+    report_date: r.report_date ? r.report_date.toISOString().split('T')[0] : '',
+  }));
+
+  const html = buildSingleReportEmailHtml({
+    reports: allReports,
+    project: {
+      customer: current.customer,
+      project_name: current.project_name,
+      order_no: current.order_no,
+      manufacturer: current.manufacturer,
+      agent: current.agent,
+      tech_lead: current.tech_lead,
+      contact_name: current.contact_name,
+      contact_phone: current.contact_phone,
+      service_manager: current.service_manager,
+      install_address: current.install_address,
+      product_version: current.product_version,
+      engineer_name: current.engineer_name,
+      engineer_abbr: current.engineer_abbr,
+      engineer_phone: current.engineer_phone,
+    },
+  });
 
   const toList = (process.env.MAIL_TO || '').split(',').map(s => s.trim()).filter(Boolean);
   if (toList.length === 0) {
     return { success: false, message: '未配置收件人（MAIL_TO 为空）' };
   }
 
+  const latestDate = allReports[allReports.length - 1]?.report_date || '';
+  const subjectCustomer = current.customer || current.project_name;
+
   try {
     const info = await transporter.sendMail({
       from: process.env.MAIL_FROM || process.env.MAIL_USER,
       to: toList.join(', '),
-      subject: `日报 - ${report.engineer_name} ${report.report_date}`,
+      subject: `项目实施日报 - ${subjectCustomer} ${latestDate}`,
       html,
     });
 
@@ -185,7 +228,7 @@ async function sendSingleReport(reportId) {
       data: {
         messageId: info.messageId,
         accepted: info.accepted,
-        report: { id: reportId, engineer: report.engineer_name, date: report.report_date },
+        report: { id: reportId, engineer: current.engineer_name, date: latestDate },
       },
     };
   } catch (err) {

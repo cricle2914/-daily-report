@@ -185,6 +185,13 @@ searchInput.addEventListener('input', () => {
 searchInput.addEventListener('focus', function() {
   const page1 = document.getElementById('page-1');
   page1.classList.add('search-expanded');
+  // 移动端：滚动到搜索框位置，防止被键盘顶出
+  setTimeout(() => {
+    if (window.visualViewport) {
+      const searchWrap = document.querySelector('#page-1 .search-wrap');
+      if (searchWrap) searchWrap.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  }, 300);
 });
 
 // 搜索框失焦：延迟收起，让点击事件先触发
@@ -397,6 +404,12 @@ searchInput2.addEventListener('input', () => {
 
 searchInput2.addEventListener('focus', function() {
   document.getElementById('page-2').classList.add('search-expanded');
+  setTimeout(() => {
+    if (window.visualViewport) {
+      const searchWrap = document.querySelector('#page-2 .search-wrap');
+      if (searchWrap) searchWrap.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  }, 300);
 });
 
 searchInput2.addEventListener('blur', function() {

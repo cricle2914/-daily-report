@@ -321,6 +321,53 @@ html, body {
   }
 }
 
+/* 移动端修复：手机键盘弹出时，fixed 定位会被顶出视口，改用 absolute + dvh */
+@media (max-width: 768px) {
+  #page-1.search-expanded {
+    position: relative;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+  #page-1.search-expanded .page1-hero {
+    display: none;
+  }
+  #page-1.search-expanded .search-wrap {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: calc(100% - 40px);
+    max-width: 440px;
+    z-index: 210;
+    padding: 0;
+    margin: 0;
+    animation: searchExpandIn 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  #page-2.search-expanded {
+    position: relative;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+  #page-2.search-expanded .page2-search-area {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: calc(100% - 40px);
+    max-width: 440px;
+    z-index: 210;
+    padding-top: 0;
+    margin-top: 0;
+    border-top: none;
+    animation: searchExpandIn 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  #page-2.search-expanded .page2-search-hint {
+    display: none;
+  }
+}
+
 .search-icon { display: none; }
 
 .search-box {

@@ -5,10 +5,25 @@ metadata:
   namespace: daily-report
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
 spec:
   ingressClassName: nginx
+  tls:
+  - hosts:
+    - daily-report.hcxtkj.com
+    secretName: daily-report-tls
   rules:
+  - host: daily-report.hcxtkj.com
     http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: daily-report-service
+            port:
+              number: 80
+  - http:
       paths:
       - path: /
         pathType: Prefix

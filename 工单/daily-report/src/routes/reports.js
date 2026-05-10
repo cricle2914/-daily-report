@@ -2,6 +2,21 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../database');
 
+// 自动发送日报邮件（异步，不影响响应）
+function autoSendReport(reportId) {
+  try {
+    const emailService = require('../services/emailService');
+    emailService.sendSingleReport(reportId).catch(err => {
+      console.error('[自动发送邮件失败]', err.message);
+    });
+  } catch (err) {
+    // emailService 未配置时静默忽略
+    if (err.code !== 'MODULE_NOT_FOUND') {
+      console.error('[自动发送邮件异常]', err.message);
+    }
+  }
+}
+
 // 提交日报（支持 upsert：已存在则覆盖）
 router.post('/', async (req, res, next) => {
   try {
@@ -44,6 +59,9 @@ router.post('/', async (req, res, next) => {
           [plan_title, JSON.stringify(tasks), progress, status, issues || null, next_plan || null, existing[0].id]
         );
         await conn.commit();
+        // 自动发送邮件
+        const reportId = existing[0].id;
+        process.nextTick(() => autoSendReport(reportId));
         return res.json({
           success: true,
           data: { impl_day: existing[0].impl_day, overwritten: true, message: '日报已更新' }
@@ -57,7 +75,7 @@ router.post('/', async (req, res, next) => {
       );
       const implDay = history[0].cnt + 1;
 
-      await conn.query(
+      const [insertResult] = await conn.query(
         `INSERT INTO daily_reports (engineer_id, project_id, report_date, impl_day, plan_title, tasks, progress, status, issues, next_plan)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [engineer_id, project_id, today, implDay, plan_title, JSON.stringify(tasks), progress, status, issues || null, next_plan || null]
@@ -70,6 +88,10 @@ router.post('/', async (req, res, next) => {
       );
 
       await conn.commit();
+
+      // 自动发送邮件
+      const newReportId = insertResult.insertId;
+      process.nextTick(() => autoSendReport(newReportId));
 
       res.json({
         success: true,
@@ -109,6 +131,10 @@ router.put('/', async (req, res, next) => {
        WHERE id = ?`,
       [plan_title, JSON.stringify(tasks), progress, status, issues || null, next_plan || null, existing[0].id]
     );
+
+    // 自动发送邮件
+    const reportId = existing[0].id;
+    process.nextTick(() => autoSendReport(reportId));
 
     res.json({ success: true, data: { overwritten: true, message: '日报已修改' } });
   } catch (err) {
