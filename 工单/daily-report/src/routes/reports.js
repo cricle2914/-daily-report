@@ -59,12 +59,9 @@ router.post('/', async (req, res, next) => {
           [plan_title, JSON.stringify(tasks), progress, status, issues || null, next_plan || null, existing[0].id]
         );
         await conn.commit();
-        // 自动发送邮件
-        const reportId = existing[0].id;
-        process.nextTick(() => autoSendReport(reportId));
         return res.json({
           success: true,
-          data: { impl_day: existing[0].impl_day, overwritten: true, message: '日报已更新' }
+          data: { impl_day: existing[0].impl_day, overwritten: true, message: '日报已更新', report_id: existing[0].id }
         });
       }
 
@@ -89,13 +86,9 @@ router.post('/', async (req, res, next) => {
 
       await conn.commit();
 
-      // 自动发送邮件
-      const newReportId = insertResult.insertId;
-      process.nextTick(() => autoSendReport(newReportId));
-
       res.json({
         success: true,
-        data: { impl_day: implDay, message: '日报提交成功' }
+        data: { impl_day: implDay, message: '日报提交成功', report_id: insertResult.insertId }
       });
     } catch (err) {
       await conn.rollback();
@@ -132,11 +125,7 @@ router.put('/', async (req, res, next) => {
       [plan_title, JSON.stringify(tasks), progress, status, issues || null, next_plan || null, existing[0].id]
     );
 
-    // 自动发送邮件
-    const reportId = existing[0].id;
-    process.nextTick(() => autoSendReport(reportId));
-
-    res.json({ success: true, data: { overwritten: true, message: '日报已修改' } });
+    res.json({ success: true, data: { overwritten: true, message: '日报已修改', report_id: existing[0].id } });
   } catch (err) {
     next(err);
   }
@@ -235,6 +224,12 @@ router.post('/tomorrow', async (req, res, next) => {
       );
 
       await conn.commit();
+
+      // 日报提交完成后，自动发送邮件
+      const reportId = req.body.report_id;
+      if (reportId) {
+        process.nextTick(() => autoSendReport(reportId));
+      }
 
       res.json({ success: true, data: { message: '明日去向提交成功' } });
     } catch (err) {

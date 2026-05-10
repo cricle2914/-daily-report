@@ -321,50 +321,13 @@ html, body {
   }
 }
 
-/* 移动端修复：手机键盘弹出时，fixed 定位会被顶出视口，改用 absolute + dvh */
+/* 移动端微调：确保搜索在 backdrop 之上 */
 @media (max-width: 768px) {
-  #page-1.search-expanded {
-    position: relative;
-    height: 100vh;
-    height: 100dvh;
-    overflow: hidden;
-  }
-  #page-1.search-expanded .page1-hero {
-    display: none;
-  }
   #page-1.search-expanded .search-wrap {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: calc(100% - 40px);
-    max-width: 440px;
-    z-index: 210;
-    padding: 0;
-    margin: 0;
-    animation: searchExpandIn 0.35s cubic-bezier(0.32, 0.72, 0, 1);
-  }
-  #page-2.search-expanded {
-    position: relative;
-    height: 100vh;
-    height: 100dvh;
-    overflow: hidden;
+    top: 25%;
   }
   #page-2.search-expanded .page2-search-area {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: calc(100% - 40px);
-    max-width: 440px;
-    z-index: 210;
-    padding-top: 0;
-    margin-top: 0;
-    border-top: none;
-    animation: searchExpandIn 0.35s cubic-bezier(0.32, 0.72, 0, 1);
-  }
-  #page-2.search-expanded .page2-search-hint {
-    display: none;
+    top: 25%;
   }
 }
 
@@ -1214,6 +1177,26 @@ html, body {
   color: var(--red);
   text-align: center;
   margin-top: 8px;
+}
+
+/* 今日暂无项目按钮 */
+.no-project-btn {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--border-med);
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 10px;
+  text-align: center;
+}
+.no-project-btn:hover {
+  border-color: var(--text);
+  color: var(--text);
 }
 
 /* Toast */

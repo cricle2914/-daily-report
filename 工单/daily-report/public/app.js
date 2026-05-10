@@ -6,7 +6,8 @@ let state = {
   destination: null,
   tomorrowDate: '',
   lastProgress: 0,
-  customReportDate: null
+  customReportDate: null,
+  lastReportId: null
 };
 
 // ====== 工具函数 ======
@@ -185,13 +186,21 @@ searchInput.addEventListener('input', () => {
 searchInput.addEventListener('focus', function() {
   const page1 = document.getElementById('page-1');
   page1.classList.add('search-expanded');
-  // 移动端：滚动到搜索框位置，防止被键盘顶出
-  setTimeout(() => {
-    if (window.visualViewport) {
-      const searchWrap = document.querySelector('#page-1 .search-wrap');
-      if (searchWrap) searchWrap.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    }
-  }, 300);
+  // 移动端：键盘弹出时 visualViewport 缩小，用 JS 确保搜索框在可视区
+  if (window.visualViewport) {
+    const adjustPos = () => {
+      const wrap = document.querySelector('#page-1 .search-wrap');
+      if (!wrap) return;
+      const vh = window.visualViewport.height;
+      const wrapRect = wrap.getBoundingClientRect();
+      if (wrapRect.bottom > vh || wrapRect.top < 0) {
+        wrap.style.top = Math.max(20, (vh - wrapRect.height) / 2) + 'px';
+      }
+    };
+    window.visualViewport.addEventListener('resize', adjustPos);
+    // 聚焦 400ms 后再检查一次（键盘完全弹出后）
+    setTimeout(adjustPos, 400);
+  }
 });
 
 // 搜索框失焦：延迟收起，让点击事件先触发
@@ -404,12 +413,19 @@ searchInput2.addEventListener('input', () => {
 
 searchInput2.addEventListener('focus', function() {
   document.getElementById('page-2').classList.add('search-expanded');
-  setTimeout(() => {
-    if (window.visualViewport) {
-      const searchWrap = document.querySelector('#page-2 .search-wrap');
-      if (searchWrap) searchWrap.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    }
-  }, 300);
+  if (window.visualViewport) {
+    const adjustPos = () => {
+      const wrap = document.querySelector('#page-2 .search-wrap');
+      if (!wrap) return;
+      const vh = window.visualViewport.height;
+      const wrapRect = wrap.getBoundingClientRect();
+      if (wrapRect.bottom > vh || wrapRect.top < 0) {
+        wrap.style.top = Math.max(20, (vh - wrapRect.height) / 2) + 'px';
+      }
+    };
+    window.visualViewport.addEventListener('resize', adjustPos);
+    setTimeout(adjustPos, 400);
+  }
 });
 
 searchInput2.addEventListener('blur', function() {
@@ -714,6 +730,9 @@ async function submitReport(overwriteMode) {
     btn.disabled = false;
     btn.textContent = '提交日报';
 
+    // 保存 report_id，page-4 提交后触发邮件发送
+    state.lastReportId = result.data && result.data.report_id;
+
     // 设置成功标题（page-4 会用）
     document.getElementById('reportSuccessTitle').textContent =
       result.data && result.data.overwritten ? '日报已修改' : '日报已提交';
@@ -909,6 +928,10 @@ function enterP3Expand() {
         <input class="proj-expand-detail-input" value="${String(p.customer || '').replace(/"/g,'&quot;')}" data-field="customer">
       </div>
       <div class="proj-expand-detail-row">
+        <span class="label">工单号</span>
+        <input class="proj-expand-detail-input" value="${String(p.order_no || '').replace(/"/g,'&quot;')}" data-field="order_no">
+      </div>
+      <div class="proj-expand-detail-row">
         <span class="label">联系人</span>
         <input class="proj-expand-detail-input" value="${String(p.contact_name || '').replace(/"/g,'&quot;')}" data-field="contact_name">
       </div>
@@ -973,7 +996,8 @@ async function submitTomorrow(overwriteMode) {
   const body = {
     engineer_id: state.engineer.id,
     report_date: state.tomorrowDate,
-    destination: state.destination
+    destination: state.destination,
+    report_id: state.lastReportId || null
   };
 
   if (state.destination === 'existing_project') {
@@ -1047,4 +1071,10 @@ async function submitTomorrow(overwriteMode) {
 
 async function loadFinalStats() {
   // CSS 已隐藏 .stats-grid，无需渲染
+}
+
+// ====== 今日暂无项目，直接跳转明日去向 ======
+function skipToTomorrow() {
+  showPage('page-4');
+  initTomorrowPage();
 }
