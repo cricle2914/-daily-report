@@ -259,7 +259,7 @@ function buildSingleReportEmailHtml(data) {
         <tr>
           <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">厂商名称</td>
           <td style="padding:4px 8px;">${escapeHtml(project.manufacturer || '')}</td>
-          <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">服务经理</td>
+          <td style="background:#f2f2f2;font-weight:600;padding:4px 8px;">销售经理</td>
           <td style="padding:4px 8px;">${escapeHtml(project.service_manager || '/')}</td>
         </tr>
       </table>

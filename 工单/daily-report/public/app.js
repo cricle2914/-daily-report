@@ -355,7 +355,7 @@ function buildProjectCard(p) {
       <div class="project-detail-row"><span class="label">厂商</span>${p.manufacturer || '-'}</div>
       <div class="project-detail-row"><span class="label">代理商</span>${p.agent || '-'}</div>
       <div class="project-detail-row"><span class="label">技术负责人</span>${p.tech_lead || '-'}</div>
-      <div class="project-detail-row"><span class="label">服务经理</span>${p.service_manager || '-'}</div>
+      <div class="project-detail-row"><span class="label">销售经理</span>${p.service_manager || '-'}</div>
       <div class="project-detail-row" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">
         <span class="label">实施天数</span>${p.impl_days} 天
       </div>
@@ -957,7 +957,7 @@ function enterP3Expand() {
         <input class="proj-expand-detail-input" value="${String(p.tech_lead || '').replace(/"/g,'&quot;')}" data-field="tech_lead">
       </div>
       <div class="proj-expand-detail-row">
-        <span class="label">服务经理</span>
+        <span class="label">销售经理</span>
         <input class="proj-expand-detail-input" value="${String(p.service_manager || '').replace(/"/g,'&quot;')}" data-field="service_manager">
       </div>
       <button class="btn btn-primary save-detail-btn" style="margin-top:10px;width:100%">保存修改</button>
