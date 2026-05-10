@@ -455,28 +455,22 @@ function buildProjectCard(p) {
 const searchInput2 = document.getElementById('searchInput2');
 let searchTimer2 = null;
 
+searchInput2.addEventListener('focus', function() {
+  document.getElementById('page-2').classList.add('search-expanded');
+});
+
 searchInput2.addEventListener('input', () => {
   clearTimeout(searchTimer2);
   const val = searchInput2.value.trim().toLowerCase();
-  // 实时过滤项目列表
-  const filtered = val
-    ? state.projects.filter(p => p.name.toLowerCase().includes(val))
-    : state.projects;
-  renderProjectList(filtered);
-  // 展开全部可用按钮
+  // 使用 DOM 直接显示/隐藏卡片，不重新渲染，避免页面跳动
+  document.querySelectorAll('#projectList .project-card').forEach(card => {
+    const nameEl = card.querySelector('.project-name');
+    const name = nameEl ? nameEl.textContent.toLowerCase() : '';
+    card.style.display = name.includes(val) ? '' : 'none';
+  });
   document.getElementById('expandAllBtn').style.display = 'none';
-
-  if (val) {
-    document.getElementById('page-2').classList.add('search-expanded');
-  } else {
-    document.getElementById('page-2').classList.remove('search-expanded');
-  }
-});
-
-searchInput2.addEventListener('focus', function() {
-  if (searchInput2.value.trim()) {
-    document.getElementById('page-2').classList.add('search-expanded');
-  }
+  const newBtn = document.querySelector('.new-project-btn');
+  if (newBtn) newBtn.style.display = val ? 'none' : '';
 });
 
 searchInput2.addEventListener('blur', function() {
@@ -489,7 +483,12 @@ document.getElementById('searchBackdrop2').addEventListener('click', function() 
   document.getElementById('page-2').classList.remove('search-expanded');
   searchInput2.blur();
   searchInput2.value = '';
-  renderProjectList(state.projects);
+  // 恢复所有卡片显示
+  document.querySelectorAll('#projectList .project-card').forEach(card => card.style.display = '');
+  const newBtn = document.querySelector('.new-project-btn');
+  if (newBtn) newBtn.style.display = '';
+  document.getElementById('expandAllBtn').style.display = '';
+  updateExpandAllBtn();
 });
 
 // ====== 新建项目抽屉 ======
