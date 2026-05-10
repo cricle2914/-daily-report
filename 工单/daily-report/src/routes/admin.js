@@ -326,7 +326,7 @@ router.get('/projects/:id', auth(), async (req, res, next) => {
 router.post('/projects', auth(), async (req, res, next) => {
   try {
     const {
-      name, order_no, customer, contact_name, contact_phone,
+      name, order_no, order_type, customer, contact_name, contact_phone,
       product_version, install_address, manufacturer, agent,
       tech_lead, service_manager
     } = req.body;
@@ -336,10 +336,10 @@ router.post('/projects', auth(), async (req, res, next) => {
     }
 
     const [result] = await pool.query(
-      `INSERT INTO projects (name, order_no, customer, contact_name, contact_phone,
+      `INSERT INTO projects (name, order_no, order_type, customer, contact_name, contact_phone,
         product_version, install_address, manufacturer, agent, tech_lead, service_manager)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, order_no || null, customer, contact_name || null, contact_phone || null,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [name, order_no || null, order_type || null, customer, contact_name || null, contact_phone || null,
        product_version || null, install_address || null, manufacturer || null,
        agent || null, tech_lead || null, service_manager || null]
     );
@@ -355,16 +355,16 @@ router.put('/projects/:id', auth(), async (req, res, next) => {
   try {
     const { id } = req.params;
     const {
-      name, order_no, customer, contact_name, contact_phone,
+      name, order_no, order_type, customer, contact_name, contact_phone,
       product_version, install_address, manufacturer, agent,
       tech_lead, service_manager
     } = req.body;
 
     await pool.query(
-      `UPDATE projects SET name=?, order_no=?, customer=?, contact_name=?, contact_phone=?,
+      `UPDATE projects SET name=?, order_no=?, order_type=?, customer=?, contact_name=?, contact_phone=?,
         product_version=?, install_address=?, manufacturer=?, agent=?, tech_lead=?, service_manager=?
        WHERE id=?`,
-      [name, order_no || null, customer, contact_name || null, contact_phone || null,
+      [name, order_no || null, order_type || null, customer, contact_name || null, contact_phone || null,
        product_version || null, install_address || null, manufacturer || null,
        agent || null, tech_lead || null, service_manager || null, id]
     );

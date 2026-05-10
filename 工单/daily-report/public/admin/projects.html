@@ -57,6 +57,7 @@
             <tr>
               <th>项目名</th>
               <th>客户</th>
+              <th>工单类型</th>
               <th>工单号</th>
               <th>当前工程师</th>
               <th>操作</th>
@@ -93,6 +94,7 @@
           return `<tr>
             <td><strong>${p.name}</strong></td>
             <td>${p.customer}</td>
+            <td>${p.order_type || '-'}</td>
             <td>${p.order_no || '-'}</td>
             <td><div class="avatar-group">${avatars || '<span style="color:var(--text-dim)">未分配</span>'}</div></td>
             <td class="hide-if-engineer">

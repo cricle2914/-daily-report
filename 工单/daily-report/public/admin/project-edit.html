@@ -49,28 +49,28 @@
               <input class="form-input" id="name" placeholder="请输入项目名">
             </div>
             <div class="form-group">
-              <label class="form-label">工单号</label>
-              <input class="form-input" id="order_no" placeholder="请输入工单号">
+              <label class="form-label">工单类型</label>
+              <input class="form-input" id="order_type" placeholder="请输入工单类型">
             </div>
           </div>
           <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">工单号</label>
+              <input class="form-input" id="order_no" placeholder="请输入工单号">
+            </div>
             <div class="form-group">
               <label class="form-label">客户名 *</label>
               <input class="form-input" id="customer" placeholder="请输入客户名">
             </div>
-            <div class="form-group">
-              <label class="form-label">联系人</label>
-              <input class="form-input" id="contact_name" placeholder="请输入联系人">
-            </div>
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">联系电话</label>
-              <input class="form-input" id="contact_phone" placeholder="请输入联系电话">
+              <label class="form-label">客户联系人</label>
+              <input class="form-input" id="contact_name" placeholder="请输入客户联系人">
             </div>
             <div class="form-group">
-              <label class="form-label">产品版本</label>
-              <input class="form-input" id="product_version" placeholder="请输入产品版本">
+              <label class="form-label">联系电话</label>
+              <input class="form-input" id="contact_phone" placeholder="请输入联系电话">
             </div>
           </div>
           <div class="form-group">
@@ -194,6 +194,7 @@
         const data = (await api(`/api/admin/projects/${editId}`)).data;
         document.getElementById('pageTitle').textContent = '编辑项目';
         document.getElementById('name').value = data.name;
+        document.getElementById('order_type').value = data.order_type || '';
         document.getElementById('order_no').value = data.order_no || '';
         document.getElementById('customer').value = data.customer;
         document.getElementById('contact_name').value = data.contact_name || '';
@@ -245,6 +246,7 @@
         const body = {
           name, customer,
           order_no: document.getElementById('order_no').value.trim() || null,
+          order_type: document.getElementById('order_type').value.trim() || null,
           contact_name: document.getElementById('contact_name').value.trim() || null,
           contact_phone: document.getElementById('contact_phone').value.trim() || null,
           product_version: document.getElementById('product_version').value.trim() || null,
