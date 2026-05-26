@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>日报概览 - 日报系统</title>
+  <link rel="stylesheet" href="../shared.css"/>
+  <link rel="stylesheet" href="../admin-layout.css"/>
+  <script src="../auth.js"></script>
+  <script src="../global.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    .sidebar-nav a.active { background: var(--blue-bg); color: var(--blue); font-weight: 700; }
+    .sidebar-user .user-role { color: var(--blue); }
+
+    .page-wrap { display: flex; flex: 1; padding: 20px 24px; gap: 20px; align-items: center; justify-content: center; flex-wrap: wrap; min-height: 0; }
+    .left-panel { display: flex; flex-direction: column; gap: 10px; flex: 1 1 300px; max-width: 380px; min-width: 0; margin-top: 2%; }
+    .left-title { font-size: 15px; font-weight: 700; color: var(--text3); margin-bottom: 12px; }
+
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+    .stat-value { font-size: 22px; font-weight: 800; line-height: 1.1; margin-bottom: 2px; }
+    .stat-label { font-size: 11px; font-weight: 600; color: var(--text4); }
+
+    .stat-row { display: flex; align-items: center; justify-content: space-between; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+    .stat-row-label { font-size: 11px; font-weight: 600; color: var(--text4); }
+    .stat-row-value { font-size: 20px; font-weight: 800; color: var(--text); line-height: 1; }
+
+    .person-section { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+    .person-section-header { font-size: 11px; font-weight: 600; color: var(--text4); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+    .person-section-count { font-size: 13px; font-weight: 700; color: var(--text); }
+    .person-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+    .tag-orange { padding: 3px 9px; border-radius: 5px; font-size: 11px; font-weight: 600; background: var(--orange-bg); color: var(--orange); line-height: 1.4; }
+    .tag-red { padding: 3px 9px; border-radius: 5px; font-size: 11px; font-weight: 600; background: var(--red-bg); color: var(--red); line-height: 1.4; }
+    .tag-empty { font-size: 11px; color: var(--text3); font-weight: 500; }
+
+    .right-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; min-height: 0; order: -1; }
+    .date-nav { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+    .date-nav-btn { background: var(--bg3); border: 1px solid var(--border2); border-radius: 6px; color: var(--text); width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; font-family: inherit; }
+    .date-nav-btn:hover { background: var(--bg3); }
+    .date-nav-label { font-size: 14px; font-weight: 600; color: var(--text); min-width: 140px; text-align: center; }
+    .date-today-btn { padding: 4px 10px; font-size: 11px; font-weight: 600; border-radius: 5px; border: none; background: var(--blue-bg); color: var(--blue); cursor: pointer; font-family: inherit; }
+    .date-today-btn:hover { background: var(--blue-bg); opacity: 0.8; }
+    .donut-wrap { position: relative; width: 100%; max-width: min(420px, 50vw); aspect-ratio: 1; flex-shrink: 0; }
+
+    .donut-inner { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+    .donut-hours { font-size: clamp(24px, 8vw, 48px); font-weight: 900; color: var(--text); line-height: 1; letter-spacing: -0.03em; }
+    .donut-avg { font-size: clamp(11px, 2.5vw, 15px); font-weight: 600; color: var(--text3); margin-top: 4px; }
+    .donut-pct { font-size: clamp(11px, 2.5vw, 14px); font-weight: 700; color: var(--text4); margin-top: 2px; }
+
+    .tooltip-box { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; font-size: 12px; font-weight: 500; color: var(--text); z-index: 10; white-space: nowrap; pointer-events: none; display: flex; flex-direction: column; gap: 4px; display: none; }
+    .tooltip-row { display: flex; align-items: center; gap: 8px; }
+    .tooltip-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .tooltip-label { color: var(--text3); }
+    .tooltip-val { font-weight: 700; color: var(--text); margin-left: 12px; }
+    .tooltip-divider { border-top: 1px solid var(--border2); margin: 4px 0; padding-top: 4px; }
+
+    /* 遮罩弹窗 */
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; overflow: hidden; }
+    .modal { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; width: 640px; max-width: 92vw; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; }
+    .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid var(--border); }
+    .modal-title { font-size: 15px; font-weight: 700; color: var(--text); }
+    .modal-close { background: none; border: none; color: var(--text3); font-size: 20px; cursor: pointer; font-family: inherit; padding: 4px 8px; line-height: 1; }
+    .modal-body { display: flex; flex: 1; overflow: hidden; }
+    .col { flex: 1; overflow: auto; padding: 12px 0; }
+    .col-header { padding: 6px 20px 10px; font-size: 12px; font-weight: 700; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+    .col-divider { width: 1px; background: var(--border); flex-shrink: 0; }
+    .eng-item { display: flex; align-items: center; gap: 10px; padding: 8px 20px; border-bottom: 1px solid var(--border2); }
+    .abbr-bubble { width: 26px; height: 26px; border-radius: 6px; background: var(--bg3); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--text4); flex-shrink: 0; }
+    .eng-name { font-size: 13px; font-weight: 600; color: var(--text); flex: 1; min-width: 0; }
+    .eng-project { font-size: 11px; color: var(--text3); flex-shrink: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .empty-col { padding: 30px 20px; text-align: center; color: var(--text4); font-size: 13px; font-weight: 500; }
+
+    /* 4 列网格 */
+    .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); flex: 1; overflow: hidden; }
+    .cat-col { overflow: auto; border-right: 1px solid var(--border); }
+    .cat-col:last-child { border-right: none; }
+    .cat-header { padding: 12px 14px 10px; display: flex; flex-direction: column; gap: 2px; }
+    .cat-label { font-size: 13px; font-weight: 700; color: var(--text); line-height: 1.2; }
+    .cat-count { font-size: 11px; font-weight: 600; }
+    .cat-person { display: flex; align-items: center; gap: 8px; padding: 7px 14px; border-bottom: 1px solid var(--border2); }
+    .cat-name { font-size: 12px; font-weight: 500; color: var(--text2); }
+    .cat-abbr { font-size: 10px; font-weight: 600; color: var(--text4); }
+    .cat-empty { padding: 20px 14px; text-align: center; color: var(--text4); font-size: 12px; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <button class="sidebar-toggle" onclick="toggleSidebar()" title="折叠侧边栏"><i class="fa-solid fa-angles-left"></i></button>
+      <h2>日报系统</h2>
+      <div class="brand-sub">管理控制台</div>
+    </div>
+    <div class="sidebar-user">
+      <div class="avatar" id="userAvatar">?</div>
+      <div>
+        <div class="user-name" id="userDisplay">加载中..</div>
+        <div class="user-role" id="roleDisplay"></div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="overview.html" id="nav-overview"><i class="fa-solid fa-chart-pie"></i> 日报概览</a>
+      <a href="projects.html" id="nav-projects"><i class="fa-solid fa-building"></i> 项目看板</a>
+      <a href="team.html" id="nav-team"><i class="fa-solid fa-people-group"></i> 团队信息</a>
+      <a href="hours.html" id="nav-hours"><i class="fa-solid fa-chart-bar"></i> 工时统计</a>
+      <a href="distribution.html" id="nav-distribution"><i class="fa-solid fa-location-dot"></i> 人员分布</a>
+      <a href="messages.html" id="nav-messages"><i class="fa-solid fa-bullhorn"></i> 消息管理</a>
+    </nav>
+    <div class="sidebar-footer">
+      <button onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> 退出登录</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="content" style="padding:0">
+      <div class="page-wrap" id="pageWrap">
+
+        <!-- 左侧面板 -->
+        <div class="left-panel">
+          <div class="left-title">今日概况</div>
+          <div class="stat-grid">
+            <div class="stat-card">
+              <div class="stat-value" id="statTotal" style="color:var(--text)">-</div>
+              <div class="stat-label">在职人数</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="statSubmitted" style="color:var(--green)">-</div>
+              <div class="stat-label">已提交</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="statNotSubmitted" style="color:var(--red)">-</div>
+              <div class="stat-label">未提交</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="statPct">-</div>
+              <div class="stat-label">提交率</div>
+            </div>
+          </div>
+
+          <div class="stat-row">
+            <div class="stat-row-label">今日总工时</div>
+            <div class="stat-row-value" id="todayHours">0</div>
+          </div>
+
+          <div class="person-section">
+            <div class="person-section-header">
+              明日无项目人员
+              <span class="person-section-count" id="noProjectCount">0</span>
+            </div>
+            <div class="person-tags" id="noProjectTags">
+              <span class="tag-empty">暂无</span>
+            </div>
+          </div>
+
+          <div class="person-section">
+            <div class="person-section-header">
+              未提交日报人员
+              <span class="person-section-count" id="notSubmittedCount">0</span>
+            </div>
+            <div class="person-tags" id="notSubmittedTags">
+              <span class="tag-empty">暂无</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右侧环形图 -->
+        <div class="right-wrap">
+          <div class="date-nav">
+            <button class="date-nav-btn" onclick="prevDay()"><i class="fa-solid fa-chevron-left"></i></button>
+            <span class="date-nav-label" id="displayDate">-</span>
+            <button class="date-nav-btn" onclick="nextDay()"><i class="fa-solid fa-chevron-right"></i></button>
+            <button class="date-today-btn" onclick="goToday()">今天</button>
+          </div>
+          <div class="donut-wrap" id="donutWrap">
+            <svg viewBox="0 0 460 460" style="display:block;width:100%;height:100%">
+              <!-- 外环背景 -->
+              <circle cx="230" cy="230" r="189" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="36" transform="rotate(-90 230 230)" pointer-events="visibleStroke"/>
+              <!-- 外环分段（由JS动态绘制） -->
+              <g id="outerRingGroup" style="cursor:pointer"></g>
+              <!-- 内环背景 -->
+              <circle cx="230" cy="230" r="130" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="42" transform="rotate(-90 230 230)" pointer-events="visibleStroke"/>
+              <!-- 内环分段（由JS动态绘制） -->
+              <g id="innerRingGroup" style="cursor:pointer"></g>
+            </svg>
+
+            <div class="tooltip-box" id="donutTooltip"></div>
+
+            <div class="donut-inner">
+              <div class="donut-hours" id="centerHours">0</div>
+              <div class="donut-avg" id="centerAvg">平均 0 h</div>
+              <div class="donut-pct" id="centerPct">提交率 0%</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- 内环弹窗：日报提交详情 -->
+  <div id="innerModal" class="overlay" style="display:none" onclick="closeInnerModal(event)">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">今日日报提交详情</div>
+        <button class="modal-close" onclick="closeInnerModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="col">
+          <div class="col-header" style="color:var(--red)">
+            <span style="width:8px;height:8px;border-radius:50%;background:#f87171;display:inline-block"></span>
+            未提交 · <span id="notSubmittedModalCount">0</span>人
+          </div>
+          <div id="notSubmittedModalList"><div class="empty-col">全部已提交</div></div>
+        </div>
+        <div class="col-divider"></div>
+        <div class="col">
+          <div class="col-header" style="color:var(--green)">
+            <span style="width:8px;height:8px;border-radius:50%;background:#4ade80;display:inline-block"></span>
+            已提交 · <span id="submittedModalCount">0</span>人
+          </div>
+          <div id="submittedModalList"><div class="empty-col">暂无提交</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 外环弹窗：人员去向详情 -->
+  <div id="outerModal" class="overlay" style="display:none" onclick="closeOuterModal(event)">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">今日人员去向</div>
+        <button class="modal-close" onclick="closeOuterModal()">✕</button>
+      </div>
+      <div class="grid4" id="outerModalBody">
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var currentPage = 'overview';
+    var queryDate = new Date();
+    var todayData = null;
+    var tomorrowData = null;
+    var engineers = [];
+    var WEEK_NAMES = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+
+    function fmtQueryDate(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+    function fmtDisplayDate(d) { return d.getFullYear()+'年'+String(d.getMonth()+1).padStart(2,'0')+'月'+String(d.getDate()).padStart(2,'0')+'日 '+WEEK_NAMES[d.getDay()]; }
+    function updateDateDisplay() {
+      document.getElementById('displayDate').textContent = fmtDisplayDate(queryDate);
+    }
+    function prevDay() { queryDate.setDate(queryDate.getDate()-1); updateDateDisplay(); loadData(); }
+    function nextDay() { queryDate.setDate(queryDate.getDate()+1); updateDateDisplay(); loadData(); }
+    function goToday() { queryDate = new Date(); updateDateDisplay(); loadData(); }
+
+    // ===== 工具函数 =====
+    function showToast(msg, type) {
+      if (type === undefined) type = 'success';
+      var container = document.querySelector('.toast-container');
+      if (!container) { container = document.createElement('div'); container.className = 'toast-container'; document.body.appendChild(container); }
+      var toast = document.createElement('div'); toast.className = 'toast toast-' + type;
+      toast.textContent = msg; container.appendChild(toast);
+      setTimeout(function() { toast.style.opacity = '0'; setTimeout(function() { toast.remove(); }, 200); }, 3000);
+    }
+    function setActiveNav(page) { var el = document.getElementById('nav-' + page); if (el) el.classList.add('active'); }
+    function toggleSidebar() {
+      var sidebar = document.querySelector('.sidebar');
+      sidebar.classList.toggle('collapsed');
+      var icon = sidebar.querySelector('.sidebar-toggle i');
+      var collapsed = sidebar.classList.contains('collapsed');
+      icon.className = collapsed ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left';
+      try { localStorage.setItem('sidebar-collapsed', collapsed ? '1' : '0'); } catch(e) {}
+    }
+    function restoreSidebar() { try { if (localStorage.getItem('sidebar-collapsed') === '1') document.querySelector('.sidebar').classList.add('collapsed'); } catch(e) {} }
+
+    function getFirstChar(name) { return name ? name.charAt(0) : '?'; }
+
+    // ===== 加载数据 =====
+    async function loadData() {
+      var todayStr = fmtQueryDate(queryDate);
+      try {
+        var [todayRes, tomorrowRes, hoursRes] = await Promise.all([
+          fetch(API + '/api/leader/today', { credentials: 'include' }),
+          fetch(API + '/api/reports/stats/tomorrow?date=' + todayStr, { credentials: 'include' }),
+          fetch(API + '/api/admin/hours?date_from=' + todayStr + '&date_to=' + todayStr, { credentials: 'include' }),
+        ]);
+
+        if (todayRes.ok) {
+          var todayJson = await todayRes.json();
+          todayData = todayJson.data || todayJson;
+          engineers = todayData.engineers || [];
+        }
+        if (tomorrowRes.ok) {
+          var tomorrowJson = await tomorrowRes.json();
+          tomorrowData = tomorrowJson.data || tomorrowJson;
+        }
+        if (hoursRes.ok) {
+          var hoursJson = await hoursRes.json();
+          var hoursList = hoursJson.data;
+          var total = 0;
+          if (hoursList) {
+            var list = hoursList.list || (Array.isArray(hoursList) ? hoursList : []);
+            list.forEach(function(h) { total += parseFloat(h.hours || h.hour || 0); });
+          }
+          document.getElementById('todayHours').textContent = total.toFixed(1);
+        }
+
+        renderAll();
+
+      } catch(e) {
+        document.getElementById('statTotal').textContent = '-';
+      }
+    }
+
+    // ===== 渲染 =====
+    function renderAll() {
+      if (!todayData) return;
+
+      var total = todayData.total || 0;
+      var submitted = todayData.submitted || 0;
+      var notSubmitted = todayData.not_submitted || 0;
+      var pct = total > 0 ? Math.round((submitted / total) * 100) : 0;
+
+      document.getElementById('statTotal').textContent = total;
+      document.getElementById('statSubmitted').textContent = submitted;
+      document.getElementById('statNotSubmitted').textContent = notSubmitted;
+
+      var pctEl = document.getElementById('statPct');
+      pctEl.textContent = pct + '%';
+      pctEl.style.color = pct >= 80 ? '#4ade80' : pct >= 50 ? '#fb923c' : '#f87171';
+
+      // 未提交日报人员
+      var notSubmittedEng = engineers.filter(function(e) { return !e.is_submitted; });
+      document.getElementById('notSubmittedCount').textContent = notSubmittedEng.length;
+      var nsTags = document.getElementById('notSubmittedTags');
+      if (notSubmittedEng.length === 0) {
+        nsTags.innerHTML = '<span class="tag-empty">暂无</span>';
+      } else {
+        nsTags.innerHTML = notSubmittedEng.map(function(e) {
+          return '<span class="tag-red">' + (e.abbr || getFirstChar(e.name)) + ' ' + e.name + '</span>';
+        }).join('');
+      }
+
+      // 明日无项目人员 = back_to_office + pending
+      var noProjectPeople = [];
+      if (tomorrowData && tomorrowData.details) {
+        noProjectPeople = (tomorrowData.details.back_to_office || []).concat(tomorrowData.details.pending || []);
+      }
+      document.getElementById('noProjectCount').textContent = noProjectPeople.length;
+      var npTags = document.getElementById('noProjectTags');
+      if (noProjectPeople.length === 0) {
+        npTags.innerHTML = '<span class="tag-empty">暂无</span>';
+      } else {
+        npTags.innerHTML = noProjectPeople.map(function(p) {
+          return '<span class="tag-orange">' + p.engineer_name + '</span>';
+        }).join('');
+      }
+
+      // 环形图
+      renderDonut(submitted, notSubmitted, total);
+    }
+
+    // ===== 环形图 =====
+    var IC = 2 * Math.PI * 130; // 内环周长
+    var OC = 2 * Math.PI * 189; // 外环周长
+
+    function renderDonut(submitted, notSubmitted, total) {
+      if (total === 0) return;
+
+      var centerHours = document.getElementById('centerHours');
+      var centerAvg = document.getElementById('centerAvg');
+      var centerPct = document.getElementById('centerPct');
+
+      var totalHours = parseFloat(document.getElementById('todayHours').textContent) || 0;
+      var avg = total > 0 ? (totalHours / total) : 0;
+      var pct = Math.round((submitted / total) * 100);
+
+      centerHours.textContent = totalHours.toFixed(1);
+      centerAvg.textContent = '平均 ' + avg.toFixed(1) + ' h';
+      centerPct.textContent = '提交率 ' + pct + '%';
+
+      // 内环
+      var innerGroup = document.getElementById('innerRingGroup');
+      var greenLen = (submitted / total) * IC;
+      var innerHtml = '';
+
+      if (notSubmitted > 0) {
+        innerHtml += '<circle cx="230" cy="230" r="130" fill="none" stroke="#f87171" stroke-width="42" stroke-dasharray="' + (IC - greenLen) + ' ' + IC + '" stroke-dashoffset="' + (-greenLen) + '" stroke-linecap="butt" transform="rotate(-90 230 230)" pointer-events="visibleStroke"/>';
+      }
+      if (submitted > 0) {
+        innerHtml += '<circle cx="230" cy="230" r="130" fill="none" stroke="#4ade80" stroke-width="42" stroke-dasharray="' + greenLen + ' ' + IC + '" stroke-linecap="butt" transform="rotate(-90 230 230)" pointer-events="visibleStroke"/>';
+      }
+      innerGroup.innerHTML = innerHtml;
+
+      // 外环 segments
+      var outerGroup = document.getElementById('outerRingGroup');
+      var segs = [];
+      if (tomorrowData) {
+        segs = [
+          { value: tomorrowData.in_project || 0, color: '#4ade80', label: '在外实施' },
+          { value: tomorrowData.back_to_office || 0, color: '#60a5fa', label: '回公司' },
+          { value: tomorrowData.unavailable || 0, color: '#f87171', label: '请假' },
+          { value: tomorrowData.pending || 0, color: '#fb923c', label: '未填报' },
+        ].filter(function(s) { return s.value > 0; });
+      }
+
+      var outerHtml = '';
+      var offset = 0;
+      segs.forEach(function(s) {
+        var len = (s.value / total) * OC;
+        outerHtml += '<circle cx="230" cy="230" r="189" fill="none" stroke="' + s.color + '" stroke-width="36" stroke-dasharray="' + len + ' ' + OC + '" stroke-dashoffset="' + (-offset) + '" stroke-linecap="butt" transform="rotate(-90 230 230)" pointer-events="visibleStroke"/>';
+        offset += len;
+      });
+      outerGroup.innerHTML = outerHtml;
+
+      // 事件绑定：hover tooltip / click
+      setupDonutEvents(submitted, notSubmitted, segs, total, pct);
+    }
+
+    function setupDonutEvents(submitted, notSubmitted, segs, total, pct) {
+      var innerGroup = document.getElementById('innerRingGroup');
+      var outerGroup = document.getElementById('outerRingGroup');
+      var tooltip = document.getElementById('donutTooltip');
+
+      innerGroup.onmouseenter = function() {
+        var html = '';
+        html += '<div class="tooltip-row"><span class="tooltip-dot" style="background:#4ade80"></span><span class="tooltip-label">已提交</span><span class="tooltip-val">' + submitted + ' 人</span></div>';
+        html += '<div class="tooltip-row"><span class="tooltip-dot" style="background:#f87171"></span><span class="tooltip-label">未提交</span><span class="tooltip-val">' + (total - submitted) + ' 人</span></div>';
+        var pctColor = pct >= 80 ? '#4ade80' : pct >= 50 ? '#fb923c' : '#f87171';
+        html += '<div class="tooltip-row" style="border-top:1px solid rgba(255,255,255,0.06);margin-top:4px;padding-top:4px"><span class="tooltip-dot" style="background:rgba(255,255,255,0.15)"></span><span class="tooltip-label">提交率</span><span class="tooltip-val" style="color:' + pctColor + '">' + pct + '%</span></div>';
+        tooltip.innerHTML = html;
+        tooltip.style.display = '';
+      };
+      innerGroup.onmouseleave = function() { tooltip.style.display = 'none'; };
+      innerGroup.onclick = function() { openInnerModal(); };
+
+      outerGroup.onmouseenter = function() {
+        var html = '';
+        segs.forEach(function(s) {
+          html += '<div class="tooltip-row"><span class="tooltip-dot" style="background:' + s.color + '"></span><span class="tooltip-label">' + s.label + '</span><span class="tooltip-val">' + s.value + ' 人</span></div>';
+        });
+        tooltip.innerHTML = html;
+        tooltip.style.display = '';
+      };
+      outerGroup.onmouseleave = function() { tooltip.style.display = 'none'; };
+      outerGroup.onclick = function() { openOuterModal(); };
+    }
+
+    // ===== 内环弹窗 =====
+    function openInnerModal() {
+      var submittedEng = engineers.filter(function(e) { return e.is_submitted; });
+      var notSubmittedEng = engineers.filter(function(e) { return !e.is_submitted; });
+
+      document.getElementById('submittedModalCount').textContent = submittedEng.length;
+      document.getElementById('notSubmittedModalCount').textContent = notSubmittedEng.length;
+
+      var nsList = document.getElementById('notSubmittedModalList');
+      if (notSubmittedEng.length === 0) {
+        nsList.innerHTML = '<div class="empty-col">全部已提交</div>';
+      } else {
+        nsList.innerHTML = notSubmittedEng.map(function(e) {
+          return '<div class="eng-item"><span class="abbr-bubble">' + (e.abbr || getFirstChar(e.name)) + '</span><span class="eng-name">' + e.name + '</span></div>';
+        }).join('');
+      }
+
+      var sList = document.getElementById('submittedModalList');
+      if (submittedEng.length === 0) {
+        sList.innerHTML = '<div class="empty-col">暂无提交</div>';
+      } else {
+        sList.innerHTML = submittedEng.map(function(e) {
+          return '<div class="eng-item"><span class="abbr-bubble">' + (e.abbr || getFirstChar(e.name)) + '</span><span class="eng-name">' + e.name + '</span><span class="eng-project">' + (e.report ? (e.report.project_name || '') : '') + '</span></div>';
+        }).join('');
+      }
+
+      document.getElementById('innerModal').style.display = '';
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeInnerModal(e) {
+      if (e && e.target !== e.currentTarget) return;
+      document.getElementById('innerModal').style.display = 'none';
+      document.body.style.overflow = '';
+    }
+
+    // ===== 外环弹窗 =====
+    function openOuterModal() {
+      if (!tomorrowData || !tomorrowData.details) return;
+
+      var categories = [
+        { key: 'in_project', label: '在外实施', color: '#4ade80', people: tomorrowData.details.in_project || [] },
+        { key: 'back_to_office', label: '回公司', color: 'rgba(255,255,255,0.3)', people: tomorrowData.details.back_to_office || [] },
+        { key: 'unavailable', label: '请假', color: '#f87171', people: tomorrowData.details.unavailable || [] },
+        { key: 'pending', label: '未填报', color: '#fb923c', people: tomorrowData.details.pending || [] },
+      ];
+
+      var html = categories.map(function(cat) {
+        var peopleHtml = cat.people.length === 0
+          ? '<div class="cat-empty">暂无</div>'
+          : cat.people.map(function(p) {
+              return '<div class="cat-person"><span class="cat-name">' + p.engineer_name + '</span></div>';
+            }).join('');
+        return '<div class="cat-col"><div class="cat-header" style="border-bottom:2px solid ' + cat.color + '"><span class="cat-label">' + cat.label + '</span><span class="cat-count" style="color:' + cat.color + '">' + cat.people.length + ' 人</span></div>' + peopleHtml + '</div>';
+      }).join('');
+
+      document.getElementById('outerModalBody').innerHTML = html;
+      document.getElementById('outerModal').style.display = '';
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeOuterModal(e) {
+      if (e && e.target !== e.currentTarget) return;
+      document.getElementById('outerModal').style.display = 'none';
+      document.body.style.overflow = '';
+    }
+
+    // ===== 初始化 =====
+    (async function init() {
+      restoreSidebar();
+      var user = await checkAuth();
+      if (!user) return;
+      setActiveNav(currentPage);
+      updateDateDisplay();
+      await loadData();
+    })();
+  </script>
+</body>
+</html>

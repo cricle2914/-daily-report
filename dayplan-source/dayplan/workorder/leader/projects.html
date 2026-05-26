@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>项目看板 - 日报系统</title>
+  <link rel="stylesheet" href="../shared.css"/>
+  <link rel="stylesheet" href="../admin-layout.css"/>
+  <script src="../auth.js"></script>
+  <script src="../global.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    .sidebar-nav a.active { background: var(--blue-bg); color: var(--blue); font-weight: 700; }
+    .sidebar-user .user-role { color: var(--blue); }
+
+    .rank-section { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+    .rank-title { font-size: 13px; font-weight: 700; color: var(--text3); margin-bottom: 12px; }
+    .rank-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border2); }
+    .rank-num { font-size: 11px; font-weight: 700; color: var(--text4); width: 20px; flex-shrink: 0; }
+    .rank-name { font-size: 13px; font-weight: 600; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rank-bar { flex: 1; height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; max-width: 120px; }
+    .rank-fill { height: 100%; background: var(--green); border-radius: 2px; opacity: 0.6; }
+    .rank-hours { font-size: 12px; font-weight: 700; color: var(--text); width: 40px; text-align: right; flex-shrink: 0; }
+    .empty-state-text { padding: 30px 0; text-align: center; color: var(--text4); font-size: 13px; font-weight: 500; }
+
+    .filter-select {
+      padding: 7px 10px; font-size: 13px; font-weight: 500;
+      background: var(--bg3); border: 1px solid var(--border2);
+      border-radius: 6px; color: var(--text); outline: none; font-family: inherit; min-width: 100px;
+      cursor: pointer;
+    }
+    .filter-select option { background: var(--bg); color: var(--text); }
+    .filter-group { display: flex; flex-direction: column; gap: 4px; }
+    .filter-label { font-size: 11px; font-weight: 600; color: var(--text3); display: block; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <button class="sidebar-toggle" onclick="toggleSidebar()" title="折叠侧边栏"><i class="fa-solid fa-angles-left"></i></button>
+      <h2>日报系统</h2>
+      <div class="brand-sub">管理控制台</div>
+    </div>
+    <div class="sidebar-user">
+      <div class="avatar" id="userAvatar">?</div>
+      <div>
+        <div class="user-name" id="userDisplay">加载中..</div>
+        <div class="user-role" id="roleDisplay"></div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="overview.html" id="nav-overview"><i class="fa-solid fa-chart-pie"></i> 日报概览</a>
+      <a href="projects.html" id="nav-projects"><i class="fa-solid fa-building"></i> 项目看板</a>
+      <a href="team.html" id="nav-team"><i class="fa-solid fa-people-group"></i> 团队信息</a>
+      <a href="hours.html" id="nav-hours"><i class="fa-solid fa-chart-bar"></i> 工时统计</a>
+      <a href="distribution.html" id="nav-distribution"><i class="fa-solid fa-location-dot"></i> 人员分布</a>
+      <a href="messages.html" id="nav-messages"><i class="fa-solid fa-bullhorn"></i> 消息管理</a>
+    </nav>
+    <div class="sidebar-footer">
+      <button onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> 退出登录</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="content" style="padding:28px 32px">
+      <div style="font-size:15px;font-weight:700;color:var(--text3);margin-bottom:12px">项目状态</div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <div class="filter-group">
+          <label class="filter-label">项目状态</label>
+          <select class="filter-select" id="statusFilter">
+            <option value="active">进行中</option>
+            <option value="completed">已完成</option>
+            <option value="all">全部</option>
+          </select>
+        </div>
+      </div>
+      <div class="rank-section">
+        <div class="rank-title" id="rankTitle">按项目排行</div>
+        <div id="projectRankList"></div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    var currentPage = 'projects';
+    var allProjects = [];  // 所有项目信息
+    var byProjectData = []; // 工时排行数据
+    var statusFilter = 'active';
+
+    function showToast(msg, type) {
+      if (type === undefined) type = 'success';
+      var container = document.querySelector('.toast-container');
+      if (!container) { container = document.createElement('div'); container.className = 'toast-container'; document.body.appendChild(container); }
+      var toast = document.createElement('div'); toast.className = 'toast toast-' + type;
+      toast.textContent = msg; container.appendChild(toast);
+      setTimeout(function() { toast.style.opacity = '0'; setTimeout(function() { toast.remove(); }, 200); }, 3000);
+    }
+    function setActiveNav(page) { var el = document.getElementById('nav-' + page); if (el) el.classList.add('active'); }
+    function toggleSidebar() {
+      var sidebar = document.querySelector('.sidebar');
+      sidebar.classList.toggle('collapsed');
+      var icon = sidebar.querySelector('.sidebar-toggle i');
+      var collapsed = sidebar.classList.contains('collapsed');
+      icon.className = collapsed ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left';
+      try { localStorage.setItem('sidebar-collapsed', collapsed ? '1' : '0'); } catch(e) {}
+    }
+    function restoreSidebar() { try { if (localStorage.getItem('sidebar-collapsed') === '1') document.querySelector('.sidebar').classList.add('collapsed'); } catch(e) {} }
+    function fmtNum(v) { return parseFloat(v || 0).toFixed(1); }
+
+    async function loadData() {
+      try {
+        var [projRes, trendRes] = await Promise.all([
+          fetch(API + '/api/admin/projects', { credentials: 'include' }),
+          fetch(API + '/api/leader/hours/trend?period=day', { credentials: 'include' }),
+        ]);
+
+        if (projRes.ok) {
+          var projJson = await projRes.json();
+          allProjects = Array.isArray(projJson) ? projJson : (projJson.data || []);
+        }
+        if (trendRes.ok) {
+          var trendJson = await trendRes.json();
+          byProjectData = ((trendJson.data || trendJson).by_project || []);
+        }
+
+        renderRankings();
+      } catch(e) {
+        document.getElementById('projectRankList').innerHTML = '<div class="empty-state-text">暂无数据</div>';
+      }
+    }
+
+    function getProjectStatus(projectName) {
+      // 在通过 API 查询时，projects 表会 LEFT JOIN engineer_projects WHERE end_date IS NULL
+      // 有工程师 = 进行中，无工程师 = 已完成
+      var p = allProjects.find(function(p) { return p.name === projectName; });
+      if (!p) return 'unknown';
+      // 兼容不同返回格式
+      var engineers = p.engineers || [];
+      return engineers.length > 0 ? 'active' : 'completed';
+    }
+
+    function renderRankings() {
+      // 过滤
+      var filtered = byProjectData.filter(function(p) {
+        if (statusFilter === 'all') return true;
+        return getProjectStatus(p.project_name) === statusFilter;
+      });
+
+      var statusLabel = { active: '进行中', completed: '已完成', all: '全部' };
+      document.getElementById('rankTitle').textContent = '按项目排行 · ' + (statusLabel[statusFilter] || '');
+
+      var maxVal = Math.max.apply(null, filtered.map(function(p) { return p.total_hours; }), 1);
+      var html = filtered.length === 0 ? '<div class="empty-state-text">暂无数据</div>' :
+        filtered.slice(0, 30).map(function(p, i) {
+          var pct = (p.total_hours / maxVal) * 100;
+          var status = getProjectStatus(p.project_name);
+          var badge = status === 'active' ? '<span class="badge badge-green" style="margin-right:6px">进行中</span>' : '<span class="badge" style="background:var(--bg3);color:var(--text3)">已完成</span>';
+          return '<div class="rank-row"><span class="rank-num">' + (i+1) + '</span><span class="rank-name">' + badge + (p.project_name||'') + '</span><div class="rank-bar"><div class="rank-fill" style="width:' + pct + '%"></div></div><span class="rank-hours">' + fmtNum(p.total_hours) + '</span></div>';
+        }).join('');
+      document.getElementById('projectRankList').innerHTML = html;
+    }
+
+    (async function init() {
+      restoreSidebar();
+      var user = await checkAuth();
+      if (!user) return;
+      setActiveNav(currentPage);
+
+      document.getElementById('statusFilter').addEventListener('change', function() {
+        statusFilter = this.value;
+        renderRankings();
+      });
+
+      await loadData();
+    })();
+  </script>
+</body>
+</html>

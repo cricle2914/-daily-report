@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>提交日报 - 日报系统</title>
+  <link rel="stylesheet" href="../shared.css"/>
+  <link rel="stylesheet" href="../admin-layout.css"/>
+  <script src="../auth.js"></script>
+  <script src="../global.js"></script>
+  <script>
+    if (typeof API === 'undefined') {
+      var SERVER_URL_KEY = 'workorder-server-url';
+      var DEFAULT_API = 'http://172.40.93.99:31663';
+      var API = (function() {
+        try {
+          var saved = localStorage.getItem(SERVER_URL_KEY);
+          if (saved) return saved.replace(/\/+$/, '');
+        } catch(e) {}
+        return DEFAULT_API;
+      })();
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    .sidebar-nav a.active { background: var(--blue-bg); color: var(--blue); font-weight: 700; }
+    .sidebar-user .user-role { color: var(--blue); }
+    .report-wrap { max-width: 680px; margin: 0 auto; padding-top: 4px; }
+    .content { padding-bottom: 80px; }
+
+    /* ── 左上角日报/周报切换开关 ── */
+    .report-type-toggle { display: inline-flex; background: var(--bg3); border-radius: 5px; padding: 2px; gap: 0; }
+    .report-type-toggle .toggle-btn { padding: 4px 12px; border: none; border-radius: 4px; cursor: pointer; font-family: var(--font); font-size: 12px; font-weight: 600; color: var(--text3); background: transparent; transition: all 0.15s; }
+    .report-type-toggle .toggle-btn.active { background: var(--text); color: var(--bg); }
+    .report-type-toggle .toggle-btn:hover:not(.active) { color: var(--text2); }
+
+    /* ── 周报区 ── */
+    .weekly-section { }
+    .week-selector { display: flex; gap: 10px; margin-bottom: 16px; }
+    .week-selector select { flex: 1; }
+
+    /* ── 项目选择区 ── */
+    .project-section { }
+    .project-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; margin-bottom: 8px; transition: all 0.15s; }
+    .project-card:hover { border-color: var(--border2); background: var(--bg3); }
+    .project-card.selected { border-color: var(--blue); background: var(--blue-bg); }
+    .project-card-header { display: flex; align-items: flex-start; justify-content: space-between; }
+    .project-info { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+    .project-radio { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border2); flex-shrink: 0; transition: all 0.15s; }
+    .project-card.selected .project-radio { border-color: var(--blue); background: var(--blue); }
+    .project-name { font-size: 14px; font-weight: 600; }
+    .project-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
+    .expand-btn { background: none; border: none; color: var(--text4); cursor: pointer; font-size: 12px; padding: 4px 8px; transition: color 0.15s; }
+    .expand-btn:hover { color: var(--text2); }
+    .project-detail { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+    .project-detail.open { display: block; }
+    .project-detail-row { display: flex; gap: 8px; font-size: 12px; color: var(--text2); padding: 3px 0; }
+    .project-detail-row .label { color: var(--text4); min-width: 60px; flex-shrink: 0; }
+
+    /* ── 日报编辑区 ── */
+    .report-section { margin-top: 16px; }
+    .collapse-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 16px; }
+    .collapse-card-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; cursor: pointer; user-select: none; }
+    .collapse-card-title-area { flex: 1; min-width: 0; }
+    .collapse-card-body { display: none; border-top: 1px solid var(--border); padding: 12px 16px; }
+    .collapse-card.open .collapse-card-body { display: block; }
+    .edit-proj-btn-inline { background: var(--bg3); border: 1px solid var(--border2); color: var(--text2); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-family: var(--font); white-space: nowrap; }
+    .edit-proj-btn-inline:hover { background: var(--bg3); border-color: var(--border); }
+
+    .section-header { font-size: 12px; font-weight: 700; color: var(--text2); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* 工作内容 */
+    .task-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+    .task-item { display: flex; align-items: center; gap: 8px; }
+    .task-num { width: 22px; height: 22px; border-radius: 50%; background: var(--bg3); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--text3); flex-shrink: 0; }
+    .task-input { flex: 1; }
+    .task-del-btn { background: none; border: none; color: var(--text4); cursor: pointer; font-size: 12px; padding: 4px 8px; transition: color 0.15s; }
+    .task-del-btn:hover { color: var(--red); }
+    .add-task-btn { background: var(--bg3); border: 1px dashed var(--border2); color: var(--text3); padding: 8px; border-radius: 6px; cursor: pointer; width: 100%; text-align: center; font-size: 12px; font-family: var(--font); transition: all 0.15s; }
+    .add-task-btn:hover { border-color: var(--border); color: var(--text2); }
+
+    /* 进度（保留现有样式） */
+    .progress-section { margin: 16px 0; }
+    .progress-slider-wrap { margin: 8px 0; }
+    .progress-slider-wrap input[type="range"] { width: 100%; accent-color: var(--blue); }
+    .progress-val { font-size: 13px; color: var(--text2); margin-left: 8px; font-weight: 600; }
+
+    /* 状态按钮 */
+    .status-btns { display: flex; gap: 8px; margin-top: 12px; }
+    .status-btn { flex: 1; padding: 10px 0; border: 1px solid var(--border2); border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; font-family: var(--font); background: transparent; color: var(--text3); transition: all 0.15s; text-align: center; }
+    .status-btn:hover { border-color: var(--border); }
+    .status-btn.complete.active { background: rgba(74,222,128,0.12); border-color: var(--green); color: var(--green); }
+    .status-btn.ongoing.active { background: rgba(96,165,250,0.12); border-color: var(--blue); color: var(--blue); }
+    .status-btn.blocked.active { background: rgba(248,113,113,0.12); border-color: var(--red); color: var(--red); }
+
+    /* 操作栏 */
+    .action-bar { display: flex; gap: 10px; margin-top: 20px; }
+    .action-bar .btn-secondary { flex: 1; justify-content: center; }
+    .action-bar .btn-primary { flex: 2; justify-content: center; }
+
+    /* ── 明日去向区 ── */
+    .destination-section { margin-top: 16px; }
+    .success-bar { display: flex; align-items: flex-start; gap: 10px; padding: 14px; background: rgba(74,222,128,0.08); border: 1px solid rgba(74,222,128,0.15); border-radius: 8px; margin-bottom: 20px; }
+    .success-icon { color: var(--green); font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+    .success-title { font-size: 14px; font-weight: 700; color: var(--green); }
+    .success-summary { font-size: 12px; color: var(--text2); margin-top: 2px; }
+    .destination-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+    .destination-sub { font-size: 12px; color: var(--text3); margin-bottom: 14px; }
+
+    .grid-2x2 { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+    .grid-card { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-radius: 8px; cursor: pointer; border: 1px solid var(--border2); background: var(--bg2); color: var(--text2); transition: all 0.15s; }
+    .grid-card:hover { border-color: var(--border); }
+    .grid-card.selected { border-color: var(--blue); background: var(--blue-bg); color: var(--blue); }
+    .grid-icon { font-size: 18px; flex-shrink: 0; }
+    .grid-label { font-size: 14px; font-weight: 600; }
+
+    .destination-panel { display: none; margin-top: 12px; }
+    .destination-panel.show { display: block; }
+    .dest-project-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; cursor: pointer; margin-bottom: 6px; transition: all 0.15s; }
+    .dest-project-card:hover { border-color: var(--border2); }
+    .dest-project-card.selected { border-color: var(--blue); background: var(--blue-bg); }
+
+    /* ── 工时弹窗 ── */
+    .hours-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(6px); z-index: 1000; align-items: center; justify-content: center; }
+    .hours-overlay.show { display: flex; }
+    .hours-modal { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 24px; width: 320px; text-align: center; }
+    .hours-modal-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+    .hours-modal-desc { font-size: 12px; color: var(--text3); margin-bottom: 16px; }
+    .hours-input-area { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 4px; }
+    .hours-input { width: 80px; padding: 10px; text-align: center; font-size: 24px; font-weight: 700; background: var(--bg3); border: 1px solid var(--border2); border-radius: 8px; color: var(--text); font-family: var(--font); outline: none; }
+    .hours-input:focus { border-color: var(--border); }
+    .hours-unit { font-size: 15px; color: var(--text2); }
+    .hours-error { color: var(--red); font-size: 11px; margin-top: 6px; display: none; }
+    .hours-error.show { display: block; }
+
+    /* ── 编辑项目信息展开 ── */
+    .proj-expand-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 950; }
+    .proj-expand-backdrop.show { display: block; }
+    .proj-expand-container { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 90%; max-width: 480px; max-height: 70vh; overflow-y: auto; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; z-index: 951; }
+    .proj-expand-container.show { display: block; }
+    .proj-expand-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .proj-expand-title { font-size: 14px; font-weight: 700; }
+    .proj-expand-close { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 16px; }
+    .proj-expand-detail-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 12px; }
+    .proj-expand-detail-row .label { color: var(--text4); min-width: 60px; }
+    .proj-expand-detail-input { flex: 1; padding: 6px 10px; font-size: 12px; }
+
+    /* ── 底部悬浮按钮栏（fixed 覆盖内容区） ── */
+    .floating-bar {
+      position: fixed; bottom: 0; left: 187px; right: 0;
+      display: flex; gap: 8px; padding: 12px 2%;
+      background: var(--bg);
+      backdrop-filter: blur(8px);
+      border-top: 1px solid var(--border);
+      z-index: 50;
+    }
+    .sidebar.collapsed ~ .main .floating-bar,
+    body.collapsed .main .floating-bar {
+      left: 56px;
+    }
+    .floating-bar .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .skip-bottom-btn {
+      flex: 3; padding: 13px 0; text-align: center; border-radius: 6px;
+      cursor: pointer; font-size: 13px; font-weight: 600; font-family: var(--font);
+      background: transparent; border: 1px solid var(--border); color: var(--text3);
+      transition: all 0.15s; white-space: nowrap;
+    }
+    .skip-bottom-btn:hover { color: var(--text2); border-color: var(--border2); }
+  </style>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <button class="sidebar-toggle" onclick="toggleSidebar()" title="折叠侧边栏"><i class="fa-solid fa-angles-left"></i></button>
+      <h2>日报系统</h2>
+      <div class="brand-sub">工程师工作台</div>
+    </div>
+    <div class="sidebar-user">
+      <div class="avatar" id="userAvatar">?</div>
+      <div>
+        <div class="user-name" id="userDisplay">加载中..</div>
+        <div class="user-role" id="roleDisplay"></div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="engineers.html" id="nav-engineers"><i class="fa-solid fa-users"></i> 员工管理</a>
+      <a href="projects.html" id="nav-projects"><i class="fa-solid fa-diagram-project"></i> 项目管理</a>
+      <a href="reports.html" id="nav-reports"><i class="fa-solid fa-file-lines"></i> 日报管理</a>
+      <a href="hours.html" id="nav-hours"><i class="fa-solid fa-clock"></i> 工时统计</a>
+      <a href="accounts.html" id="nav-accounts"><i class="fa-solid fa-user-gear"></i> 账户管理</a>
+      <a href="email.html" id="nav-email"><i class="fa-solid fa-envelope"></i> 邮件管理</a>
+      <a href="messages.html" id="nav-messages"><i class="fa-solid fa-bullhorn"></i> 消息管理</a>
+      <a href="submit-report.html" id="nav-submit-report" class="active"><i class="fa-solid fa-pen-to-square"></i> 提交日报</a>
+    </nav>
+    <div class="sidebar-footer">
+      <button onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> 退出登录</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="report-type-toggle">
+        <button class="toggle-btn active" data-type="daily" onclick="switchReportType('daily')">日报</button>
+        <button class="toggle-btn" data-type="weekly" onclick="switchReportType('weekly')">周报</button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="report-wrap">
+        <!-- ====== 日报区域 ====== -->
+        <div id="dailyReportWrap">
+          <!-- Section 1: 项目选择 -->
+          <div class="project-section" id="projectSection">
+            <div style="display:flex;gap:8px;margin-bottom:14px">
+              <input type="text" id="projectSearch" placeholder="搜索项目..." style="flex:7;min-height:40px;font-size:14px" oninput="renderProjectList()">
+              <button class="btn-primary" id="newProjectTopBtn" onclick="openNewProjectModal()" style="flex:3;justify-content:center;padding:10px 0;font-size:13px;background:rgba(99,102,241,0.15);color:var(--purple);border:1px solid rgba(99,102,241,0.25);border-radius:6px;white-space:nowrap;min-height:40px">
+                <i class="fa-solid fa-plus"></i> 新建项目
+              </button>
+            </div>
+            <div id="projectList"></div>
+          </div>
+
+          <!-- Section 2: 编辑日报 -->
+          <div class="report-section" id="reportSection" style="display:none">
+            <div class="collapse-card" id="projectSummary">
+              <div class="collapse-card-header" id="collapseTitleArea">
+                <div class="collapse-card-title-area">
+                  <div id="reportProjectName" style="font-weight:600;font-size:15px"></div>
+                  <div id="reportImplDays" style="font-size:12px;color:var(--text3);margin-top:3px"></div>
+                </div>
+                <button class="edit-proj-btn-inline" id="editProjBtnInline">编辑项目信息</button>
+              </div>
+              <div class="collapse-card-body" id="projectDetailBody"></div>
+            </div>
+
+            <div class="form-group">
+              <label>今日计划 <span style="color:var(--red)">*</span></label>
+              <input type="text" id="planTitle" placeholder="例：AS7升级验证、文档整理" style="width:100%">
+            </div>
+
+            <div style="margin-top:16px">
+              <div class="section-header">工作内容</div>
+              <div class="task-list" id="taskList">
+                <div class="task-item">
+                  <span class="task-num">1</span>
+                  <input class="form-input task-input" placeholder="输入工作任务">
+                  <button class="task-del-btn" onclick="removeTask(this)"><i class="fa-solid fa-trash"></i></button>
+                </div>
+              </div>
+              <button class="add-task-btn" onclick="addTask()">＋ 添加工作项</button>
+            </div>
+
+            <div class="progress-section">
+              <div class="section-header">进度</div>
+              <div class="progress-slider-wrap">
+                <input type="range" id="progress" min="0" max="100" value="0" oninput="document.getElementById('progressVal').textContent=this.value+'%'" style="width:100%">
+              </div>
+              <span style="font-size:12px;color:var(--text2)">当前进度：</span>
+              <span class="progress-val" id="progressVal">0%</span>
+            </div>
+
+            <div class="status-btns">
+              <button class="status-btn ongoing active" data-status="ongoing" onclick="selectStatus(this)">● 进行中</button>
+              <button class="status-btn complete" data-status="complete" onclick="selectStatus(this)">✔ 完成</button>
+              <button class="status-btn blocked" data-status="blocked" onclick="selectStatus(this)">✖ 有阻碍</button>
+            </div>
+
+            <div class="form-group" id="nextPlanCard" style="margin-top:16px">
+              <label>下一步计划</label>
+              <textarea id="nextPlan" rows="3" placeholder="请描述下一步计划…" style="width:100%"></textarea>
+            </div>
+
+            <div class="form-group" id="issuesCard" style="margin-top:16px;display:none">
+              <label>遗留问题</label>
+              <textarea id="issues" rows="3" placeholder="请描述遇到的阻碍…" style="width:100%"></textarea>
+            </div>
+          </div>
+
+          <!-- Section 3: 明日去向 -->
+          <div class="destination-section" id="destinationSection" style="display:none">
+            <div class="success-bar" id="reportSuccessBar">
+              <span class="success-icon"><i class="fa-solid fa-check"></i></span>
+              <div>
+                <div class="success-title" id="reportSuccessTitle">日报已提交</div>
+                <div class="success-summary" id="reportSummary"></div>
+              </div>
+            </div>
+
+            <div class="destination-title">明日去向</div>
+            <div class="destination-sub">请选择明天的安排</div>
+
+            <div class="grid-2x2" id="destinationGrid">
+              <div class="grid-card" data-dest="existing_project" onclick="selectDestination(this)">
+                <div class="grid-icon"><i class="fa-solid fa-clipboard-list"></i></div>
+                <div class="grid-label">已有项目</div>
+              </div>
+              <div class="grid-card" data-dest="new_project" onclick="selectDestination(this)">
+                <div class="grid-icon"><i class="fa-solid fa-plus"></i></div>
+                <div class="grid-label">新项目</div>
+              </div>
+              <div class="grid-card" data-dest="back_to_office" onclick="selectDestination(this)">
+                <div class="grid-icon"><i class="fa-solid fa-building"></i></div>
+                <div class="grid-label">回公司</div>
+              </div>
+              <div class="grid-card" data-dest="other" onclick="selectDestination(this)">
+                <div class="grid-icon"><i class="fa-solid fa-pen"></i></div>
+                <div class="grid-label">其他</div>
+              </div>
+            </div>
+
+            <!-- 已有项目面板 -->
+            <div class="destination-panel" id="panel-existing_project">
+              <div class="section-header">选择项目</div>
+              <div id="destProjectList"></div>
+            </div>
+
+            <!-- 新项目面板 -->
+            <div class="destination-panel" id="panel-new_project">
+              <div style="margin-bottom:10px">
+                <div class="section-header">新建项目</div>
+                <div style="text-align:center;padding:20px 0">
+                  <button class="btn-primary" onclick="openDestNewProject()" style="padding:12px 24px;font-size:14px">
+                    <i class="fa-solid fa-plus"></i> 新建项目
+                  </button>
+                  <div id="destNewProjectResult" style="margin-top:12px;display:none;padding:10px;background:rgba(74,222,128,0.08);border-radius:6px;color:var(--green);font-size:13px">
+                    <i class="fa-solid fa-check-circle"></i> 已选择: <span id="destNewProjectName"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 回公司面板 -->
+            <div class="destination-panel" id="panel-back_to_office">
+              <div style="background:rgba(74,222,128,0.08);border-radius:8px;padding:16px;color:var(--green);font-size:14px;text-align:center">
+                <i class="fa-solid fa-check-circle"></i> 明日回公司办公，无需额外信息
+              </div>
+            </div>
+
+            <!-- 其他面板 -->
+            <div class="destination-panel" id="panel-other">
+              <div class="form-group">
+                <label>说明原因 <span style="color:var(--red)">*</span></label>
+                <textarea class="form-input" id="otherReason" placeholder="请输入原因" rows="3" style="width:100%"></textarea>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ====== 周报区域 ====== -->
+        <div id="weeklyReportWrap" style="display:none">
+          <div class="weekly-section">
+            <div class="week-selector">
+              <select id="weeklyYear">
+                <option value="2026">2026年</option>
+                <option value="2025">2025年</option>
+                <option value="2027">2027年</option>
+              </select>
+              <select id="weeklyWeek"></select>
+            </div>
+            <div class="form-group">
+              <label>本周工作总结 <span style="color:var(--red)">*</span></label>
+              <textarea id="weeklySummary" rows="6" placeholder="总结本周完成的工作内容..." style="width:100%"></textarea>
+            </div>
+            <div class="form-group">
+              <label>下周工作计划</label>
+              <textarea id="weeklyNextPlan" rows="4" placeholder="下周的工作安排..." style="width:100%"></textarea>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- .report-wrap -->
+    </div><!-- .content -->
+
+    <!-- 日报项目选择底部悬浮栏 -->
+    <div class="floating-bar" id="bottomBarProject">
+      <button class="skip-bottom-btn" onclick="showSkipStatusModal()" style="flex:3">
+        <i class="fa-solid fa-forward-step"></i> 今日暂无安排
+      </button>
+      <button class="btn-primary" id="toReportBtn" disabled onclick="showReportSection()" style="flex:7;justify-content:center">
+        <i class="fa-solid fa-pen-to-square"></i> 填写今日日报
+      </button>
+    </div>
+
+    <!-- 日报编辑底部悬浮栏 -->
+    <div class="floating-bar" id="bottomBarReport" style="display:none">
+      <button class="btn-secondary" onclick="backToProjects()" style="flex:3;justify-content:center;padding:13px;font-size:14px">
+        <i class="fa-solid fa-arrow-left"></i> 返回
+      </button>
+      <button class="btn-primary" id="submitReportBtn" onclick="submitReport()" style="flex:7;justify-content:center;padding:13px;font-size:14px">
+        <i class="fa-solid fa-check"></i> 提交日报
+      </button>
+    </div>
+
+    <!-- 明日去向底部悬浮栏 -->
+    <div class="floating-bar" id="bottomBarDest" style="display:none">
+      <button class="btn-secondary" onclick="backFromDestination()" style="flex:3;justify-content:center;padding:13px;font-size:14px">
+        <i class="fa-solid fa-arrow-left"></i> 返回
+      </button>
+      <button class="btn-primary" id="submitTomorrowBtn" onclick="submitTomorrow()" style="flex:7;justify-content:center;padding:13px;font-size:14px">
+        <i class="fa-solid fa-check"></i> 确认提交并完成
+      </button>
+    </div>
+
+    <!-- 周报底部悬浮栏 -->
+    <div class="floating-bar" id="bottomBarWeekly" style="display:none">
+      <button class="btn-primary" id="submitWeeklyBtn" onclick="submitWeeklyReport()" style="flex:1;justify-content:center;padding:13px;font-size:14px">
+        <i class="fa-solid fa-check"></i> 提交周报
+      </button>
+    </div>
+  </main>
+
+  <!-- ====== 今日状态弹窗（跳过→选状态） ====== -->
+  <div class="modal-overlay" id="skipStatusOverlay" style="display:none" onclick="if(event.target===this)closeSkipStatusModal()">
+    <div class="modal modal-sm">
+      <div class="modal-header"><span>今日状态</span><button onclick="closeSkipStatusModal()"><i class="fa-solid fa-xmark"></i></button></div>
+      <div class="modal-body">
+        <div class="grid-2x2" style="margin-bottom:0">
+          <div class="grid-card" data-skip-dest="back_to_office" onclick="selectSkipDest(this)">
+            <div class="grid-icon"><i class="fa-solid fa-building"></i></div>
+            <div class="grid-label">回公司</div>
+          </div>
+          <div class="grid-card" data-skip-dest="other" onclick="selectSkipDest(this)">
+            <div class="grid-icon"><i class="fa-solid fa-pen"></i></div>
+            <div class="grid-label">其他</div>
+          </div>
+        </div>
+        <div class="destination-panel" id="skip-panel-other">
+          <div class="form-group">
+            <label>说明原因 <span style="color:var(--red)">*</span></label>
+            <textarea class="form-input" id="skipOtherReason" placeholder="请输入原因" rows="3" style="width:100%"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeSkipStatusModal()">取消</button>
+        <button class="btn-primary" onclick="confirmSkipStatus()">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== 工时弹窗（含邮件提醒） ====== -->
+  <div class="hours-overlay" id="hoursOverlay">
+    <div class="hours-modal">
+      <div class="hours-modal-title" id="hoursModalTitle">工时</div>
+      <div class="hours-modal-desc" id="hoursModalDesc">请填写实际工时</div>
+      <div class="hours-input-area">
+        <input type="number" class="hours-input" id="hoursInput" min="0" max="24" step="0.5" placeholder="0">
+        <span class="hours-unit">小时</span>
+      </div>
+      <div class="hours-error" id="hoursError">请输入 0~24 的数字</div>
+      <div style="margin:10px 0 4px;padding:8px 10px;background:rgba(96,165,250,0.08);border-radius:6px;font-size:11px;color:var(--blue);text-align:center">
+        <i class="fa-solid fa-envelope"></i> 日报提交后将自动发送邮件通知相关人员
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn-secondary" id="cancelHoursBtn" style="flex:1;justify-content:center;padding:10px 0;font-size:13px">取消</button>
+        <button class="btn-primary" id="confirmHoursBtn" style="flex:1;justify-content:center;padding:10px 0;font-size:13px">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== 提交完成弹窗 ====== -->
+  <div class="modal-overlay" id="completeOverlay" style="display:none" onclick="if(event.target===this)closeCompleteOverlay()">
+    <div class="modal modal-sm" style="max-width:380px">
+      <div class="modal-body" style="text-align:center;padding:36px 28px 28px;gap:0">
+        <i class="fa-solid fa-check-circle" style="font-size:52px;color:var(--green);margin-bottom:16px"></i>
+        <div style="font-size:17px;font-weight:700;margin-bottom:6px">日报已全部提交完成</div>
+        <div style="font-size:13px;color:var(--text3);margin-bottom:24px">感谢提交！</div>
+        <button class="btn-primary" id="redoDestBtn" style="width:100%;justify-content:center;padding:12px 0;font-size:14px;margin-bottom:10px"><i class="fa-solid fa-arrow-right"></i> 重新提交明日去向</button>
+        <button class="btn-secondary" id="redoProjectBtn" style="width:100%;justify-content:center;padding:12px 0;font-size:14px"><i class="fa-solid fa-arrow-left"></i> 重新选择项目</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== 新建项目弹窗 ====== -->
+  <div class="modal-overlay" id="newProjectOverlay" style="display:none" onclick="if(event.target===this)closeNewProjectModal()">
+    <div class="modal modal-sm" style="max-width:480px">
+      <div class="modal-header"><span>新建项目</span><button onclick="closeNewProjectModal()"><i class="fa-solid fa-xmark"></i></button></div>
+      <div class="modal-body" style="max-height:60vh;overflow-y:auto;gap:10px">
+        <div class="form-row">
+          <div class="form-group"><label>项目名 <span style="color:var(--red)">*</span></label><input class="form-input" id="modalName" placeholder="请输入项目名"></div>
+          <div class="form-group"><label>订单号</label><input class="form-input" id="modalOrder" placeholder="可选"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>客户 <span style="color:var(--red)">*</span></label><input class="form-input" id="modalCustomer" placeholder="请输入客户"></div>
+          <div class="form-group"><label>订单类型</label><input class="form-input" id="modalOrderType" placeholder="可选"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>联系人</label><input class="form-input" id="modalContact" placeholder="可选"></div>
+          <div class="form-group"><label>联系电话</label><input class="form-input" id="modalPhone" placeholder="可选"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>版本</label><input class="form-input" id="modalVersion" placeholder="可选"></div>
+          <div class="form-group"><label>安装地址</label><input class="form-input" id="modalAddress" placeholder="可选"></div>
+        </div>
+        <div class="form-group"><label>项目所在地 <span style="color:var(--red)">*</span></label>
+          <select class="form-input" id="modalProvince" style="width:100%">
+            <option value="">请选择</option>
+            <option value="北京市">北京市</option><option value="天津市">天津市</option><option value="上海市">上海市</option><option value="重庆市">重庆市</option>
+            <option value="河北省">河北省</option><option value="山西省">山西省</option><option value="辽宁省">辽宁省</option><option value="吉林省">吉林省</option>
+            <option value="黑龙江省">黑龙江省</option><option value="江苏省">江苏省</option><option value="浙江省">浙江省</option><option value="安徽省">安徽省</option>
+            <option value="福建省">福建省</option><option value="江西省">江西省</option><option value="山东省">山东省</option><option value="河南省">河南省</option>
+            <option value="湖北省">湖北省</option><option value="湖南省">湖南省</option><option value="广东省">广东省</option><option value="海南省">海南省</option>
+            <option value="四川省">四川省</option><option value="贵州省">贵州省</option><option value="云南省">云南省</option><option value="陕西省">陕西省</option>
+            <option value="甘肃省">甘肃省</option><option value="青海省">青海省</option><option value="广西壮族自治区">广西壮族自治区</option>
+            <option value="内蒙古自治区">内蒙古自治区</option><option value="西藏自治区">西藏自治区</option><option value="宁夏回族自治区">宁夏回族自治区</option>
+            <option value="新疆维吾尔自治区">新疆维吾尔自治区</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>厂商</label><input class="form-input" id="modalManufacturer" placeholder="可选"></div>
+          <div class="form-group"><label>代理商</label><input class="form-input" id="modalAgent" placeholder="可选"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>技术负责人</label><input class="form-input" id="modalTechLead" placeholder="可选"></div>
+          <div class="form-group"><label>服务经理</label><input class="form-input" id="modalServiceManager" placeholder="可选"></div>
+        </div>
+        <div class="form-group"><label>状态</label>
+          <select class="form-input" id="modalStatus" style="width:100%">
+            <option value="active">进行中</option>
+            <option value="completed">已完成</option>
+            <option value="paused">暂停</option>
+          </select>
+        </div>
+        <!-- 自定义字段容器 -->
+        <div id="modalCustomFields"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeNewProjectModal()">取消</button>
+        <button class="btn-primary" onclick="createProjectFromModal()">创建并选择</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== 编辑项目信息弹窗 ====== -->
+  <div class="proj-expand-backdrop hidden" id="p3ExpandBackdrop"></div>
+  <div class="proj-expand-container hidden" id="p3ExpandContainer">
+    <div class="proj-expand-header">
+      <span class="proj-expand-title">编辑项目信息</span>
+      <button class="proj-expand-close" id="p3ExpandClose">✕</button>
+    </div>
+    <div id="p3ExpandList"></div>
+  </div>
+
+  <!-- ====== 周报提交确认弹窗 ====== -->
+  <div class="modal-overlay" id="weeklyConfirmOverlay" style="display:none" onclick="if(event.target===this)closeWeeklyConfirm()">
+    <div class="modal modal-sm">
+      <div class="modal-body" style="text-align:center;padding:36px 28px 28px;gap:0">
+        <i class="fa-solid fa-envelope" style="font-size:48px;color:var(--blue);margin-bottom:16px"></i>
+        <div style="font-size:16px;font-weight:700;margin-bottom:12px">确认提交周报</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:24px">
+          <div style="margin-bottom:8px">周报提交后将同步发送邮件通知相关人员</div>
+          <div style="color:var(--text3)">请确认是否继续？</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeWeeklyConfirm()">取消</button>
+        <button class="btn-primary" onclick="confirmWeeklySubmit()">确认提交</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var currentPage = 'submit-report';
+    var reportType = 'daily';
+    var currentUser = null;
+    var projects = [];
+    var selectedProject = null;
+    var selectedStatus = 'ongoing';
+    var state = { destination: null, destProjectId: null, tomorrowDate: '', lastReportId: null, lastProgress: 0 };
+    var _customFieldDefs = [];
+    var _fromDestNewProject = false;
+
+    function showToast(msg, type) {
+      if (type === undefined) type = 'success';
+      var container = document.querySelector('.toast-container');
+      if (!container) { container = document.createElement('div'); container.className = 'toast-container'; document.body.appendChild(container); }
+      var toast = document.createElement('div'); toast.className = 'toast toast-' + type;
+      toast.textContent = msg; container.appendChild(toast);
+      setTimeout(function() { toast.style.opacity = '0'; setTimeout(function() { toast.remove(); }, 200); }, 3000);
+    }
+
+    function setActiveNav(page) { var el = document.getElementById('nav-' + page); if (el) el.classList.add('active'); }
+    function toggleSidebar() {
+      var sidebar = document.querySelector('.sidebar');
+      sidebar.classList.toggle('collapsed');
+      var icon = sidebar.querySelector('.sidebar-toggle i');
+      var collapsed = sidebar.classList.contains('collapsed');
+      icon.className = collapsed ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left';
+      try { localStorage.setItem('sidebar-collapsed', collapsed ? '1' : '0'); } catch(e) {}
+    }
+    function restoreSidebar() {
+      try { if (localStorage.getItem('sidebar-collapsed') === '1') document.querySelector('.sidebar').classList.add('collapsed'); } catch(e) {}
+    }
+
+    // ====== Tab 切换（左上角开关） ======
+    function switchReportType(type) {
+      reportType = type;
+      document.querySelectorAll('.toggle-btn').forEach(function(b) {
+        b.classList.toggle('active', b.dataset.type === type);
+      });
+      document.getElementById('dailyReportWrap').style.display = type === 'daily' ? '' : 'none';
+      document.getElementById('weeklyReportWrap').style.display = type === 'weekly' ? '' : 'none';
+      // 切换底部悬浮栏
+      var showIds = type === 'daily' ? ['bottomBarProject'] : ['bottomBarWeekly'];
+      ['bottomBarProject','bottomBarReport','bottomBarDest','bottomBarWeekly'].forEach(function(id) {
+        document.getElementById(id).style.display = showIds.indexOf(id) >= 0 ? '' : 'none';
+      });
+      if (type === 'weekly') initWeeklyForm();
+    }
+
+    // ====== 项目列表 ======
+    async function loadProjects() {
+      try {
+        var res = await fetch(API + '/api/admin/projects', { credentials: 'include' });
+        if (res.ok) {
+          var data = await res.json();
+          projects = Array.isArray(data) ? data : (data.data || data.projects || []);
+          renderProjectList();
+        }
+      } catch(e) {}
+    }
+
+    function renderProjectList() {
+      var container = document.getElementById('projectList');
+      var q = (document.getElementById('projectSearch').value || '').trim().toLowerCase();
+      var filtered = projects.filter(function(p) {
+        if (!q) return true;
+        return (p.name || '').toLowerCase().indexOf(q) >= 0;
+      });
+
+      var html = '';
+
+      if (filtered.length === 0) {
+        html += '<div style="text-align:center;color:var(--text3);padding:20px">' + (q ? '无匹配项目' : '暂无关联项目') + '</div>';
+      } else {
+        var sorted = filtered.slice().sort(function(a, b) {
+          if (!a.last_report_date) return 1;
+          if (!b.last_report_date) return -1;
+          return new Date(b.last_report_date) - new Date(a.last_report_date);
+        });
+        sorted.forEach(function(p) {
+          var sel = selectedProject && selectedProject.id === p.id ? ' selected' : '';
+          html += '<div class="project-card' + sel + '" id="projCard' + p.id + '">';
+          html += '<div class="project-card-header">';
+          html += '<div class="project-info">';
+          html += '<div class="project-radio"></div>';
+          html += '<div style="flex:1;min-width:0">';
+          html += '<div class="project-name">' + (p.name || '未命名') + '</div>';
+          html += '<div class="project-meta">' + (p.manufacturer || '-') + ' · 实施第 ' + (p.impl_days || 0) + ' 天</div>';
+          html += '</div></div>';
+          html += '<button class="expand-btn" onclick="event.stopPropagation();toggleProjectDetail(' + p.id + ')"><i class="fa-solid fa-chevron-down"></i></button>';
+          html += '</div>';
+          html += '<div class="project-detail" id="projDetail' + p.id + '">';
+          html += '<div class="project-detail-row"><span class="label">客户</span>' + (p.customer || '-') + '</div>';
+          html += '<div class="project-detail-row"><span class="label">工单</span>' + (p.order_no || '-') + '</div>';
+          html += '<div class="project-detail-row"><span class="label">联系人</span>' + (p.contact_name || '-') + ' ' + (p.contact_phone || '') + '</div>';
+          html += '<div class="project-detail-row"><span class="label">版本</span>' + (p.product_version || '-') + '</div>';
+          html += '<div class="project-detail-row"><span class="label">安装地址</span>' + (p.install_address || '-') + '</div>';
+          html += '<div class="project-detail-row"><span class="label">厂商</span>' + (p.manufacturer || '-') + '</div>';
+          html += '<div class="project-detail-row"><span class="label">代理商</span>' + (p.agent || '-') + '</div>';
+          html += '<div class="project-detail-row"><span class="label">技术负责人</span>' + (p.tech_lead || '-') + '</div>';
+          html += '<div class="project-detail-row"><span class="label">服务经理</span>' + (p.service_manager || '-') + '</div>';
+          // 自定义字段
+          if (p.custom_fields) {
+            try {
+              var cfData = typeof p.custom_fields === 'string' ? JSON.parse(p.custom_fields) : p.custom_fields;
+              if (typeof cfData === 'object' && cfData !== null) {
+                Object.keys(cfData).forEach(function(k) {
+                  html += '<div class="project-detail-row"><span class="label">' + k + '</span>' + (cfData[k] || '-') + '</div>';
+                });
+              }
+            } catch(e) {}
+          }
+          html += '</div>';
+          html += '</div>';
+        });
+      }
+      container.innerHTML = html;
+
+      // 绑定点击事件
+      var cards = container.querySelectorAll('.project-card');
+      cards.forEach(function(card) {
+        card.addEventListener('click', function() {
+          var pid = parseInt(card.id.replace('projCard', ''));
+          selectProject(pid);
+        });
+      });
+    }
+
+    function toggleProjectDetail(id) {
+      var detail = document.getElementById('projDetail' + id);
+      detail.classList.toggle('open');
+    }
+
+    function selectProject(id) {
+      var p = projects.find(function(x) { return x.id === id; });
+      if (!p) return;
+      selectedProject = { id: p.id, name: p.name, impl_days: p.impl_days, detail: p };
+      renderProjectList();
+      var btn = document.getElementById('toReportBtn');
+      btn.disabled = false;
+      btn.style.opacity = '';
+    }
+
+    // ====== 字段配置缓存（与管理员项目表单拉齐） ======
+    var _fieldFilterConfigs = {};
+    async function loadFieldFilterConfigs() {
+      try {
+        var res = await fetch(API + '/api/admin/field-filters', { credentials: 'include' });
+        if (res.ok) {
+          var json = await res.json();
+          var list = json.data || json || [];
+          _fieldFilterConfigs = {};
+          list.forEach(function(f) {
+            _fieldFilterConfigs[f.field_key] = {
+              filterable: !!f.filterable,
+              options: f.options ? (typeof f.options === 'string' ? JSON.parse(f.options) : f.options) : []
+            };
+          });
+        }
+      } catch(e) {}
+    }
+
+    // ====== 自定义字段定义加载 ======
+    async function loadCustomFieldDefs() {
+      try {
+        var res = await fetch(API + '/api/admin/custom-fields?target=projects', { credentials: 'include' });
+        if (res.ok) {
+          var json = await res.json();
+          _customFieldDefs = json.data || json || [];
+        }
+      } catch(e) {}
+    }
+
+    // ====== 新建项目弹窗 ======
+    function openNewProjectModal(fromDest) {
+      _fromDestNewProject = !!fromDest;
+      var overlay = document.getElementById('newProjectOverlay');
+      overlay.style.display = 'flex';
+      // 同步字段配置（让有预设选项的字段显示为下拉）
+      var FIELD_MAP = {
+        manufacturer: 'modalManufacturer', order_type: 'modalOrderType', customer: 'modalCustomer',
+        agent: 'modalAgent', contact_name: 'modalContact', contact_phone: 'modalPhone',
+        tech_lead: 'modalTechLead', service_manager: 'modalServiceManager'
+      };
+      Object.keys(FIELD_MAP).forEach(function(key) {
+        var cfg = _fieldFilterConfigs[key];
+        var el = document.getElementById(FIELD_MAP[key]);
+        if (!el) return;
+        var hasOptions = cfg && cfg.filterable && cfg.options && cfg.options.length > 0;
+        var isSelect = el.tagName === 'SELECT';
+        if (hasOptions && !isSelect) {
+          var select = document.createElement('select');
+          select.id = FIELD_MAP[key];
+          select.className = el.className;
+          select.style.cssText = el.style.cssText;
+          var emptyOpt = document.createElement('option');
+          emptyOpt.value = ''; emptyOpt.textContent = '请选择';
+          select.appendChild(emptyOpt);
+          cfg.options.forEach(function(opt) {
+            var option = document.createElement('option');
+            option.value = opt; option.textContent = opt;
+            select.appendChild(option);
+          });
+          el.parentNode.replaceChild(select, el);
+        } else if (!hasOptions && isSelect) {
+          var input = document.createElement('input');
+          input.type = 'text';
+          input.id = FIELD_MAP[key];
+          input.className = el.className;
+          input.style.cssText = el.style.cssText;
+          var placeholders = {
+            manufacturer: '输入厂商', order_type: '输入订单类型', customer: '输入客户',
+            agent: '输入代理商', contact_name: '输入联系人', contact_phone: '输入联系电话',
+            tech_lead: '输入技术负责人', service_manager: '输入服务经理'
+          };
+          input.placeholder = placeholders[key] || '';
+          input.value = '';
+          el.parentNode.replaceChild(input, el);
+        }
+      });
+      // 渲染自定义字段
+      renderModalCustomFields();
+    }
+    function closeNewProjectModal() {
+      document.getElementById('newProjectOverlay').style.display = 'none';
+    }
+
+    // 渲染自定义字段到新建项目弹窗
+    function renderModalCustomFields() {
+      var container = document.getElementById('modalCustomFields');
+      if (!container) return;
+      container.innerHTML = '';
+      if (!_customFieldDefs || _customFieldDefs.length === 0) return;
+      var html = '';
+      _customFieldDefs.forEach(function(fd) {
+        var label = fd.field_name || fd.label || '字段';
+        var required = fd.required ? ' <span style="color:var(--red)">*</span>' : '';
+        var inputHtml = '';
+        if (fd.field_type === 'select' && fd.options) {
+          var opts = (typeof fd.options === 'string' ? fd.options.split(',') : fd.options) || [];
+          var optHtml = '<option value="">请选择</option>';
+          opts.forEach(function(o) { optHtml += '<option value="' + o + '">' + o + '</option>'; });
+          inputHtml = '<select class="form-input cf-input" data-cf-key="' + fd.field_name + '" style="width:100%">' + optHtml + '</select>';
+        } else if (fd.field_type === 'number') {
+          inputHtml = '<input type="number" class="form-input cf-input" data-cf-key="' + fd.field_name + '" placeholder="请输入" style="width:100%">';
+        } else if (fd.field_type === 'date') {
+          inputHtml = '<input type="date" class="form-input cf-input" data-cf-key="' + fd.field_name + '" style="width:100%">';
+        } else {
+          inputHtml = '<input type="text" class="form-input cf-input" data-cf-key="' + fd.field_name + '" placeholder="请输入" style="width:100%">';
+        }
+        html += '<div class="form-group" style="margin-top:4px"><label>' + label + required + '</label>' + inputHtml + '</div>';
+      });
+      container.innerHTML = html;
+    }
+
+    // 收集自定义字段值
+    function collectCustomFieldValues() {
+      var obj = {};
+      document.querySelectorAll('#modalCustomFields .cf-input').forEach(function(el) {
+        var key = el.dataset.cfKey;
+        var val = el.value.trim();
+        if (val) obj[key] = val;
+      });
+      return obj;
+    }
+
+    async function createProjectFromModal() {
+      var name = document.getElementById('modalName').value.trim();
+      var customer = document.getElementById('modalCustomer').value.trim();
+      var province = document.getElementById('modalProvince').value;
+      if (!name || !customer) { showToast('请填写客户和项目名', 'error'); return; }
+      if (!province) { showToast('请选择项目所在地', 'error'); return; }
+      try {
+        var body = {
+          name: name, customer: customer, province: province,
+          order_type: document.getElementById('modalOrderType').value.trim() || undefined,
+          order_no: document.getElementById('modalOrder').value.trim() || undefined,
+          contact_name: document.getElementById('modalContact').value.trim() || undefined,
+          contact_phone: document.getElementById('modalPhone').value.trim() || undefined,
+          product_version: document.getElementById('modalVersion').value.trim() || undefined,
+          install_address: document.getElementById('modalAddress').value.trim() || undefined,
+          manufacturer: document.getElementById('modalManufacturer').value.trim() || undefined,
+          agent: document.getElementById('modalAgent').value.trim() || undefined,
+          tech_lead: document.getElementById('modalTechLead').value.trim() || undefined,
+          service_manager: document.getElementById('modalServiceManager').value.trim() || undefined
+        };
+        // 收集自定义字段
+        var customFields = collectCustomFieldValues();
+        if (Object.keys(customFields).length > 0) body.custom_fields = customFields;
+        var res = await fetch(API + '/api/admin/projects', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body)
+        });
+        if (!res.ok) { var err = await res.json(); throw new Error(err.message || err.error || '创建失败'); }
+        var data = await res.json();
+        var newProject = data.data || data;
+        showToast('项目创建成功');
+        closeNewProjectModal();
+        ['modalCustomer','modalName','modalProvince','modalOrderType','modalOrder','modalContact','modalPhone','modalVersion','modalAddress','modalManufacturer','modalAgent','modalTechLead','modalServiceManager'].forEach(function(id) { document.getElementById(id).value = ''; });
+        // 清空自定义字段
+        document.getElementById('modalCustomFields').innerHTML = '';
+        if (_fromDestNewProject) {
+          // 来自明日去向：直接设置为去向项目
+          var newPid = newProject.id || (newProject.data && newProject.data.id);
+          _fromDestNewProject = false;
+          state.destProjectId = newPid;
+          state.destination = 'existing_project';
+          document.getElementById('destNewProjectName').textContent = newProject.name || '新项目';
+          document.getElementById('destNewProjectResult').style.display = '';
+          // 关联工程师到新项目
+          if (currentUser && currentUser.engineer_id) {
+            fetch(API + '/api/admin/projects/' + newPid + '/engineers', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+              body: JSON.stringify({ engineer_id: currentUser.engineer_id })
+            }).catch(function() {});
+          }
+          // 切换到已有项目面板并高亮新项目
+          document.querySelectorAll('.destination-panel').forEach(function(p) { p.classList.remove('show'); });
+          document.getElementById('panel-existing_project').classList.add('show');
+          loadDestProjects();
+          setTimeout(function() {
+            document.querySelectorAll('#destProjectList .dest-project-card').forEach(function(c) {
+              if (parseInt(c.dataset.projectId) === state.destProjectId) c.classList.add('selected');
+            });
+          }, 100);
+          showToast('项目已创建并设为明日去向');
+        } else {
+          await loadProjects();
+          setTimeout(function() {
+            var pid = newProject.id || (newProject.data && newProject.data.id);
+            if (pid) selectProject(pid);
+          }, 200);
+        }
+      } catch(e) { showToast('创建失败: ' + e.message, 'error'); }
+    }
+
+    // ====== 进入日报编辑 ======
+    async function showReportSection() {
+      if (!selectedProject) { showToast('请先选择项目', 'error'); return; }
+      showFloatingBar('bottomBarReport');
+      document.getElementById('projectSection').style.display = 'none';
+      document.getElementById('reportSection').style.display = '';
+      document.getElementById('reportProjectName').textContent = selectedProject.name;
+      document.getElementById('reportImplDays').textContent = '实施第 ' + (selectedProject.impl_days || 0) + ' 天';
+      document.getElementById('projectDetailBody').innerHTML = selectedProject.detail
+        ? '<div class="project-detail-row"><span class="label">客户</span>' + (selectedProject.detail.customer || '-') + '</div>' +
+          '<div class="project-detail-row"><span class="label">订单号</span>' + (selectedProject.detail.order_no || '-') + '</div>' +
+          '<div class="project-detail-row"><span class="label">版本</span>' + (selectedProject.detail.product_version || '-') + '</div>' +
+          '<div class="project-detail-row"><span class="label">安装地址</span>' + (selectedProject.detail.install_address || '-') + '</div>'
+        : '';
+      // 预填上次进度
+      if (currentUser && currentUser.engineer_id) {
+        try {
+          var res = await fetch(API + '/api/reports/last-progress?engineer_id=' + currentUser.engineer_id + '&project_id=' + selectedProject.id, { credentials: 'include' });
+          if (res.ok) {
+            var d = await res.json();
+            var progress = (d.data && d.data.progress) || 0;
+            state.lastProgress = progress;
+            document.getElementById('progress').value = progress;
+            document.getElementById('progressVal').textContent = progress + '%';
+          }
+        } catch(e) {}
+      }
+      document.getElementById('reportSection').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function showFloatingBar(id) {
+      ['bottomBarProject','bottomBarReport','bottomBarDest','bottomBarWeekly'].forEach(function(bid) {
+        document.getElementById(bid).style.display = bid === id ? '' : 'none';
+      });
+    }
+
+    function backToProjects() {
+      document.getElementById('projectSection').style.display = '';
+      document.getElementById('reportSection').style.display = 'none';
+      showFloatingBar('bottomBarProject');
+      document.getElementById('projectSection').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // ====== 工作内容 ======
+    function addTask(value) {
+      var list = document.getElementById('taskList');
+      var num = list.children.length + 1;
+      var item = document.createElement('div');
+      item.className = 'task-item';
+      item.innerHTML = '<span class="task-num">' + num + '</span>' +
+        '<input class="form-input task-input" placeholder="输入工作任务" value="' + (value || '') + '">' +
+        '<button class="task-del-btn" onclick="removeTask(this)"><i class="fa-solid fa-trash"></i></button>';
+      list.appendChild(item);
+    }
+    function removeTask(btn) {
+      var items = document.querySelectorAll('#taskList .task-item');
+      if (items.length <= 1) { showToast('至少保留一条工作内容', 'error'); return; }
+      btn.closest('.task-item').remove();
+      document.querySelectorAll('#taskList .task-num').forEach(function(el, i) { el.textContent = i + 1; });
+    }
+
+    // ====== 状态切换 ======
+    function selectStatus(btn) {
+      document.querySelectorAll('.status-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      selectedStatus = btn.dataset.status;
+      document.getElementById('nextPlanCard').style.display = selectedStatus === 'ongoing' ? '' : 'none';
+      document.getElementById('issuesCard').style.display = selectedStatus === 'blocked' ? '' : 'none';
+    }
+
+    // ====== 提交日报（直接提交，无二次确认） ======
+    async function submitReport(overwriteMode) {
+      var planTitle = document.getElementById('planTitle').value.trim();
+      if (!planTitle) { showToast('请填写今日计划', 'error'); return; }
+      var taskInputs = document.querySelectorAll('#taskList .task-input');
+      var tasks = [];
+      taskInputs.forEach(function(input) { var val = input.value.trim(); if (val) tasks.push(val); });
+      if (tasks.length === 0) { showToast('请填写至少一条工作内容', 'error'); return; }
+
+      var btn = document.getElementById('submitReportBtn');
+      btn.disabled = true; btn.textContent = '提交中...';
+
+      var body = {
+        engineer_id: currentUser ? currentUser.engineer_id : null,
+        project_id: selectedProject ? selectedProject.id : null,
+        plan_title: planTitle, tasks: tasks,
+        progress: parseInt(document.getElementById('progress').value) || 0,
+        status: selectedStatus
+      };
+      if (selectedStatus === 'ongoing') body.next_plan = document.getElementById('nextPlan').value.trim() || '';
+      else if (selectedStatus === 'blocked') body.issues = document.getElementById('issues').value.trim() || '';
+      if (overwriteMode) body.overwrite = true;
+
+      try {
+        var res;
+        if (overwriteMode) {
+          res = await fetch(API + '/api/reports', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) });
+        } else {
+          res = await fetch(API + '/api/reports', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) });
+        }
+        var result = await res.json();
+        if (!result.success) {
+          btn.disabled = false; btn.textContent = '提交日报';
+          if (result.data && result.data.existing) {
+            if (confirm('今日已提交，是否修改？')) submitReport(true);
+          } else showToast(result.error || '提交失败', 'error');
+          return;
+        }
+        btn.disabled = false; btn.textContent = '提交日报';
+        state.lastReportId = result.data && result.data.report_id;
+        document.getElementById('reportSuccessTitle').textContent = result.data && result.data.overwritten ? '日报已修改' : '日报已提交';
+        document.getElementById('reportSummary').textContent = selectedProject.name + ' · 实施第 ' + (selectedProject.impl_days || 0) + ' 天 · 进度 ' + body.progress + '%';
+        showHoursOverlay();
+      } catch(e) {
+        btn.disabled = false; btn.textContent = '提交日报';
+        showToast('网络错误: ' + e.message, 'error');
+      }
+    }
+
+    // ====== 工时弹窗 ======
+    function showHoursOverlay() {
+      var today = new Date();
+      document.getElementById('hoursModalTitle').textContent = (today.getMonth()+1) + '月' + today.getDate() + '日 工时';
+      document.getElementById('hoursModalDesc').textContent = '请填写 ' + (today.getMonth()+1) + '月' + today.getDate() + '日 实际工时';
+      document.getElementById('hoursError').classList.remove('show');
+      document.getElementById('hoursInput').value = '';
+      document.getElementById('hoursOverlay').classList.add('show');
+      setTimeout(function() { document.getElementById('hoursInput').focus(); }, 100);
+    }
+
+    document.getElementById('confirmHoursBtn').addEventListener('click', async function() {
+      var input = document.getElementById('hoursInput');
+      var val = parseFloat(input.value);
+      if (isNaN(val) || val < 0 || val > 24) { document.getElementById('hoursError').classList.add('show'); return; }
+      document.getElementById('hoursError').classList.remove('show');
+      var today = new Date().toISOString().split('T')[0];
+      try {
+        await fetch(API + '/api/reports/hours', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ engineer_id: currentUser ? currentUser.engineer_id : null, project_id: selectedProject.id, report_date: today, hours: val })
+        });
+      } catch(e) {}
+      // 工时确认后立即发送邮件（直接调用 /api/reports/:id/send，不再绕 tomorrow 接口）
+      if (state.lastReportId) {
+        showToast('正在发送邮件通知...');
+        fetch(API + '/api/reports/' + state.lastReportId + '/send', {
+          method: 'POST', credentials: 'include'
+        }).then(function(rsp) {
+          return rsp.json();
+        }).then(function(result) {
+          if (result.success) showToast('邮件已发送');
+          else showToast('邮件发送失败: ' + (result.message || ''), 'error');
+        }).catch(function() {
+          showToast('邮件发送失败：网络错误', 'error');
+        });
+      }
+      document.getElementById('hoursOverlay').classList.remove('show');
+      // 进入明日去向
+      showFloatingBar('bottomBarDest');
+      document.getElementById('reportSection').style.display = 'none';
+      document.getElementById('destinationSection').style.display = '';
+      state.tomorrowDate = today;
+      state.destination = null;
+      state.destProjectId = null;
+      loadDestProjects();
+      document.getElementById('destinationSection').scrollIntoView({ behavior: 'smooth' });
+    });
+
+    document.getElementById('hoursInput').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') document.getElementById('confirmHoursBtn').click();
+    });
+
+    document.getElementById('cancelHoursBtn').addEventListener('click', function() {
+      document.getElementById('hoursOverlay').classList.remove('show');
+    });
+
+    // ====== 明日去向 ======
+    async function loadDestProjects() {
+      var container = document.getElementById('destProjectList');
+      container.innerHTML = '';
+      var allProjects = selectedProject ? [{ id: selectedProject.id, name: selectedProject.name, impl_days: selectedProject.impl_days }].concat(projects.filter(function(p) { return p.id !== selectedProject.id; })) : projects;
+      allProjects.forEach(function(p) {
+        var card = document.createElement('div');
+        card.className = 'dest-project-card';
+        card.dataset.projectId = p.id;
+        card.innerHTML = '<div style="font-size:13px;font-weight:600">' + (p.name || '未命名') + '</div><div style="font-size:11px;color:var(--text3);margin-top:2px">实施第 ' + (p.impl_days || 0) + ' 天</div>';
+        card.addEventListener('click', function() {
+          document.querySelectorAll('#destProjectList .dest-project-card').forEach(function(c) { c.classList.remove('selected'); });
+          card.classList.add('selected');
+          state.destProjectId = p.id;
+        });
+        container.appendChild(card);
+      });
+    }
+
+    function selectDestination(el) {
+      document.querySelectorAll('.grid-card').forEach(function(c) { c.classList.remove('selected'); });
+      el.classList.add('selected');
+      state.destination = el.dataset.dest;
+      document.querySelectorAll('.destination-panel').forEach(function(p) { p.classList.remove('show'); });
+      if (state.destination === 'existing_project') {
+        document.getElementById('panel-existing_project').classList.add('show');
+        state.destProjectId = selectedProject ? selectedProject.id : null;
+        setTimeout(function() {
+          document.querySelectorAll('#destProjectList .dest-project-card').forEach(function(c) {
+            if (parseInt(c.dataset.projectId) === state.destProjectId) c.classList.add('selected');
+          });
+        }, 100);
+      } else if (state.destination === 'new_project') {
+        document.getElementById('panel-new_project').classList.add('show');
+      } else if (state.destination === 'back_to_office') {
+        document.getElementById('panel-back_to_office').classList.add('show');
+      } else if (state.destination === 'other') {
+        document.getElementById('panel-other').classList.add('show');
+      }
+    }
+
+    async function submitTomorrow(overwriteMode) {
+      if (!state.destination) { showToast('请选择明日去向', 'error'); return; }
+      var body = {
+        engineer_id: currentUser ? currentUser.engineer_id : null,
+        report_date: state.tomorrowDate,
+        destination: state.destination,
+        report_id: state.lastReportId || null
+      };
+      // 工时确认时已异步发送邮件，此处不再重复触发
+      if (state.destination === 'existing_project') {
+        if (!state.destProjectId) { showToast('请选择项目', 'error'); return; }
+        body.project_id = state.destProjectId;
+      } else if (state.destination === 'new_project') {
+        showToast('请点击「新建项目」按钮创建项目', 'error');
+        return;
+      } else if (state.destination === 'other') {
+        var reason = document.getElementById('otherReason').value.trim();
+        if (!reason) { showToast('请填写原因', 'error'); return; }
+        body.other_reason = reason;
+      }
+      if (overwriteMode) body.overwrite = true;
+      // 工时确认时创建了临时记录，确保覆盖
+      body.overwrite = true;
+
+      var btn = document.getElementById('submitTomorrowBtn');
+      btn.disabled = true; btn.textContent = '提交中...';
+      try {
+        var res = await fetch(API + '/api/reports/tomorrow', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) });
+        var result = await res.json();
+        btn.disabled = false; btn.textContent = '确认提交并完成';
+        if (!result.success) {
+          if (result.data && result.data.existing) { if (confirm('今日已提交过明日去向，是否修改？')) submitTomorrow(true); }
+          else showToast(result.error || '提交失败', 'error');
+          return;
+        }
+        showToast('全部完成！感谢提交');
+        // 显示完成弹窗，不再自动 resetAll
+        document.getElementById('completeOverlay').style.display = 'flex';
+      } catch(e) { btn.disabled = false; btn.textContent = '确认提交并完成'; showToast('网络错误: ' + e.message, 'error'); }
+    }
+
+    // ====== 今日暂无安排 → 状态选择弹窗 ======
+    var _skipDest = null;
+
+    function showSkipStatusModal() {
+      _skipDest = null;
+      document.getElementById('skipStatusOverlay').style.display = 'flex';
+      document.querySelectorAll('#skipStatusOverlay .grid-card').forEach(function(c) { c.classList.remove('selected'); });
+      document.getElementById('skip-panel-other').classList.remove('show');
+      document.getElementById('skipOtherReason').value = '';
+    }
+    function closeSkipStatusModal() {
+      document.getElementById('skipStatusOverlay').style.display = 'none';
+    }
+    function selectSkipDest(el) {
+      document.querySelectorAll('#skipStatusOverlay .grid-card').forEach(function(c) { c.classList.remove('selected'); });
+      el.classList.add('selected');
+      _skipDest = el.dataset.skipDest;
+      document.getElementById('skip-panel-other').classList.toggle('show', _skipDest === 'other');
+    }
+    function confirmSkipStatus() {
+      if (!_skipDest) { showToast('请选择今日状态', 'error'); return; }
+      if (_skipDest === 'other') {
+        var reason = document.getElementById('skipOtherReason').value.trim();
+        if (!reason) { showToast('请说明原因', 'error'); return; }
+      }
+      closeSkipStatusModal();
+      // 直接跳转明日去向，预填选择
+      skipToTomorrow(_skipDest);
+    }
+
+    function backFromDestination() {
+      // 从明日去向返回项目选择
+      document.getElementById('destinationSection').style.display = 'none';
+      document.getElementById('projectSection').style.display = '';
+      showFloatingBar('bottomBarProject');
+      resetAll();
+    }
+
+    // ====== 完成弹窗按钮 ======
+    function closeCompleteOverlay() {
+      document.getElementById('completeOverlay').style.display = 'none';
+    }
+    document.getElementById('redoDestBtn').addEventListener('click', function() {
+      // 重新提交明日去向：回到去向页面，保留已有数据
+      document.getElementById('completeOverlay').style.display = 'none';
+      document.getElementById('destinationSection').style.display = '';
+      document.getElementById('projectSection').style.display = 'none';
+      document.getElementById('reportSection').style.display = 'none';
+      showFloatingBar('bottomBarDest');
+      document.getElementById('destinationSection').scrollIntoView({ behavior: 'smooth' });
+    });
+    document.getElementById('redoProjectBtn').addEventListener('click', function() {
+      document.getElementById('completeOverlay').style.display = 'none';
+      resetAll();
+    });
+
+    // ====== 明日去向的新建项目弹窗 ======
+    function openDestNewProject() {
+      openNewProjectModal(true);
+    }
+
+    function skipToTomorrow(preSelectedDest) {
+      selectedProject = null;
+      document.getElementById('toReportBtn').disabled = true;
+      document.getElementById('toReportBtn').style.opacity = '0.5';
+      showFloatingBar('bottomBarDest');
+      document.getElementById('projectSection').style.display = 'none';
+      document.getElementById('reportSection').style.display = 'none';
+      document.getElementById('destinationSection').style.display = '';
+      state.tomorrowDate = new Date().toISOString().split('T')[0];
+      state.destination = null;
+      state.destProjectId = null;
+      state.lastReportId = null;
+      document.getElementById('reportSuccessBar').style.display = 'none';
+      loadDestProjects();
+      if (preSelectedDest) {
+        // 预选去向
+        setTimeout(function() {
+          var cards = document.querySelectorAll('#destinationGrid .grid-card');
+          cards.forEach(function(c) {
+            if (c.dataset.dest === preSelectedDest) {
+              selectDestination(c);
+            }
+          });
+        }, 200);
+      }
+      document.getElementById('destinationSection').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function resetAll() {
+      selectedProject = null;
+      state.destination = null;
+      state.destProjectId = null;
+      state.lastReportId = null;
+      state.lastProgress = 0;
+      selectedStatus = 'ongoing';
+      document.getElementById('planTitle').value = '';
+      document.getElementById('progress').value = 0;
+      document.getElementById('progressVal').textContent = '0%';
+      document.getElementById('nextPlan').value = '';
+      document.getElementById('issues').value = '';
+      showFloatingBar('bottomBarProject');
+      document.getElementById('projectSection').style.display = '';
+      document.getElementById('reportSection').style.display = 'none';
+      document.getElementById('destinationSection').style.display = 'none';
+      document.getElementById('reportSuccessBar').style.display = '';
+      document.getElementById('toReportBtn').disabled = true;
+      document.getElementById('toReportBtn').style.opacity = '0.5';
+      document.querySelectorAll('.status-btn').forEach(function(b) { b.classList.remove('active'); });
+      document.querySelector('.status-btn.ongoing').classList.add('active');
+      document.getElementById('nextPlanCard').style.display = '';
+      document.getElementById('issuesCard').style.display = 'none';
+      document.querySelectorAll('.grid-card').forEach(function(c) { c.classList.remove('selected'); });
+      document.querySelectorAll('.destination-panel').forEach(function(p) { p.classList.remove('show'); });
+      renderProjectList();
+      document.getElementById('projectSection').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // ====== 编辑项目信息弹窗 ======
+    document.getElementById('collapseTitleArea').addEventListener('click', function() {
+      document.getElementById('projectSummary').classList.toggle('open');
+    });
+    document.getElementById('editProjBtnInline').addEventListener('click', function(e) {
+      e.stopPropagation();
+      enterP3Expand();
+    });
+    document.getElementById('p3ExpandBackdrop').addEventListener('click', exitP3Expand);
+    document.getElementById('p3ExpandClose').addEventListener('click', exitP3Expand);
+
+    function enterP3Expand() {
+      document.getElementById('p3ExpandBackdrop').classList.remove('hidden');
+      document.getElementById('p3ExpandBackdrop').classList.add('show');
+      document.getElementById('p3ExpandContainer').classList.remove('hidden');
+      document.getElementById('p3ExpandContainer').classList.add('show');
+      var p = selectedProject && selectedProject.detail ? selectedProject.detail : selectedProject;
+      if (!p) return;
+      var list = document.getElementById('p3ExpandList');
+      var fields = [
+        { key: 'customer', label: '客户' }, { key: 'order_type', label: '订单类型' }, { key: 'order_no', label: '订单号' },
+        { key: 'contact_name', label: '联系人' }, { key: 'contact_phone', label: '联系电话' }, { key: 'product_version', label: '版本' },
+        { key: 'install_address', label: '安装地址' }, { key: 'manufacturer', label: '厂商' }, { key: 'agent', label: '代理商' },
+        { key: 'province', label: '项目所在地' }, { key: 'tech_lead', label: '技术负责人' }, { key: 'service_manager', label: '服务经理' },
+        { key: 'status', label: '状态' }
+      ];
+      var PROVINCES = ['北京市','天津市','上海市','重庆市','河北省','山西省','辽宁省','吉林省','黑龙江省','江苏省','浙江省','安徽省','福建省','江西省','山东省','河南省','湖北省','湖南省','广东省','海南省','四川省','贵州省','云南省','陕西省','甘肃省','青海省','广西壮族自治区','内蒙古自治区','西藏自治区','宁夏回族自治区','新疆维吾尔自治区'];
+      // 解析已有 custom_fields
+      var cfValues = {};
+      if (p.custom_fields) {
+        try { cfValues = typeof p.custom_fields === 'string' ? JSON.parse(p.custom_fields) : p.custom_fields; } catch(e) {}
+        if (!cfValues || typeof cfValues !== 'object') cfValues = {};
+      }
+      var innerHtml = fields.map(function(f) {
+        if (f.key === 'province') {
+          var opts = PROVINCES.map(function(o) { return '<option value="' + o + '"' + (p[f.key] === o ? ' selected' : '') + '>' + o + '</option>'; }).join('');
+          return '<div class="proj-expand-detail-row"><span class="label">' + f.label + '</span><select class="proj-expand-detail-input" data-field="' + f.key + '"><option value="">请选择</option>' + opts + '</select></div>';
+        }
+        return '<div class="proj-expand-detail-row"><span class="label">' + f.label + '</span><input class="proj-expand-detail-input" value="' + (String(p[f.key]||'').replace(/"/g,'&quot;')) + '" data-field="' + f.key + '"></div>';
+      }).join('');
+      // 自定义字段
+      if (_customFieldDefs && _customFieldDefs.length > 0) {
+        _customFieldDefs.forEach(function(fd) {
+          var val = cfValues[fd.field_name] || '';
+          innerHtml += '<div class="proj-expand-detail-row"><span class="label">' + (fd.field_name || fd.label || '字段') + '</span><input class="proj-expand-detail-input" value="' + String(val).replace(/"/g,'&quot;') + '" data-field="' + fd.field_name + '" data-custom="1"></div>';
+        });
+      }
+      innerHtml += '<button class="btn-primary save-detail-btn" style="margin-top:10px;width:100%;justify-content:center">保存修改</button>';
+      list.innerHTML = innerHtml;
+      list.querySelector('.save-detail-btn').addEventListener('click', async function() {
+        var inputs = list.querySelectorAll('.proj-expand-detail-input');
+        var body = {};
+        var customFields = {};
+        inputs.forEach(function(inp) {
+          var field = inp.dataset.field;
+          var val = inp.value.trim() || null;
+          if (inp.dataset.custom) {
+            customFields[field] = val;
+          } else {
+            body[field] = val;
+          }
+        });
+        if (Object.keys(customFields).length > 0) body.custom_fields = customFields;
+        try {
+          var res = await fetch(API + '/api/projects/' + p.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) });
+          if (res.ok) { showToast('项目信息已更新'); Object.assign(p, body); exitP3Expand(); }
+          else { var err = await res.json(); showToast(err.error || '更新失败', 'error'); }
+        } catch(e) { showToast('网络错误', 'error'); }
+      });
+    }
+
+    function exitP3Expand() {
+      document.getElementById('p3ExpandBackdrop').classList.remove('show');
+      document.getElementById('p3ExpandBackdrop').classList.add('hidden');
+      document.getElementById('p3ExpandContainer').classList.remove('show');
+      document.getElementById('p3ExpandContainer').classList.add('hidden');
+    }
+
+    // ====== 周报 ======
+    function initWeeklyForm() {
+      var now = new Date();
+      document.getElementById('weeklyYear').value = now.getFullYear();
+      populateWeeks(now.getFullYear());
+      var weekNum = getWeekNumber(now);
+      document.getElementById('weeklyWeek').value = weekNum;
+    }
+
+    document.getElementById('weeklyYear').addEventListener('change', function() {
+      populateWeeks(parseInt(this.value));
+    });
+
+    function getWeekDateRange(year, week) {
+      var jan4 = new Date(year, 0, 4);
+      var dayOffset = jan4.getDay() || 7;
+      var week1Start = new Date(jan4);
+      week1Start.setDate(jan4.getDate() - dayOffset + 1);
+      var start = new Date(week1Start);
+      start.setDate(week1Start.getDate() + (week - 1) * 7);
+      var end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      return (start.getMonth()+1) + '月' + start.getDate() + '日-' + (end.getMonth()+1) + '月' + end.getDate() + '日';
+    }
+
+    function populateWeeks(year) {
+      var select = document.getElementById('weeklyWeek');
+      select.innerHTML = '';
+      var totalWeeks = getTotalWeeks(year);
+      var weekMap = {1:'一',2:'二',3:'三',4:'四',5:'五',6:'六',7:'七',8:'八',9:'九',10:'十',11:'十一',12:'十二',13:'十三',14:'十四',15:'十五',16:'十六',17:'十七',18:'十八',19:'十九',20:'二十',21:'二十一',22:'二十二',23:'二十三',24:'二十四',25:'二十五',26:'二十六',27:'二十七',28:'二十八',29:'二十九',30:'三十',31:'三十一',32:'三十二',33:'三十三',34:'三十四',35:'三十五',36:'三十六',37:'三十七',38:'三十八',39:'三十九',40:'四十',41:'四十一',42:'四十二',43:'四十三',44:'四十四',45:'四十五',46:'四十六',47:'四十七',48:'四十八',49:'四十九',50:'五十',51:'五十一',52:'五十二',53:'五十三'};
+      for (var w = 1; w <= totalWeeks; w++) {
+        var opt = document.createElement('option');
+        opt.value = w;
+        var range = getWeekDateRange(year, w);
+        opt.textContent = '第' + (weekMap[w] || w) + '周 (' + range + ')';
+        select.appendChild(opt);
+      }
+    }
+
+    function getWeekNumber(d) {
+      var start = new Date(d.getFullYear(), 0, 1);
+      var diff = (d - start + (start.getTimezoneOffset() - d.getTimezoneOffset()) * 60000) / 86400000;
+      return Math.ceil((diff + start.getDay() + 1) / 7);
+    }
+
+    function getTotalWeeks(year) {
+      var dec31 = new Date(year, 11, 31);
+      return getWeekNumber(dec31);
+    }
+
+    // 周报提交确认
+    function showWeeklyConfirm() {
+      var summary = document.getElementById('weeklySummary').value.trim();
+      if (!summary) { showToast('请填写本周工作总结', 'error'); return; }
+      document.getElementById('weeklyConfirmOverlay').style.display = 'flex';
+    }
+
+    function closeWeeklyConfirm() {
+      document.getElementById('weeklyConfirmOverlay').style.display = 'none';
+    }
+
+    async function confirmWeeklySubmit() {
+      var year = parseInt(document.getElementById('weeklyYear').value);
+      var week = parseInt(document.getElementById('weeklyWeek').value);
+      var summary = document.getElementById('weeklySummary').value.trim();
+      var nextPlan = document.getElementById('weeklyNextPlan').value.trim();
+
+      closeWeeklyConfirm();
+
+      var btn = document.getElementById('submitWeeklyBtn');
+      btn.disabled = true; btn.textContent = '提交中...';
+      try {
+        var res = await fetch(API + '/api/reports/weekly', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ year: year, week: week, summary: summary, next_plan: nextPlan })
+        });
+        var result = await res.json();
+        if (!result.success) { showToast(result.error || '提交失败', 'error'); btn.disabled = false; btn.textContent = '提交周报'; return; }
+        showToast('周报提交成功，邮件已发送');
+        document.getElementById('weeklySummary').value = '';
+        document.getElementById('weeklyNextPlan').value = '';
+        btn.disabled = false; btn.textContent = '提交周报';
+      } catch(e) {
+        showToast('网络错误: ' + e.message, 'error');
+        btn.disabled = false; btn.textContent = '提交周报';
+      }
+    }
+
+    async function submitWeeklyReport() {
+      showWeeklyConfirm();
+    }
+
+    // ====== 初始化 ======
+    (async function init() {
+      restoreSidebar();
+      currentUser = await checkAuth();
+      if (!currentUser) return;
+      setActiveNav(currentPage);
+      loadFieldFilterConfigs();
+      loadCustomFieldDefs();
+      await loadProjects();
+    })();
+  </script>
+</body>
+</html>

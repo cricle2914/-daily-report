@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <script>
+    // 在CSS加载前初始化主题，优先从DayPlan设置读取
+    (function() {
+      var setTheme = function(theme) {
+        try {
+          if (theme === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
+          } else {
+            document.documentElement.removeAttribute('data-theme');
+          }
+          localStorage.setItem('app-theme', theme);
+        } catch (e) {}
+      };
+
+      // 尝试从 electronAPI 读取主题（同步）
+      if (window.electronAPI && window.electronAPI.loadSettings) {
+        window.electronAPI.loadSettings().then(function(settings) {
+          if (settings && settings.theme) {
+            setTheme(settings.theme);
+          } else {
+            setTheme(localStorage.getItem('app-theme') || 'dark');
+          }
+        }).catch(function() {
+          setTheme(localStorage.getItem('app-theme') || 'dark');
+        });
+      } else {
+        // 降级：直接用 localStorage
+        setTheme(localStorage.getItem('app-theme') || 'dark');
+      }
+    })();
+  </script>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>日报系统 - 登录</title>
+  <link rel="stylesheet" href="shared.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <script src="auth.js"></script>
+  <style>
+    body {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; background: var(--bg); overflow: auto;
+      -webkit-app-region: drag;
+    }
+    .login-card, .input-group, input, button { -webkit-app-region: no-drag; }
+    .login-card {
+      width: 360px; background: var(--bg2); border-radius: 12px;
+      padding: 36px 32px; border: 1px solid var(--border2);
+      display: flex; flex-direction: column; align-items: center;
+    }
+    .login-logo { font-size: 36px; color: var(--text); margin-bottom: 12px; }
+    .login-title { font-size: 22px; font-weight: 800; color: var(--text); margin-bottom: 2px; }
+    .login-subtitle { font-size: 12px; color: var(--text3); margin-bottom: 32px; }
+    .input-group { position: relative; width: 100%; margin-bottom: 12px; }
+    .input-group i {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      color: var(--text4); font-size: 14px; pointer-events: none;
+    }
+    .input-group input {
+      width: 100%; padding: 10px 12px 10px 38px; background: var(--bg3);
+      border: 1px solid var(--border2); border-radius: 8px;
+      color: var(--text); font-size: 14px; font-family: var(--font); outline: none;
+      transition: border-color 0.15s;
+    }
+    .input-group input::placeholder { color: var(--text4); font-style: italic; }
+    .input-group input:focus { border-color: var(--text2); }
+    .login-btn {
+      width: 100%; padding: 10px; background: var(--text); color: var(--bg);
+      border: none; border-radius: 8px; font-size: 14px; font-weight: 700;
+      font-family: var(--font); cursor: pointer; transition: opacity 0.15s;
+      margin-top: 8px;
+    }
+    .login-btn:hover { opacity: 0.85; }
+    .login-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .login-error {
+      display: none; width: 100%; margin-top: 12px; padding: 8px 12px;
+      background: var(--red-bg); border-radius: 6px;
+      color: var(--red); font-size: 12px; font-weight: 600; text-align: center;
+    }
+    .login-success {
+      display: none; width: 100%; margin-top: 12px; padding: 8px 12px;
+      background: var(--green-bg); border-radius: 6px;
+      color: var(--green); font-size: 12px; font-weight: 600; text-align: center;
+    }
+    .server-setting-btn {
+      position: absolute; top: 16px; right: 16px;
+      background: none; border: none; color: var(--text3);
+      font-size: 16px; cursor: pointer; transition: color 0.15s;
+    }
+    .server-setting-btn:hover { color: var(--text2); }
+
+    /* ── 服务器设置弹窗 — 与 DayPlan 设置面板一致 ── */
+    #serverModal {
+      backdrop-filter: blur(2px);
+      animation: fadeIn 0.15s ease;
+    }
+    #serverModal .modal {
+      background: var(--bg2);
+      border-radius: 14px;
+      padding: 20px;
+      width: 340px;
+      max-width: 340px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+    }
+    #serverModal .modal-header {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 14px;
+      color: var(--text);
+    }
+    #serverModal .modal-body { gap: 8px; }
+    #serverModal .form-group { margin-bottom: 0; }
+    #serverModal .form-group label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 6px;
+    }
+    #serverModal .form-group input {
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 13px;
+      padding: 9px 12px;
+      outline: none;
+      transition: border-color 0.15s;
+      font-family: var(--font);
+    }
+    #serverModal .form-group input:focus {
+      border-color: var(--text2);
+    }
+    #serverModal .form-group input::placeholder {
+      color: var(--text4);
+      font-style: italic;
+    }
+    #serverModal .modal-footer {
+      margin-top: 14px;
+    }
+    .server-save-btn {
+      width: 100%;
+      padding: 9px;
+      border-radius: 8px;
+      border: none;
+      background: var(--text);
+      color: var(--bg);
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .server-save-btn:hover { opacity: 0.85; }
+  </style>
+</head>
+<body>
+  <div id="debugLog" style="position:fixed;top:0;right:0;width:500px;max-height:300px;background:rgba(0,0,0,0.95);color:var(--green);font-size:11px;padding:10px;overflow-y:auto;font-family:monospace;z-index:9999;display:block;border:2px solid var(--green);border-top:none;border-right:none"></div>
+
+  <div class="login-card">
+    <button class="server-setting-btn" onclick="openServerSetting()" title="服务器设置"><i class="fa-solid fa-gear"></i></button>
+    <button class="server-setting-btn" style="right:40px" onclick="toggleDebugLog()" title="调试日志"><i class="fa-solid fa-bug"></i></button>
+    <i class="fas fa-clipboard-list login-logo"></i>
+    <div class="login-title">日报系统</div>
+    <div class="login-subtitle">管理后台</div>
+
+    <div class="input-group">
+      <i class="fas fa-user"></i>
+      <input type="text" id="username" placeholder="请输入账号" autocomplete="username"/>
+    </div>
+    <div class="input-group">
+      <i class="fas fa-lock"></i>
+      <input type="password" id="password" placeholder="请输入密码" autocomplete="current-password"/>
+    </div>
+    <button class="login-btn" id="loginBtn">登录</button>
+    <div class="login-error" id="errorMsg"></div>
+    <div class="login-success" id="successMsg"></div>
+  </div>
+
+  <!-- 服务器设置 Modal -->
+  <div class="modal-overlay" id="serverModal" style="display:none">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <span>服务器设置</span>
+        <button onclick="closeServerSetting()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>服务器地址</label>
+          <input type="text" id="serverUrlInput" placeholder="https://example.com 或 https://example.com:8443" style="width:100%">
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:8px">支持自定义端口，例如：https://192.168.1.100:8443</div>
+      </div>
+      <div class="modal-footer">
+        <button class="server-save-btn" onclick="saveServerUrl()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 确保 API 变量初始化（来自 auth.js）
+    if (typeof API === 'undefined') {
+      var AUTH_KEY = 'workorder-auth';
+      var SERVER_URL_KEY = 'workorder-server-url';
+      var DEFAULT_API = 'http://172.40.93.99:31663';
+      var API = (function() {
+        try {
+          var saved = localStorage.getItem(SERVER_URL_KEY);
+          if (saved) return saved.replace(/\/+$/, '');
+        } catch(e) {}
+        return DEFAULT_API;
+      })();
+    }
+
+    var debugLogs = [];
+    function addDebugLog(msg) {
+      debugLogs.push(new Date().toLocaleTimeString() + ' > ' + msg);
+      if (debugLogs.length > 50) debugLogs.shift();
+      var logEl = document.getElementById('debugLog');
+      if (logEl) logEl.textContent = debugLogs.join('\n');
+    }
+    function toggleDebugLog() {
+      var logEl = document.getElementById('debugLog');
+      if (logEl) logEl.style.display = logEl.style.display === 'none' ? 'block' : 'none';
+    }
+    window.addEventListener('error', function(e) {
+      addDebugLog('ERROR: ' + e.message);
+    });
+
+    addDebugLog('初始化: API = ' + API);
+
+    function showToast(msg, type) {
+      if (type === undefined) type = 'success';
+      var container = document.querySelector('.toast-container');
+      if (!container) { container = document.createElement('div'); container.className = 'toast-container'; document.body.appendChild(container); }
+      var toast = document.createElement('div'); toast.className = 'toast toast-' + type;
+      toast.textContent = msg; container.appendChild(toast);
+      setTimeout(function() { toast.style.opacity = '0'; setTimeout(function() { toast.remove(); }, 200); }, 3000);
+    }
+    function openServerSetting() {
+      document.getElementById('serverUrlInput').value = API || '';
+      document.getElementById('serverModal').style.display = 'flex';
+    }
+    function closeServerSetting() {
+      document.getElementById('serverModal').style.display = 'none';
+    }
+    function saveServerUrl() {
+      var url = document.getElementById('serverUrlInput').value.trim();
+      if (!url) { showToast('请输入服务器地址', 'error'); return; }
+
+      // 自动补全协议：如果没有 http:// 或 https://，则添加 https://
+      if (!url.match(/^https?:\/\//i)) {
+        url = 'https://' + url;
+      }
+      setServerUrl(url);
+    }
+    document.getElementById('serverModal').addEventListener('click', function(e) { if (e.target === this) closeServerSetting(); });
+
+    (function() {
+      var usernameInput = document.getElementById('username');
+      var passwordInput = document.getElementById('password');
+      var loginBtn = document.getElementById('loginBtn');
+      var errorMsg = document.getElementById('errorMsg');
+      var successMsg = document.getElementById('successMsg');
+
+      function doLogin() {
+        addDebugLog('[login] doLogin() 被调用了');
+        var username = usernameInput.value.trim();
+        var password = passwordInput.value.trim();
+        addDebugLog('[login] 输入账号: ' + username + ' 密码: ' + (password ? '****' : '(空)'));
+        errorMsg.style.display = 'none';
+        successMsg.style.display = 'none';
+
+        if (!username || !password) {
+          addDebugLog('[login] 账号或密码为空，返回');
+          errorMsg.textContent = '请输入账号和密码';
+          errorMsg.style.display = 'block';
+          return;
+        }
+
+        loginBtn.disabled = true;
+        loginBtn.textContent = '登录中...';
+
+        addDebugLog('[login] 开始发送登录请求');
+        addDebugLog('[login] 登录URL: ' + (API + '/api/auth/login'));
+        var controller = new AbortController();
+        var timeout = setTimeout(function() { controller.abort(); }, 10000);
+
+        fetch(API + '/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          signal: controller.signal,
+          body: JSON.stringify({ username: username, password: password })
+        })
+        .then(function(res) {
+          clearTimeout(timeout);
+          addDebugLog('[login] 响应状态: ' + res.status);
+          return res.json().then(function(data) {
+            addDebugLog('[login] 响应数据: ' + JSON.stringify(data));
+            if (!res.ok) {
+              throw new Error(data.message || data.error || '账号或密码错误');
+            }
+            return data;
+          });
+        })
+        .then(function(data) {
+          addDebugLog('[login] 完整响应: ' + JSON.stringify(data));
+          // 兼容: { role }, { data: { role } }, { user: { role } }
+          var inner = data.data || data.user || data;
+          addDebugLog('[login] 解析后inner: ' + JSON.stringify(inner));
+          var role = inner.role || data.role;
+          var redirect = inner.redirect || data.redirect || '';
+          var token = inner.token || data.token || '';
+          addDebugLog('[login] 提取的role: ' + role + ' redirect: ' + redirect + ' token: ' + (token ? '有' : '无'));
+
+          var targetUrl = null;
+
+          // 将服务端路径映射为本地页面
+          if (redirect) {
+            redirect = redirect.replace(/^\/+/, ''); // 去掉前导 /
+            if (redirect.indexOf('leader') === 0) {
+              targetUrl = 'leader/overview.html';
+            } else if (redirect.indexOf('engineer') === 0) {
+              targetUrl = 'admin/submit-report.html';
+            } else {
+              targetUrl = 'admin/engineers.html';
+            }
+          }
+
+          // 兜底：按 role 判断
+          if (!targetUrl) {
+            if (role === 'viewer' || role === 'leader') targetUrl = 'leader/overview.html';
+            else if (role === 'engineer') targetUrl = 'admin/submit-report.html';
+            else targetUrl = 'admin/engineers.html';
+          }
+
+          addDebugLog('[login] 最终跳转URL: ' + targetUrl);
+
+          if (!targetUrl) {
+            errorMsg.textContent = '无法确定跳转目标。返回: ' + JSON.stringify(data).slice(0, 200);
+            errorMsg.style.display = 'block';
+            loginBtn.disabled = false;
+            loginBtn.textContent = '登录';
+            return;
+          }
+
+          successMsg.textContent = '登录成功，正在跳转...';
+          successMsg.style.display = 'block';
+
+          // 保存 token 和用户信息到 localStorage（如果有 token）
+          if (token) {
+            try { localStorage.setItem('workorder-auth-token', token); } catch(e) {}
+            addDebugLog('[login] 已保存 token');
+          }
+          // 保存用户信息供 checkAuth 使用
+          try {
+            localStorage.setItem('workorder-auth', JSON.stringify({
+              username: inner.username || data.username || '',
+              role: role,
+              engineer_id: inner.engineer_id || ''
+            }));
+          } catch(e) {}
+
+          setTimeout(function() {
+            addDebugLog('[login] 执行跳转: ' + targetUrl);
+            // 在 file:// 协议下，相对路径需要转换为完整路径
+            try {
+              // 获取当前文件的完整路径，从中提取目录
+              var currentPath = window.location.pathname;
+              addDebugLog('[login] 当前路径: ' + currentPath);
+              var dir = currentPath.substring(0, currentPath.lastIndexOf('/'));
+              addDebugLog('[login] 目录: ' + dir);
+              var fullPath = dir + '/' + targetUrl;
+              addDebugLog('[login] 完整路径: ' + fullPath);
+              window.location.href = 'file://' + fullPath;
+            } catch(e) {
+              addDebugLog('[login] 路径构造失败: ' + e.message + '，尝试直接赋值');
+              try {
+                window.location.href = targetUrl;
+              } catch(e2) {
+                addDebugLog('[login] 直接赋值也失败，尝试用 assign: ' + e2.message);
+                window.location.assign(targetUrl);
+              }
+            }
+          }, 400);
+        })
+        .catch(function(err) {
+          errorMsg.textContent = err.message || '网络错误，请检查连接';
+          errorMsg.style.display = 'block';
+          loginBtn.disabled = false;
+          loginBtn.textContent = '登录';
+        });
+      }
+
+      loginBtn.addEventListener('click', doLogin);
+      passwordInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); doLogin(); }
+      });
+      usernameInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); doLogin(); }
+      });
+    })();
+  </script>
+</body>
+</html>

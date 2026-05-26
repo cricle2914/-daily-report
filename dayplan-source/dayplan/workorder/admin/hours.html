@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>工时统计 - 日报系统</title>
+  <link rel="stylesheet" href="../shared.css"/>
+  <link rel="stylesheet" href="../admin-layout.css"/>
+  <script src="../auth.js"></script>
+  <script src="../global.js"></script>
+  <script>
+    if (typeof API === 'undefined') {
+      var SERVER_URL_KEY = 'workorder-server-url';
+      var DEFAULT_API = 'http://172.40.93.99:31663';
+      var API = (function() {
+        try {
+          var saved = localStorage.getItem(SERVER_URL_KEY);
+          if (saved) return saved.replace(/\/+$/, '');
+        } catch(e) {}
+        return DEFAULT_API;
+      })();
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    /* 页面专用样式 */
+    .summary-bar { display: flex; justify-content: flex-end; padding: 14px 14px; border-top: 1px solid var(--border); font-size: 14px; }
+    .summary-bar .total-label { color: var(--text2); margin-right: 8px; }
+    .summary-bar .total-value { color: var(--green); font-weight: 500; font-size: 16px; }
+    .sidebar-group-label {
+      padding: 12px 12px 4px; font-size: 10px; font-weight: 600;
+      color: var(--text3); letter-spacing: 0.5px; text-transform: uppercase;
+    }
+    .sidebar.collapsed .sidebar-group-label { display: none; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <button class="sidebar-toggle" onclick="toggleSidebar()" title="折叠侧边栏"><i class="fa-solid fa-angles-left"></i></button>
+      <h2>日报系统</h2>
+      <div class="brand-sub">管理控制台</div>
+    </div>
+    <div class="sidebar-user">
+      <div class="avatar" id="userAvatar">?</div>
+      <div>
+        <div class="user-name" id="userDisplay">加载中..</div>
+        <div class="user-role" id="roleDisplay"></div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="engineers.html" id="nav-engineers"><i class="fa-solid fa-users"></i> 员工管理</a>
+      <a href="projects.html" id="nav-projects"><i class="fa-solid fa-diagram-project"></i> 项目管理</a>
+      <a href="reports.html" id="nav-reports"><i class="fa-solid fa-file-lines"></i> 日报管理</a>
+      <a href="hours.html" id="nav-hours"><i class="fa-solid fa-clock"></i> 工时统计</a>
+      <a href="accounts.html" id="nav-accounts"><i class="fa-solid fa-user-gear"></i> 账户管理</a>
+      <a href="email.html" id="nav-email"><i class="fa-solid fa-envelope"></i> 邮件管理</a>
+      <a href="messages.html" id="nav-messages"><i class="fa-solid fa-bullhorn"></i> 消息管理</a>
+      <a href="submit-report.html" id="nav-submit-report"><i class="fa-solid fa-pen-to-square"></i> 提交日报</a>
+    </nav>
+    <div class="sidebar-footer">
+      <button onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> 退出登录</button>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="topbar"></div>
+    <div class="filter-bar">
+      <select id="engineerFilter" style="width:150px">
+        <option value="">全部工程师</option>
+      </select>
+      <input type="date" id="dateFrom" style="width:140px">
+      <input type="date" id="dateTo" style="width:140px">
+    </div>
+    <div class="content">
+      <div class="card">
+        <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>日期</th>
+                  <th>工程师</th>
+                  <th>项目</th>
+                  <th>工时（小时）</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+          </div>
+          <div id="emptyState" class="empty-state" style="display:none">
+            <i class="fa-solid fa-inbox"></i>
+            <p>暂无数据</p>
+          </div>
+        </div>
+      </div>
+      <div class="summary-bar" id="summaryBar" style="display:none">
+        <span class="total-label">总工时：</span>
+        <span class="total-value" id="totalHours">0</span>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    var currentPage = 'hours';
+    var hoursData = [];
+
+    // ===== 列宽拖拽 =====
+    var COLUMNS = [
+      { key: 'date', label: '日期' },
+      { key: 'engineer', label: '工程师' },
+      { key: 'project', label: '项目' },
+      { key: 'hours', label: '工时（小时）' },
+    ];
+    var DEFAULT_COL_WIDTHS = {
+      date: 100, engineer: 80, project: 120, hours: 90
+    };
+    var colWidths = {};
+    var colResizeState = null;
+
+    function loadColWidths() {
+      try { var saved = localStorage.getItem('hours-col-widths'); if (saved) colWidths = JSON.parse(saved); } catch(e) {}
+      Object.keys(DEFAULT_COL_WIDTHS).forEach(function(k) { if (colWidths[k] === undefined) colWidths[k] = DEFAULT_COL_WIDTHS[k]; });
+    }
+    function saveColWidths() {
+      try { localStorage.setItem('hours-col-widths', JSON.stringify(colWidths)); } catch(e) {}
+    }
+    function onColResizeStart(e, colKey) {
+      e.preventDefault();
+      var th = e.currentTarget.parentElement;
+      colResizeState = { key: colKey, startX: e.clientX, startW: th.offsetWidth, th: th };
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      e.currentTarget.classList.add('active');
+    }
+    document.addEventListener('mousemove', function(e) {
+      if (!colResizeState) return;
+      var diff = e.clientX - colResizeState.startX;
+      var newW = Math.max(60, colResizeState.startW + diff);
+      colResizeState.th.style.width = newW + 'px';
+      colWidths[colResizeState.key] = newW;
+    });
+    document.addEventListener('mouseup', function() {
+      if (!colResizeState) return;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      var active = document.querySelector('.col-resize-handle.active');
+      if (active) active.classList.remove('active');
+      colResizeState = null;
+      saveColWidths();
+    });
+    function initColResize() {
+      loadColWidths();
+      var ths = document.querySelectorAll('table thead th');
+      ths.forEach(function(th, idx) {
+        var col = COLUMNS[idx];
+        if (!col) return;
+        var w = colWidths[col.key];
+        if (w) { th.style.width = w + 'px'; th.style.minWidth = '60px'; }
+        th.style.position = 'relative';
+        var handle = document.createElement('div');
+        handle.className = 'col-resize-handle';
+        handle.addEventListener('mousedown', function(e) { onColResizeStart(e, col.key); });
+        th.appendChild(handle);
+      });
+    }
+
+    function showToast(msg, type) {
+      if (type === undefined) type = 'success';
+      var container = document.querySelector('.toast-container');
+      if (!container) { container = document.createElement('div'); container.className = 'toast-container'; document.body.appendChild(container); }
+      var toast = document.createElement('div'); toast.className = 'toast toast-' + type;
+      toast.textContent = msg; container.appendChild(toast);
+      setTimeout(function() { toast.style.opacity = '0'; setTimeout(function() { toast.remove(); }, 200); }, 3000);
+    }
+
+
+    function setActiveNav(page) { var link = document.getElementById('nav-' + page); if (link) link.classList.add('active'); }
+    function toggleSidebar() {
+      var sidebar = document.querySelector('.sidebar');
+      sidebar.classList.toggle('collapsed');
+      var icon = sidebar.querySelector('.sidebar-toggle i');
+      var collapsed = sidebar.classList.contains('collapsed');
+      icon.className = collapsed ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left';
+      try { localStorage.setItem('sidebar-collapsed', collapsed ? '1' : '0'); } catch(e) {}
+    }
+    function restoreSidebar() {
+      try {
+        var sidebar = document.querySelector('.sidebar');
+        var collapsed = localStorage.getItem('sidebar-collapsed') === '1';
+        if (collapsed) {
+          sidebar.classList.add('collapsed');
+        } else {
+          sidebar.classList.remove('collapsed');
+        }
+        var icon = sidebar.querySelector('.sidebar-toggle i');
+        icon.className = collapsed ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left';
+      } catch(e) {}
+    }
+    
+
+    function formatDate(d) {
+      if (!d) return '-';
+      var date = new Date(d);
+      return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+    }
+
+    // ===== 页面专用逻辑 =====
+    async function loadEngineers() {
+      try {
+        var res = await fetch(API + '/api/admin/engineers?status=active', { credentials: 'include' });
+        if (res.ok) {
+          var data = await res.json();
+          var list = Array.isArray(data) ? data : (data.engineers || data.data || []);
+          var select = document.getElementById('engineerFilter');
+          select.innerHTML = '<option value="">全部工程师</option>';
+          list.forEach(function(e) {
+            var opt = document.createElement('option');
+            opt.value = e.id;
+            opt.textContent = e.name;
+            select.appendChild(opt);
+          });
+        }
+      } catch (e) {}
+    }
+
+    async function loadData() {
+      var engineerId = document.getElementById('engineerFilter').value;
+      var dateFrom = document.getElementById('dateFrom').value;
+      var dateTo = document.getElementById('dateTo').value;
+      var params = new URLSearchParams();
+      if (engineerId) params.set('engineer_id', engineerId);
+      if (dateFrom) params.set('date_from', dateFrom);
+      if (dateTo) params.set('date_to', dateTo);
+      try {
+        var res = await fetch(API + '/api/admin/hours?' + params.toString(), { credentials: 'include' });
+        if (!res.ok) throw new Error('请求失败');
+        var data = await res.json();
+        var inner = (data.data && Array.isArray(data.data)) ? data.data : (data.data || data);
+        hoursData = Array.isArray(inner) ? inner : (inner.hours || inner.data || []);
+        var total = inner.total || data.total || 0;
+        if (!inner.total && !data.total && Array.isArray(inner)) {
+          total = hoursData.reduce(function(sum, h) { return sum + parseFloat(h.hours || h.hour || 0); }, 0);
+        }
+        renderTable(total);
+      } catch (e) {
+        showToast('加载失败: ' + e.message, 'error');
+      }
+    }
+
+    function renderTable(total) {
+      var tbody = document.getElementById('tableBody');
+      var empty = document.getElementById('emptyState');
+      var summary = document.getElementById('summaryBar');
+      tbody.innerHTML = '';
+      if (!hoursData || hoursData.length === 0) {
+        empty.style.display = 'block';
+        summary.style.display = 'none';
+        return;
+      }
+      empty.style.display = 'none';
+      summary.style.display = 'flex';
+      document.getElementById('totalHours').textContent = total.toFixed ? total.toFixed(1) : total;
+      hoursData.forEach(function(h) {
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td>' + formatDate(h.date || h.created_at) + '</td>' +
+          '<td>' + (h.engineer_name || '-') + '</td>' +
+          '<td>' + (h.project_name || '-') + '</td>' +
+          '<td>' + (h.hours || h.hour || 0) + '</td>';
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById('engineerFilter').addEventListener('change', loadData);
+    document.getElementById('dateFrom').addEventListener('change', loadData);
+    document.getElementById('dateTo').addEventListener('change', loadData);
+
+    (async function init() {
+      restoreSidebar();
+      var user = await checkAuth();
+      if (!user) return;
+      setActiveNav(currentPage);
+      initColResize();
+      await loadEngineers();
+      loadData();
+    })();
+  </script>
+</body>
+</html>

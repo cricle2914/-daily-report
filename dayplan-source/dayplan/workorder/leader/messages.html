@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>消息管理 - 日报系统</title>
+  <link rel="stylesheet" href="../shared.css"/>
+  <link rel="stylesheet" href="../admin-layout.css"/>
+  <script src="../auth.js"></script>
+  <script src="../global.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    .sidebar-nav a.active { background: var(--blue-bg); color: var(--blue); font-weight: 700; }
+    .sidebar-user .user-role { color: var(--blue); }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 20px; }
+    .badge-scheduled { background: var(--blue-bg); color: var(--blue); font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+    .badge-instant { background: var(--amber-bg); color: var(--amber); font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+    .badge-all { background: var(--green-bg); color: var(--green); font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+    .badge-specific { background: rgba(167,139,250,0.12); color: var(--purple); font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+    .toggle-switch { position: relative; display: inline-block; width: 38px; height: 20px; cursor: pointer; }
+    .toggle-switch input { display: none; }
+    .toggle-slider { position: absolute; inset: 0; background: var(--bg3); border-radius: 10px; transition: 0.2s; }
+    .toggle-slider::before { content: ''; position: absolute; width: 16px; height: 16px; left: 2px; top: 2px; background: var(--text); border-radius: 50%; transition: 0.2s; }
+    .toggle-switch input:checked + .toggle-slider { background: var(--green); }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
+    .employee-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .employee-chip { display: flex; align-items: center; gap: 4px; background: var(--blue-bg); color: var(--blue); padding: 4px 8px; border-radius: 6px; font-size: 12px; }
+    .employee-chip button { background: none; border: none; color: inherit; cursor: pointer; font-size: 10px; padding: 0; }
+    .search-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; max-height: 180px; overflow-y: auto; z-index: 10; display: none; }
+    .search-dropdown .item { padding: 8px 12px; font-size: 13px; cursor: pointer; }
+    .search-dropdown .item:hover { background: var(--bg3); }
+    .search-dropdown .item.selected { color: var(--blue); }
+    .search-wrapper { position: relative; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <button class="sidebar-toggle" onclick="toggleSidebar()" title="折叠侧边栏"><i class="fa-solid fa-angles-left"></i></button>
+      <h2>日报系统</h2>
+      <div class="brand-sub">管理控制台</div>
+    </div>
+    <div class="sidebar-user">
+      <div class="avatar" id="userAvatar">?</div>
+      <div>
+        <div class="user-name" id="userDisplay">加载中..</div>
+        <div class="user-role" id="roleDisplay"></div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="overview.html" id="nav-overview"><i class="fa-solid fa-chart-pie"></i> 日报概览</a>
+      <a href="projects.html" id="nav-projects"><i class="fa-solid fa-building"></i> 项目看板</a>
+      <a href="team.html" id="nav-team"><i class="fa-solid fa-people-group"></i> 团队信息</a>
+      <a href="hours.html" id="nav-hours"><i class="fa-solid fa-chart-bar"></i> 工时统计</a>
+      <a href="distribution.html" id="nav-distribution"><i class="fa-solid fa-location-dot"></i> 人员分布</a>
+      <a href="messages.html" id="nav-messages" class="active"><i class="fa-solid fa-bullhorn"></i> 消息管理</a>
+    </nav>
+    <div class="sidebar-footer">
+      <button onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> 退出登录</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="filter-bar" style="margin-top:3%">
+      <input type="text" id="searchInput" placeholder="搜索标题..." style="width:180px">
+      <select id="typeFilter" style="width:120px">
+        <option value="">全部类型</option>
+        <option value="instant">即时发送</option>
+        <option value="scheduled">定时发送</option>
+      </select>
+      <select id="statusFilter" style="width:120px">
+        <option value="">全部状态</option>
+        <option value="active">已启用</option>
+        <option value="paused">已停用</option>
+      </select>
+      <button class="btn-primary" id="addBtn" onclick="openCreate()"><i class="fa-solid fa-plus"></i> 新建消息</button>
+    </div>
+    <div class="content">
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>标题</th>
+                <th>类型</th>
+                <th>定时规则</th>
+                <th>发送范围</th>
+                <th>状态</th>
+                <th>上次发送</th>
+                <th>发送次数</th>
+                <th>创建时间</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="taskBody"></tbody>
+          </table>
+        </div>
+        <div id="emptyState" class="empty-state" style="display:none">
+          <i class="fa-solid fa-bullhorn"></i>
+          <p>暂无消息任务</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 新建/编辑弹窗 -->
+  <div class="modal-overlay" id="formModal" style="display:none">
+    <div class="modal" style="max-width:560px">
+      <div class="modal-header">
+        <span id="modalTitle">新建消息任务</span>
+        <button onclick="closeForm()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editId">
+        <div class="form-group">
+          <label>消息标题 <span style="color:var(--red)">*</span></label>
+          <input type="text" id="editTitle" placeholder="输入消息标题">
+        </div>
+        <div class="form-group">
+          <label>消息内容 <span style="color:var(--red)">*</span></label>
+          <textarea id="editContent" rows="4" placeholder="输入消息内容"></textarea>
+        </div>
+        <div class="form-group">
+          <label>发送方式</label>
+          <select id="editTaskType" onchange="toggleTaskType()">
+            <option value="instant">即时发送</option>
+            <option value="scheduled">定时发送</option>
+          </select>
+        </div>
+        <div id="scheduleFields" style="display:none">
+          <div class="form-row">
+            <div class="form-group">
+              <label>频率</label>
+              <select id="editScheduleType" onchange="toggleScheduleDay()">
+                <option value="daily">每天</option>
+                <option value="weekly">每周</option>
+                <option value="monthly">每月</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>时间</label>
+              <input type="time" id="editScheduleTime" value="09:00">
+            </div>
+          </div>
+          <div class="form-group" id="weekdayGroup" style="display:none">
+            <label>星期</label>
+            <select id="editWeekday">
+              <option value="1">周一</option><option value="2">周二</option><option value="3">周三</option>
+              <option value="4">周四</option><option value="5">周五</option><option value="6">周六</option><option value="0">周日</option>
+            </select>
+          </div>
+          <div class="form-group" id="monthdayGroup" style="display:none">
+            <label>日期（1-28）</label>
+            <input type="number" id="editMonthday" min="1" max="28" value="1">
+          </div>
+        </div>
+        <div id="instantOptions">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);margin-top:4px">
+            <input type="checkbox" id="editSendNow" checked style="width:16px;height:16px;accent-color:var(--green)"> 创建后立即发送
+          </label>
+        </div>
+        <div class="form-group" style="margin-top:8px">
+          <label>发送范围</label>
+          <select id="editTargetType" onchange="toggleTarget()">
+            <option value="all">全员发送</option>
+            <option value="specific">指定员工</option>
+          </select>
+        </div>
+        <div id="targetSpecific" style="display:none">
+          <div class="search-wrapper">
+            <input type="text" id="empSearch" placeholder="搜索员工姓名..." oninput="searchEmployees()" autocomplete="off">
+            <div class="search-dropdown" id="empDropdown"></div>
+          </div>
+          <div class="employee-chips" id="selectedChips"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeForm()">取消</button>
+        <button class="btn-primary" onclick="saveTask()" id="saveBtn">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 删除确认 -->
+  <div class="modal-overlay" id="deleteModal" style="display:none">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <span>确认删除</span>
+        <button onclick="closeDelete()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <p style="color:var(--text2);font-size:13px">确定要删除此消息任务吗？此操作不可撤销。</p>
+        <p id="deleteTaskTitle" style="font-weight:600;margin-top:4px"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeDelete()">取消</button>
+        <button class="btn-danger" onclick="confirmDelete()">删除</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var currentPage = 'messages';
+    var currentUser = null;
+    var tasks = [];
+    var allAccounts = [];
+    var selectedAccounts = [];
+    var deleteId = null;
+
+    function showToast(msg, type) {
+      if (type === undefined) type = 'success';
+      var container = document.querySelector('.toast-container');
+      if (!container) { container = document.createElement('div'); container.className = 'toast-container'; document.body.appendChild(container); }
+      var toast = document.createElement('div'); toast.className = 'toast toast-' + type;
+      toast.textContent = msg; container.appendChild(toast);
+      setTimeout(function() { toast.style.opacity = '0'; setTimeout(function() { toast.remove(); }, 200); }, 3000);
+    }
+
+    function setActiveNav(page) { var el = document.getElementById('nav-' + page); if (el) el.classList.add('active'); }
+    function toggleSidebar() {
+      var sidebar = document.querySelector('.sidebar');
+      sidebar.classList.toggle('collapsed');
+      var icon = sidebar.querySelector('.sidebar-toggle i');
+      var collapsed = sidebar.classList.contains('collapsed');
+      icon.className = collapsed ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left';
+      try { localStorage.setItem('sidebar-collapsed', collapsed ? '1' : '0'); } catch(e) {}
+    }
+    function restoreSidebar() {
+      try {
+        var sidebar = document.querySelector('.sidebar');
+        if (localStorage.getItem('sidebar-collapsed') === '1') sidebar.classList.add('collapsed');
+      } catch(e) {}
+    }
+
+    function formatDateTime(d) {
+      if (!d) return '-';
+      var dt = new Date(d);
+      return dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0') + ' ' +
+             String(dt.getHours()).padStart(2,'0') + ':' + String(dt.getMinutes()).padStart(2,'0');
+    }
+
+    function scheduleDesc(t) {
+      if (t.task_type !== 'scheduled') return '-';
+      var labels = { daily: '每天', weekly: '每', monthly: '每月' };
+      var base = labels[t.schedule_type] || '';
+      if (t.schedule_time) base += ' ' + t.schedule_time.slice(0,5);
+      if (t.schedule_type === 'weekly' && t.schedule_day != null) {
+        var wd = ['周日','周一','周二','周三','周四','周五','周六'];
+        base = '每' + wd[t.schedule_day] + ' ' + (t.schedule_time ? t.schedule_time.slice(0,5) : '');
+      }
+      if (t.schedule_type === 'monthly' && t.schedule_day) base += '（' + t.schedule_day + '号）';
+      return base;
+    }
+
+    // ===== 数据加载 =====
+    async function loadTasks() {
+      var params = new URLSearchParams();
+      var searchVal = document.getElementById('searchInput').value.trim();
+      var typeVal = document.getElementById('typeFilter').value;
+      var statusVal = document.getElementById('statusFilter').value;
+      if (searchVal) params.set('search', searchVal);
+      if (typeVal) params.set('type', typeVal);
+      if (statusVal) params.set('status', statusVal);
+
+      try {
+        var res = await fetch(API + '/api/admin/message-tasks?' + params.toString(), { credentials: 'include' });
+        if (res.ok) {
+          var data = await res.json();
+          tasks = data.data || [];
+          renderTable();
+          return;
+        }
+      } catch(e) {}
+      tasks = [];
+      renderTable();
+    }
+
+    async function loadAccounts() {
+      try {
+        var res = await fetch(API + '/api/admin/accounts', { credentials: 'include' });
+        if (res.ok) {
+          var data = await res.json();
+          allAccounts = Array.isArray(data) ? data : (data.data || data.accounts || []);
+        }
+      } catch(e) {}
+    }
+
+    function renderTable() {
+      var tbody = document.getElementById('taskBody');
+      var empty = document.getElementById('emptyState');
+      tbody.innerHTML = '';
+
+      if (!tasks.length) {
+        empty.style.display = '';
+        return;
+      }
+      empty.style.display = 'none';
+
+      tasks.forEach(function(t) {
+        var tr = document.createElement('tr');
+        var typeBadge = t.task_type === 'scheduled'
+          ? '<span class="badge-scheduled">定时</span>'
+          : '<span class="badge-instant">即时</span>';
+        var targetBadge = t.target_type === 'all'
+          ? '<span class="badge-all">全员</span>'
+          : '<span class="badge-specific">指定员工</span>';
+        var toggleHtml = currentUser && currentUser.role === 'admin'
+          ? '<label class="toggle-switch" onclick="toggleTask(' + t.id + ', ' + (t.is_active ? 0 : 1) + ')"><input type="checkbox" ' + (t.is_active ? 'checked' : '') + '><span class="toggle-slider"></span></label>'
+          : (t.is_active ? '<span class="badge-scheduled">启用</span>' : '<span class="badge-instant">停用</span>');
+        var actionsHtml = '';
+        if (currentUser && currentUser.role === 'admin') {
+          actionsHtml =
+            '<button class="btn-xs btn-secondary" onclick="sendNow(' + t.id + ')" title="立即发送"><i class="fa-solid fa-paper-plane"></i></button>' +
+            '<button class="btn-xs btn-secondary" onclick="openEdit(' + t.id + ')" title="编辑"><i class="fa-solid fa-pen"></i></button>' +
+            '<button class="btn-xs btn-danger" onclick="openDelete(' + t.id + ')" title="删除"><i class="fa-solid fa-trash"></i></button>';
+        }
+
+        tr.innerHTML =
+          '<td style="color:var(--text)"><strong>' + (t.title || '') + '</strong></td>' +
+          '<td style="color:var(--text)">' + typeBadge + '</td>' +
+          '<td style="font-size:12px;color:var(--text2)">' + scheduleDesc(t) + '</td>' +
+          '<td style="color:var(--text)">' + targetBadge + '</td>' +
+          '<td style="color:var(--text)">' + toggleHtml + '</td>' +
+          '<td style="font-size:12px;color:var(--text2)">' + formatDateTime(t.last_sent_at) + '</td>' +
+          '<td style="color:var(--text)">' + t.sent_count + '</td>' +
+          '<td style="font-size:12px;color:var(--text2)">' + formatDateTime(t.created_at) + '</td>' +
+          '<td style="white-space:nowrap;color:var(--text)">' + actionsHtml + '</td>';
+        tbody.appendChild(tr);
+      });
+    }
+
+    // ===== 弹窗操作 =====
+    function openCreate() {
+      document.getElementById('editId').value = '';
+      document.getElementById('modalTitle').textContent = '新建消息任务';
+      document.getElementById('editTitle').value = '';
+      document.getElementById('editContent').value = '';
+      document.getElementById('editTaskType').value = 'instant';
+      document.getElementById('editScheduleType').value = 'daily';
+      document.getElementById('editScheduleTime').value = '09:00';
+      document.getElementById('editWeekday').value = '1';
+      document.getElementById('editMonthday').value = '1';
+      document.getElementById('editTargetType').value = 'all';
+      document.getElementById('editSendNow').checked = true;
+      selectedAccounts = [];
+      renderChips();
+      toggleTaskType();
+      toggleTarget();
+      document.getElementById('formModal').style.display = 'flex';
+    }
+
+    async function openEdit(id) {
+      try {
+        var res = await fetch(API + '/api/admin/message-tasks/' + id, { credentials: 'include' });
+        if (!res.ok) { showToast('加载任务失败', 'error'); return; }
+        var data = await res.json();
+        var t = data.data;
+
+        document.getElementById('editId').value = t.id;
+        document.getElementById('modalTitle').textContent = '编辑消息任务';
+        document.getElementById('editTitle').value = t.title || '';
+        document.getElementById('editContent').value = t.content || '';
+        document.getElementById('editTaskType').value = t.task_type || 'instant';
+        document.getElementById('editScheduleType').value = t.schedule_type || 'daily';
+        document.getElementById('editScheduleTime').value = t.schedule_time ? t.schedule_time.slice(0,5) : '09:00';
+        document.getElementById('editWeekday').value = t.schedule_day != null ? t.schedule_day : 1;
+        document.getElementById('editMonthday').value = t.schedule_day || 1;
+        document.getElementById('editTargetType').value = t.target_type || 'all';
+        document.getElementById('editSendNow').checked = false;
+
+        // 解析已选员工
+        selectedAccounts = [];
+        try { selectedAccounts = JSON.parse(t.target_account_ids) || []; } catch(e) { selectedAccounts = []; }
+        renderChips();
+
+        toggleTaskType();
+        toggleTarget();
+        document.getElementById('formModal').style.display = 'flex';
+      } catch(e) { showToast('加载失败', 'error'); }
+    }
+
+    function closeForm() {
+      document.getElementById('formModal').style.display = 'none';
+    }
+
+    function toggleTaskType() {
+      var typeVal = document.getElementById('editTaskType').value;
+      document.getElementById('scheduleFields').style.display = typeVal === 'scheduled' ? '' : 'none';
+      document.getElementById('instantOptions').style.display = typeVal === 'instant' ? '' : 'none';
+      toggleScheduleDay();
+    }
+
+    function toggleScheduleDay() {
+      var st = document.getElementById('editScheduleType').value;
+      document.getElementById('weekdayGroup').style.display = st === 'weekly' ? '' : 'none';
+      document.getElementById('monthdayGroup').style.display = st === 'monthly' ? '' : 'none';
+    }
+
+    function toggleTarget() {
+      document.getElementById('targetSpecific').style.display = document.getElementById('editTargetType').value === 'specific' ? '' : 'none';
+    }
+
+    // ===== 保存 =====
+    async function saveTask() {
+      var id = document.getElementById('editId').value;
+      var title = document.getElementById('editTitle').value.trim();
+      var content = document.getElementById('editContent').value.trim();
+
+      if (!title || !content) {
+        showToast('标题和内容不能为空', 'error');
+        return;
+      }
+
+      var taskType = document.getElementById('editTaskType').value;
+      var targetType = document.getElementById('editTargetType').value;
+
+      var body = {
+        title: title,
+        content: content,
+        task_type: taskType,
+        target_type: targetType,
+        target_account_ids: selectedAccounts,
+        send_now: document.getElementById('editSendNow').checked
+      };
+
+      if (taskType === 'scheduled') {
+        body.schedule_type = document.getElementById('editScheduleType').value;
+        body.schedule_time = document.getElementById('editScheduleTime').value;
+        if (body.schedule_type === 'weekly') {
+          body.schedule_day = parseInt(document.getElementById('editWeekday').value);
+        } else if (body.schedule_type === 'monthly') {
+          body.schedule_day = parseInt(document.getElementById('editMonthday').value);
+        }
+      }
+
+      var method = id ? 'PUT' : 'POST';
+      var url = API + '/api/admin/message-tasks' + (id ? '/' + id : '');
+
+      try {
+        var res = await fetch(url, {
+          method: method,
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(body)
+        });
+        if (res.ok) {
+          showToast(id ? '更新成功' : '创建成功');
+          closeForm();
+          loadTasks();
+        } else {
+          var err = await res.json();
+          showToast(err.message || '操作失败', 'error');
+        }
+      } catch(e) {
+        showToast('网络错误', 'error');
+      }
+    }
+
+    // ===== 员工选择 =====
+    var searchTimer = null;
+    function searchEmployees() {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(function() {
+        var q = document.getElementById('empSearch').value.trim().toLowerCase();
+        var dropdown = document.getElementById('empDropdown');
+        if (!q) { dropdown.style.display = 'none'; return; }
+
+        var filtered = allAccounts.filter(function(a) {
+          if (selectedAccounts.indexOf(a.id) >= 0) return false;
+          var name = (a.username || a.name || '').toLowerCase();
+          return name.indexOf(q) >= 0;
+        });
+
+        var html = '';
+        filtered.forEach(function(a) {
+          html += '<div class="item" onclick="selectAccount(' + a.id + ', \'' + ((a.username || a.name || '').replace(/'/g, "\\'")) + '\')">' + (a.username || a.name) + '</div>';
+        });
+
+        if (filtered.length === 0) {
+          html = '<div class="item" style="color:var(--text3);cursor:default">无匹配结果</div>';
+        }
+
+        dropdown.innerHTML = html;
+        dropdown.style.display = '';
+      }, 300);
+    }
+
+    function selectAccount(id, name) {
+      if (selectedAccounts.indexOf(id) >= 0) return;
+      selectedAccounts.push(id);
+      renderChips();
+      document.getElementById('empSearch').value = '';
+      document.getElementById('empDropdown').style.display = 'none';
+    }
+
+    function removeAccount(id) {
+      selectedAccounts = selectedAccounts.filter(function(x) { return x !== id; });
+      renderChips();
+    }
+
+    function renderChips() {
+      var container = document.getElementById('selectedChips');
+      var html = '';
+      selectedAccounts.forEach(function(id) {
+        var acc = allAccounts.find(function(a) { return a.id === id; });
+        var name = acc ? (acc.username || acc.name) : ('ID:' + id);
+        html += '<span class="employee-chip">' + name + '<button onclick="removeAccount(' + id + ')">&times;</button></span>';
+      });
+      container.innerHTML = html;
+    }
+
+    // 点击外部关闭搜索下拉
+    document.addEventListener('click', function(e) {
+      var dropdown = document.getElementById('empDropdown');
+      if (!dropdown) return;
+      if (!e.target.closest('#empSearch') && !e.target.closest('#empDropdown')) {
+        dropdown.style.display = 'none';
+      }
+    });
+
+    // ===== 操作按钮 =====
+    async function toggleTask(id, newState) {
+      try {
+        var res = await fetch(API + '/api/admin/message-tasks/' + id + '/toggle', {
+          method: 'POST',
+          credentials: 'include'
+        });
+        if (res.ok) {
+          showToast(newState ? '已启用' : '已停用');
+          loadTasks();
+        }
+      } catch(e) {}
+    }
+
+    async function sendNow(id) {
+      try {
+        var res = await fetch(API + '/api/admin/message-tasks/' + id + '/send', {
+          method: 'POST',
+          credentials: 'include'
+        });
+        if (res.ok) {
+          showToast('发送成功');
+          loadTasks();
+        } else {
+          showToast('发送失败', 'error');
+        }
+      } catch(e) { showToast('网络错误', 'error'); }
+    }
+
+    function openDelete(id) {
+      var t = tasks.find(function(x) { return x.id === id; });
+      document.getElementById('deleteTaskTitle').textContent = t ? t.title : '';
+      deleteId = id;
+      document.getElementById('deleteModal').style.display = 'flex';
+    }
+
+    function closeDelete() {
+      document.getElementById('deleteModal').style.display = 'none';
+      deleteId = null;
+    }
+
+    async function confirmDelete() {
+      if (!deleteId) return;
+      try {
+        var res = await fetch(API + '/api/admin/message-tasks/' + deleteId, {
+          method: 'DELETE',
+          credentials: 'include'
+        });
+        if (res.ok) {
+          showToast('删除成功');
+          closeDelete();
+          loadTasks();
+        } else {
+          showToast('删除失败', 'error');
+        }
+      } catch(e) { showToast('网络错误', 'error'); }
+    }
+
+    // 筛选变化时重新加载
+    document.getElementById('searchInput').addEventListener('input', function() { loadTasks(); });
+    document.getElementById('typeFilter').addEventListener('change', function() { loadTasks(); });
+    document.getElementById('statusFilter').addEventListener('change', function() { loadTasks(); });
+
+    // ===== 初始化 =====
+    (async function init() {
+      restoreSidebar();
+      currentUser = await checkAuth();
+      if (!currentUser) return;
+      setActiveNav(currentPage);
+
+      // 非管理员隐藏新建按钮
+      if (currentUser.role !== 'admin') {
+        var addBtn = document.getElementById('addBtn');
+        if (addBtn) addBtn.style.display = 'none';
+      }
+
+      await loadAccounts();
+      await loadTasks();
+    })();
+  </script>
+</body>
+</html>

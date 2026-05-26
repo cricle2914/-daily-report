@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>邮件管理 - 日报系统</title>
+  <link rel="stylesheet" href="../shared.css"/>
+  <link rel="stylesheet" href="../admin-layout.css"/>
+  <script src="../auth.js"></script>
+  <script src="../global.js"></script>
+  <script>
+    if (typeof API === 'undefined') {
+      var SERVER_URL_KEY = 'workorder-server-url';
+      var DEFAULT_API = 'http://172.40.93.99:31663';
+      var API = (function() {
+        try {
+          var saved = localStorage.getItem(SERVER_URL_KEY);
+          if (saved) return saved.replace(/\/+$/, '');
+        } catch(e) {}
+        return DEFAULT_API;
+      })();
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 20px; }
+    .card h3 { font-size: 15px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .card h3 i { color: var(--green); }
+    .card-desc { font-size: 13px; color: var(--text2); margin-bottom: 16px; line-height: 1.5; }
+    .form-section { max-width: 480px; }
+    .checkbox-row { display: flex; align-items: center; gap: 8px; }
+    .checkbox-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--green); }
+    .checkbox-row label { font-size: 13px; color: var(--text); }
+    .table-wrap { overflow-x: auto; }
+    .eng-table input { background: var(--bg3); border: 1px solid var(--border2); border-radius: 4px; padding: 5px 8px; font-size: 12px; color: var(--text); outline: none; width: 100%; font-family: inherit; }
+    .eng-table input:focus { border-color: var(--text2); }
+    .eng-table input::placeholder { color: var(--text4); font-style: italic; }
+    .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+    .status-dot.on { background: #4ade80; }
+    .status-dot.off { background: rgba(255,255,255,0.15); }
+    .btn-xs { padding: 3px 8px; font-size: 10px; border-radius: 4px; }
+    .test-result { margin-top: 12px; padding: 10px 14px; border-radius: 6px; font-size: 12px; font-weight: 500; line-height: 1.6; white-space: pre-wrap; }
+    .test-result.ok { background: rgba(74,222,128,0.1); color: #4ade80; }
+    .test-result.err { background: rgba(248,113,113,0.1); color: #f87171; }
+    .sidebar-group-label {
+      padding: 12px 12px 4px; font-size: 10px; font-weight: 600;
+      color: var(--text3); letter-spacing: 0.5px; text-transform: uppercase;
+    }
+    .sidebar.collapsed .sidebar-group-label { display: none; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <button class="sidebar-toggle" onclick="toggleSidebar()" title="折叠侧边栏"><i class="fa-solid fa-angles-left"></i></button>
+      <h2>日报系统</h2>
+      <div class="brand-sub">管理控制台</div>
+    </div>
+    <div class="sidebar-user">
+      <div class="avatar" id="userAvatar">?</div>
+      <div>
+        <div class="user-name" id="userDisplay">加载中..</div>
+        <div class="user-role" id="roleDisplay"></div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="engineers.html" id="nav-engineers"><i class="fa-solid fa-users"></i> 员工管理</a>
+      <a href="projects.html" id="nav-projects"><i class="fa-solid fa-diagram-project"></i> 项目管理</a>
+      <a href="reports.html" id="nav-reports"><i class="fa-solid fa-file-lines"></i> 日报管理</a>
+      <a href="hours.html" id="nav-hours"><i class="fa-solid fa-clock"></i> 工时统计</a>
+      <a href="accounts.html" id="nav-accounts"><i class="fa-solid fa-user-gear"></i> 账户管理</a>
+      <a href="email.html" id="nav-email"><i class="fa-solid fa-envelope"></i> 邮件管理</a>
+      <a href="messages.html" id="nav-messages"><i class="fa-solid fa-bullhorn"></i> 消息管理</a>
+      <a href="submit-report.html" id="nav-submit-report"><i class="fa-solid fa-pen-to-square"></i> 提交日报</a>
+    </nav>
+    <div class="sidebar-footer">
+      <button onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> 退出登录</button>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="topbar"></div>
+    <div class="content">
+      <!-- SMTP 服务器设置-->
+      <div class="card">
+        <h3><i class="fa-solid fa-server"></i> SMTP 服务器（公司邮箱服务器）</h3>
+        <div class="card-desc">所有工程师共用此服务器。每人使用自己的邮箱账号和密码进行SMTP 认证发送。</div>
+        <div class="form-section">
+          <div class="form-row">
+            <div class="form-group">
+              <label>服务器地址 <span class="required">*</span></label>
+              <input type="text" id="smtpHost" placeholder="smtp.hcxtkj.com">
+            </div>
+            <div class="form-group">
+              <label>端口</label>
+              <input type="number" id="smtpPort" placeholder="587" style="width:100px">
+            </div>
+          </div>
+          <div class="checkbox-row" style="margin:-4px 0 16px">
+            <input type="checkbox" id="smtpSecure">
+            <label for="smtpSecure">使用 SSL/TLS 加密连接</label>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>默认收件人<span class="required">*</span>（领导邮箱，逗号分隔）</label>
+              <input type="text" id="smtpTo" placeholder="leader1@hcxtkj.com, leader2@hcxtkj.com">
+            </div>
+            <div class="form-group">
+              <label>日报汇总发件人（可选）</label>
+              <input type="text" id="smtpFrom" placeholder="noreply@hcxtkj.com">
+            </div>
+          </div>
+          <div class="flex gap-8">
+            <button class="btn-primary" onclick="saveSmtpConfig()"><i class="fa-solid fa-floppy-disk"></i> 保存服务器设置</button>
+          </div>
+          <div id="serverResult" class="test-result" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- 工程师邮箱配置-->
+      <div class="card">
+        <h3><i class="fa-solid fa-at"></i> 工程师邮箱配置</h3>
+        <div class="card-desc">
+          每个工程师需填写自己的公司邮箱和密码（或授权码），提交日报时将以本人邮箱发送。          <span style="color:var(--red)"> 密码仅用于发送邮件，不会明文展示。</span>
+        </div>
+        <div class="table-wrap">
+          <table class="eng-table">
+            <thead>
+              <tr>
+                <th style="width:40px">状态</th>
+                <th style="width:100px">姓名</th>
+                <th style="width:220px">邮箱地址</th>
+                <th style="width:180px">邮箱密码/授权码</th>
+                <th style="width:120px">操作</th>
+              </tr>
+            </thead>
+            <tbody id="engineerTbody">
+              <tr><td colspan="5" style="text-align:center;color:var(--text3);padding:30px 0">加载中..</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="engTestResult" class="test-result" style="display:none"></div>
+      </div>
+
+      <!-- 发送日报汇总-->
+      <div class="card">
+        <h3><i class="fa-solid fa-envelope-open-text"></i> 日报汇总发送</h3>
+        <div class="card-desc">向所有收件人发送今日日报汇总邮件。邮件将包含各项目进展、完成情况和待处理事项。</div>
+        <button class="btn-primary" onclick="sendDailySummary()"><i class="fa-solid fa-paper-plane"></i> 发送今日日报汇总</button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    var currentPage = 'email';
+    var engineers = [];
+
+    function showToast(msg, type) {
+      if (type === undefined) type = 'success';
+      var container = document.querySelector('.toast-container');
+      if (!container) { container = document.createElement('div'); container.className = 'toast-container'; document.body.appendChild(container); }
+      var toast = document.createElement('div'); toast.className = 'toast toast-' + type;
+      toast.textContent = msg; container.appendChild(toast);
+      setTimeout(function() { toast.style.opacity = '0'; setTimeout(function() { toast.remove(); }, 200); }, 3000);
+    }
+
+
+    function setActiveNav(page) { var link = document.getElementById('nav-' + page); if (link) link.classList.add('active'); }
+    function toggleSidebar() {
+      var sidebar = document.querySelector('.sidebar');
+      sidebar.classList.toggle('collapsed');
+      var icon = sidebar.querySelector('.sidebar-toggle i');
+      var collapsed = sidebar.classList.contains('collapsed');
+      icon.className = collapsed ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left';
+      try { localStorage.setItem('sidebar-collapsed', collapsed ? '1' : '0'); } catch(e) {}
+    }
+    function restoreSidebar() {
+      try {
+        var sidebar = document.querySelector('.sidebar');
+        var collapsed = localStorage.getItem('sidebar-collapsed') === '1';
+        if (collapsed) { sidebar.classList.add('collapsed'); }
+        else { sidebar.classList.remove('collapsed'); }
+        var icon = sidebar.querySelector('.sidebar-toggle i');
+        icon.className = collapsed ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left';
+      } catch(e) {}
+    }
+    
+
+    function showResult(el, ok, msg) {
+      el.style.display = 'block';
+      el.className = 'test-result ' + (ok ? 'ok' : 'err');
+      el.textContent = msg;
+    }
+
+    // ===== SMTP 服务器设置=====
+    async function loadSmtpConfig() {
+      try {
+        var res = await fetch(API + '/api/admin/email-settings', { credentials: 'include' });
+        if (!res.ok) return;
+        var json = await res.json();
+        var cfg = json.data || json;
+        if (!cfg) return;
+        if (cfg.smtp_host) document.getElementById('smtpHost').value = cfg.smtp_host;
+        if (cfg.smtp_port) document.getElementById('smtpPort').value = cfg.smtp_port;
+        document.getElementById('smtpSecure').checked = !!cfg.smtp_secure;
+        if (cfg.to_addresses) document.getElementById('smtpTo').value = cfg.to_addresses;
+        if (cfg.from_address) document.getElementById('smtpFrom').value = cfg.from_address;
+      } catch (e) {}
+    }
+
+    async function saveSmtpConfig() {
+      var body = {
+        smtp_host: document.getElementById('smtpHost').value.trim(),
+        smtp_port: parseInt(document.getElementById('smtpPort').value) || 587,
+        smtp_secure: document.getElementById('smtpSecure').checked ? 1 : 0,
+        to_addresses: document.getElementById('smtpTo').value.trim(),
+        from_address: document.getElementById('smtpFrom').value.trim(),
+      };
+      if (!body.smtp_host) { showToast('请输入SMTP 服务器地址', 'error'); return; }
+      if (!body.to_addresses) { showToast('请输入默认收件人', 'error'); return; }
+      var btn = document.querySelector('.btn-primary');
+      btn.disabled = true; btn.textContent = '保存中...';
+      try {
+        var res = await fetch(API + '/api/admin/email-settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) });
+        if (!res.ok) { var err = await res.json(); throw new Error(err.message || err.error || '保存失败'); }
+        showToast('服务器设置已保存');
+      } catch (e) {
+        showToast('保存失败: ' + e.message, 'error');
+      } finally { btn.disabled = false; btn.textContent = '保存服务器设置'; }
+    }
+
+    // ===== 工程师邮箱配置=====
+    async function loadEngineerSettings() {
+      try {
+        var res = await fetch(API + '/api/admin/engineer-email-settings', { credentials: 'include' });
+        if (!res.ok) { document.getElementById('engineerTbody').innerHTML = '<tr><td colspan="5" style="text-align:center;color:rgba(255,255,255,0.2);padding:30px 0">加载失败</td></tr>'; return; }
+        var json = await res.json();
+        engineers = json.data || json || [];
+        renderEngineers();
+      } catch (e) {
+        document.getElementById('engineerTbody').innerHTML = '<tr><td colspan="5" style="text-align:center;color:rgba(255,255,255,0.2);padding:30px 0">加载失败</td></tr>';
+      }
+    }
+
+    function renderEngineers() {
+      var tbody = document.getElementById('engineerTbody');
+      if (!engineers.length) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:rgba(255,255,255,0.2);padding:30px 0">暂无工程师数据</td></tr>';
+        return;
+      }
+      tbody.innerHTML = '';
+      engineers.forEach(function(eng) {
+        var tr = document.createElement('tr');
+        var hasCreds = !!(eng.smtp_user && eng.smtp_pass);
+        tr.innerHTML =
+          '<td style="padding:10px 14px;vertical-align:middle">' +
+            '<span class="status-dot ' + (hasCreds ? 'on' : 'off') + '"></span>' +
+          '</td>' +
+          '<td style="padding:10px 14px;vertical-align:middle;color:var(--text);font-weight:600">' +
+            (eng.name || '-') + '<span style="font-size:10px;color:var(--text3);margin-left:4px">' + (eng.abbr || '') + '</span>' +
+          '</td>' +
+          '<td style="padding:10px 14px;vertical-align:middle">' +
+            '<input type="text" class="eng-email-input" data-id="' + eng.id + '" value="' + (eng.smtp_user || eng.email || '') + '" placeholder="zhangsan@hcxtkj.com" style="width:100%;max-width:200px">' +
+          '</td>' +
+          '<td style="padding:10px 14px;vertical-align:middle">' +
+            '<input type="password" class="eng-pass-input" data-id="' + eng.id + '" value="" placeholder="' + (eng.smtp_pass === '******' ? '留空保留原密码' : '输入密码或授权码') + '" style="width:100%;max-width:160px">' +
+          '</td>' +
+          '<td style="padding:10px 14px;vertical-align:middle">' +
+            '<div class="flex gap-8">' +
+              '<button class="btn-secondary btn-xs" onclick="saveEngineer(' + eng.id + ')" id="saveBtn-' + eng.id + '">保存</button>' +
+              '<button class="btn-primary btn-xs" onclick="testEngineer(' + eng.id + ')" id="testBtn-' + eng.id + '">测试</button>' +
+            '</div>' +
+          '</td>';
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function saveEngineer(id) {
+      var emailInput = document.querySelector('.eng-email-input[data-id="' + id + '"]');
+      var passInput = document.querySelector('.eng-pass-input[data-id="' + id + '"]');
+      var user = emailInput.value.trim();
+      var pass = passInput.value;
+      if (!user) { showToast('请输入邮箱地址', 'error'); return; }
+      var btn = document.getElementById('saveBtn-' + id);
+      btn.disabled = true; btn.textContent = '保存中...';
+      try {
+        var body = { smtp_user: user };
+        if (pass) body.smtp_pass = pass;
+        var res = await fetch(API + '/api/admin/engineer-email-settings/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) });
+        if (!res.ok) { var err = await res.json(); throw new Error(err.message || err.error || '保存失败'); }
+        showToast('已保存');
+        await loadEngineerSettings();
+      } catch (e) {
+        showToast('保存失败: ' + e.message, 'error');
+        btn.disabled = false; btn.textContent = '保存';
+      }
+    }
+
+    async function testEngineer(id) {
+      var eng = engineers.find(function(e) { return e.id === id; });
+      if (!eng) return;
+      var emailInput = document.querySelector('.eng-email-input[data-id="' + id + '"]');
+      var passInput = document.querySelector('.eng-pass-input[data-id="' + id + '"]');
+      var user = emailInput.value.trim() || eng.smtp_user || eng.email;
+      var pass = passInput.value;
+      if (!pass) {
+        showToast(eng.name + ': 请先填写密码再测试', 'error');
+        return;
+      }
+      var host = document.getElementById('smtpHost').value.trim();
+      var to = document.getElementById('smtpTo').value.trim();
+      if (!host || !to) { showToast('请先配置 SMTP 服务器和收件人', 'error'); return; }
+
+      var btn = document.getElementById('testBtn-' + id);
+      btn.disabled = true; btn.textContent = '测试中...';
+      try {
+        var body = {
+          smtp_host: host,
+          smtp_port: parseInt(document.getElementById('smtpPort').value) || 587,
+          smtp_secure: document.getElementById('smtpSecure').checked,
+          smtp_user: user,
+          smtp_pass: pass,
+          from_address: user,
+          to_addresses: to,
+        };
+        var res = await fetch(API + '/api/admin/email-test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) });
+        var json = await res.json();
+        var resultEl = document.getElementById('engTestResult');
+        if (json.success) {
+          showResult(resultEl, true, eng.name + ': 测试成功！收件人' + (json.data?.accepted || []).join(', '));
+        } else {
+          showResult(resultEl, false, eng.name + ': ' + (json.message || '发送失败'));
+        }
+      } catch (e) {
+        showResult(document.getElementById('engTestResult'), false, eng.name + ': 连接失败：' + e.message);
+      } finally { btn.disabled = false; btn.textContent = '测试'; }
+    }
+
+    // ===== 日报汇总发送=====
+    async function sendDailySummary() {
+      try {
+        showToast('正在发送日报汇总..', 'success');
+        var res = await fetch(API + '/api/admin/send-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
+        if (!res.ok) { var err = await res.json(); throw new Error(err.message || err.error || '发送失败'); }
+        showToast('日报汇总已发送');
+      } catch (e) {
+        showToast('发送失败 ' + e.message, 'error');
+      }
+    }
+
+    // ===== 初始化=====
+    (async function init() {
+      restoreSidebar();
+      var user = await checkAuth();
+      if (!user) return;
+      setActiveNav(currentPage);
+      await Promise.all([loadSmtpConfig(), loadEngineerSettings()]);
+    })();
+  </script>
+</body>
+</html>
+

@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>团队信息 - 日报系统</title>
+  <link rel="stylesheet" href="../shared.css"/>
+  <link rel="stylesheet" href="../admin-layout.css"/>
+  <script src="../auth.js"></script>
+  <script src="../global.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    .sidebar-nav a.active { background: var(--blue-bg); color: var(--blue); font-weight: 700; }
+    .sidebar-user .user-role { color: var(--blue); }
+
+    .search-section { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+    .search-title { font-size: 15px; font-weight: 700; color: var(--text3); margin-bottom: 12px; }
+    .search-wrap { position: relative; display: inline-block; }
+    .search-box { padding: 10px 18px; font-size: 15px; font-weight: 500; width: 300px; background: var(--bg3); border: 1px solid var(--border2); border-radius: 8px; color: var(--text); outline: none; font-family: inherit; text-align: left; }
+    .search-dropdown { position: absolute; top: 100%; left: 0; right: 0; z-index: 50; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; margin-top: 6px; overflow: hidden; }
+    .search-dropdown button { display: block; width: 100%; padding: 10px 20px; font-size: 14px; font-weight: 600; color: var(--text); cursor: pointer; font-family: inherit; background: none; border: none; text-align: center; }
+    .search-dropdown button:hover { background: var(--bg3); }
+    .back-btn { margin-right: 8px; padding: 6px 14px; font-size: 12px; font-weight: 600; border-radius: 6px; border: 1px solid var(--border2); background: transparent; color: var(--text3); cursor: pointer; font-family: inherit; }
+
+    /* 排行 */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .rank-section { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+    .rank-title { font-size: 13px; font-weight: 700; color: var(--text3); margin-bottom: 12px; }
+    .rank-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border2); }
+    .rank-num { font-size: 11px; font-weight: 700; color: var(--text4); width: 20px; flex-shrink: 0; }
+    .rank-name { font-size: 13px; font-weight: 600; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rank-bar { flex: 1; height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; max-width: 120px; }
+    .rank-fill { height: 100%; background: var(--green); border-radius: 2px; opacity: 0.6; }
+    .rank-hours { font-size: 12px; font-weight: 700; color: var(--text); width: 40px; text-align: right; flex-shrink: 0; }
+    .empty-state-text { padding: 30px 0; text-align: center; color: var(--text4); font-size: 13px; font-weight: 500; }
+
+    /* 详情布局 */
+    .detail-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; }
+    .left-panel { display: flex; flex-direction: column; justify-content: flex-start; padding-top: 20px; }
+    .selected-name { font-size: 64px; font-weight: 900; color: var(--text); line-height: 1.1; letter-spacing: -0.02em; }
+    .selected-meta { font-size: 13px; color: var(--text3); margin-top: 6px; }
+
+    .stat-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; margin-bottom: 16px; }
+    .stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+    .stat-label { font-size: 10px; font-weight: 600; color: var(--text4); margin-bottom: 4px; }
+    .stat-value { font-size: 22px; font-weight: 800; color: var(--text); line-height: 1.2; }
+    .stat-sub { font-size: 10px; font-weight: 500; color: var(--text3); margin-top: 2px; }
+
+    /* 出勤格子 */
+    .att-section { margin-top: auto; padding-top: 16px; }
+    .att-title { font-size: 11px; font-weight: 600; color: var(--text3); margin-bottom: 6px; }
+    .att-month-row { display: flex; align-items: center; gap: 3px; margin-bottom: 2px; width: 100%; }
+    .att-month-label { font-size: 8px; font-weight: 500; color: var(--text4); width: 20px; flex-shrink: 0; }
+    .att-grid { display: grid; gap: 1px; flex: 1; }
+    .att-cell { aspect-ratio: 1; border-radius: 1px; min-width: 0; }
+    .att-legend { display: flex; gap: 8px; margin-top: 6px; justify-content: flex-end; }
+    .att-legend-item { display: flex; align-items: center; gap: 3px; font-size: 9px; font-weight: 500; color: var(--text3); }
+    .att-dot { width: 6px; height: 6px; border-radius: 1px; flex-shrink: 0; }
+
+    /* 4 环 */
+    .rings-2x2 { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 8px; min-height: 400px; }
+    .ring-card { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .ring-label { font-size: 11px; font-weight: 700; color: var(--text3); margin-bottom: 2px; }
+    .ring-wrap { position: relative; width: 100%; max-width: 240px; aspect-ratio: 1; }
+    .ring-wrap svg { display: block; width: 100%; height: 100%; }
+    .ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+    .ring-tooltip { position: absolute; top: 0; left: 50%; transform: translateX(-50%); background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; z-index: 10; white-space: nowrap; pointer-events: none; display: flex; flex-direction: column; gap: 3px; }
+    .tooltip-row { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 500; }
+    .tooltip-label { color: var(--text3); }
+    .tooltip-val { font-weight: 700; color: var(--text); }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <button class="sidebar-toggle" onclick="toggleSidebar()" title="折叠侧边栏"><i class="fa-solid fa-angles-left"></i></button>
+      <h2>日报系统</h2>
+      <div class="brand-sub">管理控制台</div>
+    </div>
+    <div class="sidebar-user">
+      <div class="avatar" id="userAvatar">?</div>
+      <div>
+        <div class="user-name" id="userDisplay">加载中..</div>
+        <div class="user-role" id="roleDisplay"></div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="overview.html" id="nav-overview"><i class="fa-solid fa-chart-pie"></i> 日报概览</a>
+      <a href="projects.html" id="nav-projects"><i class="fa-solid fa-building"></i> 项目看板</a>
+      <a href="team.html" id="nav-team"><i class="fa-solid fa-people-group"></i> 团队信息</a>
+      <a href="hours.html" id="nav-hours"><i class="fa-solid fa-chart-bar"></i> 工时统计</a>
+      <a href="distribution.html" id="nav-distribution"><i class="fa-solid fa-location-dot"></i> 人员分布</a>
+      <a href="messages.html" id="nav-messages"><i class="fa-solid fa-bullhorn"></i> 消息管理</a>
+    </nav>
+    <div class="sidebar-footer">
+      <button onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> 退出登录</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="content" style="padding:28px 32px">
+      <!-- 搜索区域 -->
+      <div class="search-section">
+        <div class="search-title">人员状态</div>
+        <div style="display:flex;align-items:center">
+          <button class="back-btn" id="backBtn" style="display:none" onclick="clearSearch()">返回排行</button>
+          <div class="search-wrap">
+            <input class="search-box" id="searchInput" placeholder="搜索工程师..." onkeydown="onSearchKeydown(event)" onfocus="this.style.borderColor='var(--border)'" onblur="this.style.borderColor='var(--border2)'"/>
+            <div class="search-dropdown" id="searchDropdown" style="display:none"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 加载中 -->
+      <div id="loadingView" class="empty-state-text">加载中...</div>
+
+      <!-- 排行（默认视图） -->
+      <div id="rankingsView" style="display:none">
+        <div class="two-col">
+          <div class="rank-section">
+            <div class="rank-title">按项目排行</div>
+            <div id="projectRankList"></div>
+          </div>
+          <div class="rank-section">
+            <div class="rank-title">按工程师排行</div>
+            <div id="engineerRankList"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 工程师详情 -->
+      <div id="detailView" style="display:none">
+        <div class="detail-wrap">
+          <div class="left-panel">
+            <div class="selected-name" id="detailName"></div>
+            <div class="selected-meta" id="detailMeta"></div>
+            <div class="stat-cards">
+              <div class="stat-card"><div class="stat-label">今日</div><div class="stat-value" id="statToday">0</div><div class="stat-sub" id="statTodayStd">标准 0 h</div></div>
+              <div class="stat-card"><div class="stat-label">本周</div><div class="stat-value" id="statWeek">0</div><div class="stat-sub" id="statWeekStd">标准 0 h</div></div>
+              <div class="stat-card"><div class="stat-label">本月</div><div class="stat-value" id="statMonth">0</div><div class="stat-sub" id="statMonthStd">标准 0 h</div></div>
+            </div>
+            <div class="att-section" id="attSection" style="display:none">
+              <div class="att-title">近12个月出勤</div>
+              <div id="attGridContainer" style="overflow-y:auto"></div>
+              <div class="att-legend">
+                <div class="att-legend-item"><div class="att-dot" style="background:#4ade80"></div>出勤</div>
+                <div class="att-legend-item"><div class="att-dot" style="background:#60a5fa"></div>公司</div>
+                <div class="att-legend-item"><div class="att-dot" style="background:#fbbf24"></div>请假</div>
+                <div class="att-legend-item"><div class="att-dot" style="background:var(--bg3)"></div>休息</div>
+              </div>
+            </div>
+          </div>
+          <div class="rings-2x2" id="ringsContainer"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    var currentPage = 'team';
+    var trendData = null;
+    var byProject = [];
+    var byEngineer = [];
+    var selectedEng = null;
+
+    // ===== 工具函数 =====
+    function showToast(msg, type) {
+      if (type === undefined) type = 'success';
+      var container = document.querySelector('.toast-container');
+      if (!container) { container = document.createElement('div'); container.className = 'toast-container'; document.body.appendChild(container); }
+      var toast = document.createElement('div'); toast.className = 'toast toast-' + type;
+      toast.textContent = msg; container.appendChild(toast);
+      setTimeout(function() { toast.style.opacity = '0'; setTimeout(function() { toast.remove(); }, 200); }, 3000);
+    }
+    function setActiveNav(page) { var el = document.getElementById('nav-' + page); if (el) el.classList.add('active'); }
+    function toggleSidebar() {
+      var sidebar = document.querySelector('.sidebar');
+      sidebar.classList.toggle('collapsed');
+      var icon = sidebar.querySelector('.sidebar-toggle i');
+      var collapsed = sidebar.classList.contains('collapsed');
+      icon.className = collapsed ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left';
+      try { localStorage.setItem('sidebar-collapsed', collapsed ? '1' : '0'); } catch(e) {}
+    }
+    function restoreSidebar() { try { if (localStorage.getItem('sidebar-collapsed') === '1') document.querySelector('.sidebar').classList.add('collapsed'); } catch(e) {} }
+    function fmtNum(v) { return parseFloat(v || 0).toFixed(1); }
+
+    // ===== 中国节假日 2026 =====
+    var HOLIDAYS = {
+      '2026-01-01':1,'2026-01-02':1,'2026-02-17':1,'2026-02-18':1,'2026-02-19':1,'2026-02-20':1,
+      '2026-04-06':1,'2026-05-01':1,'2026-05-04':1,'2026-05-05':1,'2026-06-19':1,
+      '2026-09-28':1,'2026-09-29':1,'2026-10-01':1,'2026-10-02':1,'2026-10-05':1,'2026-10-06':1,'2026-10-07':1
+    };
+    var WORK_WEEKENDS = {'2026-02-14':1,'2026-02-15':1,'2026-04-25':1,'2026-09-26':1,'2026-10-10':1};
+    function isWorkDay(d) {
+      var key = d.toISOString().slice(0,10);
+      if (WORK_WEEKENDS[key]) return true;
+      var day = d.getDay();
+      if (day === 0 || day === 6) return false;
+      if (HOLIDAYS[key]) return false;
+      return true;
+    }
+    function countWorkDays(from, to) {
+      var c=0, d=new Date(from), end=new Date(to);
+      while (d <= end) { if (isWorkDay(d)) c++; d.setDate(d.getDate()+1); }
+      return c;
+    }
+    function getWeekStd(ref) {
+      var d=new Date(ref), day=d.getDay(), diff=day===0?-6:1-day, mon=new Date(d); mon.setDate(d.getDate()+diff);
+      var sun=new Date(mon); sun.setDate(mon.getDate()+6);
+      var f=mon.toISOString().slice(0,10), t=sun.toISOString().slice(0,10);
+      var wd=countWorkDays(f,t);
+      return {monday:f, sunday:t, workDays:wd, standardHours:wd*8};
+    }
+    function getMonthStd(ref) {
+      var d=new Date(ref), y=d.getFullYear(), m=d.getMonth();
+      var f=y+'-'+String(m+1).padStart(2,'0')+'-01', last=new Date(y,m+1,0);
+      var t=last.toISOString().slice(0,10), wd=countWorkDays(f,t);
+      return {monthStart:f, monthEnd:t, workDays:wd, standardHours:wd*8};
+    }
+    function getYearStd(ref) {
+      var d=new Date(ref), y=d.getFullYear();
+      var f=y+'-01-01', t=y+'-12-31', wd=countWorkDays(f,t);
+      return {yearStart:f, yearEnd:t, workDays:wd, standardHours:wd*8};
+    }
+    function getLastWeekStd(ref) { var d=new Date(ref); d.setDate(d.getDate()-7); return getWeekStd(d); }
+    function getLastMonthStd(ref) { var d=new Date(ref); d.setMonth(d.getMonth()-1); return getMonthStd(d); }
+    function getLastYearStd(ref) { var d=new Date(ref); d.setFullYear(d.getFullYear()-1); return getYearStd(d); }
+    function fmtDate(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+
+    // ===== 搜索 =====
+    var searchTimeout = null;
+    function onSearchKeydown(e) {
+      if (selectedEng) clearSearch();
+      if (e.key === 'Enter') {
+        var matches = getSearchMatches();
+        if (matches.length > 0) selectEngineer(matches[0].engineer_id);
+        else hideDropdown();
+      }
+    }
+    document.getElementById('searchInput').addEventListener('input', function() {
+      if (selectedEng) clearSearch();
+      var q = this.value.trim();
+      if (!q) { hideDropdown(); return; }
+      if (searchTimeout) clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(function() {
+        var matches = getSearchMatches();
+        showDropdown(matches);
+      }, 150);
+    });
+    function getSearchMatches() {
+      var q = document.getElementById('searchInput').value.trim().toLowerCase();
+      if (!q) return [];
+      return byEngineer.filter(function(e) { return e.engineer_name.toLowerCase().indexOf(q) !== -1; });
+    }
+    function showDropdown(matches) {
+      var dd = document.getElementById('searchDropdown');
+      if (!matches.length) { dd.style.display = 'none'; return; }
+      dd.innerHTML = matches.map(function(e) {
+        return '<button onclick="selectEngineer(' + e.engineer_id + ')">' + e.engineer_name + '</button>';
+      }).join('');
+      dd.style.display = '';
+    }
+    function hideDropdown() { document.getElementById('searchDropdown').style.display = 'none'; }
+
+    // ===== 加载数据 =====
+    async function loadAll() {
+      document.getElementById('loadingView').style.display = '';
+      document.getElementById('rankingsView').style.display = 'none';
+      document.getElementById('detailView').style.display = 'none';
+
+      try {
+        var res = await fetch(API + '/api/leader/hours/trend?period=day', { credentials: 'include' });
+        if (res.ok) {
+          var data = await res.json();
+          trendData = data.data || data;
+          byProject = trendData.by_project || [];
+          byEngineer = trendData.by_engineer || [];
+        }
+      } catch(e) {}
+      document.getElementById('loadingView').style.display = 'none';
+      renderRankings();
+    }
+
+    // ===== 排行 =====
+    function renderRankings() {
+      document.getElementById('rankingsView').style.display = '';
+      document.getElementById('detailView').style.display = 'none';
+      document.getElementById('backBtn').style.display = 'none';
+
+      var maxP = Math.max.apply(null, byProject.map(function(p) { return p.total_hours; }), 1);
+      var maxE = Math.max.apply(null, byEngineer.map(function(e) { return e.total_hours; }), 1);
+
+      var pHtml = byProject.length === 0 ? '<div class="empty-state-text">暂无数据</div>' :
+        byProject.slice(0, 20).map(function(p, i) {
+          var pct = (p.total_hours / maxP) * 100;
+          return '<div class="rank-row"><span class="rank-num">' + (i+1) + '</span><span class="rank-name">' + (p.project_name||'') + '</span><div class="rank-bar"><div class="rank-fill" style="width:' + pct + '%"></div></div><span class="rank-hours">' + fmtNum(p.total_hours) + '</span></div>';
+        }).join('');
+      document.getElementById('projectRankList').innerHTML = pHtml;
+
+      var eHtml = byEngineer.length === 0 ? '<div class="empty-state-text">暂无数据</div>' :
+        byEngineer.slice(0, 20).map(function(e, i) {
+          var pct = (e.total_hours / maxE) * 100;
+          return '<div class="rank-row"><span class="rank-num">' + (i+1) + '</span><span class="rank-name" style="cursor:pointer;color:var(--blue)" onclick="selectEngineer(' + e.engineer_id + ')">' + (e.engineer_name||'') + '</span><div class="rank-bar"><div class="rank-fill" style="width:' + pct + '%"></div></div><span class="rank-hours">' + fmtNum(e.total_hours) + '</span></div>';
+        }).join('');
+      document.getElementById('engineerRankList').innerHTML = eHtml;
+    }
+
+    // ===== 选择工程师 =====
+    async function selectEngineer(engId) {
+      hideDropdown();
+      var eng = null;
+      for (var i = 0; i < byEngineer.length; i++) {
+        if (byEngineer[i].engineer_id === engId) { eng = byEngineer[i]; break; }
+      }
+      if (!eng) return;
+
+      selectedEng = eng;
+      document.getElementById('searchInput').value = eng.engineer_name;
+      document.getElementById('rankingsView').style.display = 'none';
+      document.getElementById('detailView').style.display = '';
+      document.getElementById('backBtn').style.display = '';
+      document.getElementById('detailName').textContent = eng.engineer_name;
+      document.getElementById('detailMeta').textContent = '总工时 ' + fmtNum(eng.total_hours) + ' h';
+
+      document.getElementById('statToday').textContent = '-';
+      document.getElementById('statWeek').textContent = '-';
+      document.getElementById('statMonth').textContent = '-';
+      document.getElementById('ringsContainer').innerHTML = '<div class="empty-state-text" style="grid-column:1/-1">加载中...</div>';
+      document.getElementById('attSection').style.display = 'none';
+
+      var now = new Date();
+      var todayStr = fmtDate(now);
+      var yesterday = new Date(now); yesterday.setDate(yesterday.getDate()-1);
+      var yesterdayStr = fmtDate(yesterday);
+      var todayStd = isWorkDay(now) ? 8 : 0;
+      var week = getWeekStd(now), month = getMonthStd(now), year = getYearStd(now);
+      var lw = getLastWeekStd(now), lm = getLastMonthStd(now), ly = getLastYearStd(now);
+
+      try {
+        var [tr, yrtr, wr, mr, yr, lwr, lmr, lyr] = await Promise.all([
+          fetch(API + '/api/leader/engineer/hours?id=' + engId + '&date_from=' + todayStr + '&date_to=' + todayStr, { credentials: 'include' }).then(r => r.json()),
+          fetch(API + '/api/leader/engineer/hours?id=' + engId + '&date_from=' + yesterdayStr + '&date_to=' + yesterdayStr, { credentials: 'include' }).then(r => r.json()),
+          fetch(API + '/api/leader/engineer/hours?id=' + engId + '&date_from=' + week.monday + '&date_to=' + week.sunday, { credentials: 'include' }).then(r => r.json()),
+          fetch(API + '/api/leader/engineer/hours?id=' + engId + '&date_from=' + month.monthStart + '&date_to=' + month.monthEnd, { credentials: 'include' }).then(r => r.json()),
+          fetch(API + '/api/leader/engineer/hours?id=' + engId + '&date_from=' + year.yearStart + '&date_to=' + year.yearEnd, { credentials: 'include' }).then(r => r.json()),
+          fetch(API + '/api/leader/engineer/hours?id=' + engId + '&date_from=' + lw.monday + '&date_to=' + lw.sunday, { credentials: 'include' }).then(r => r.json()),
+          fetch(API + '/api/leader/engineer/hours?id=' + engId + '&date_from=' + lm.monthStart + '&date_to=' + lm.monthEnd, { credentials: 'include' }).then(r => r.json()),
+          fetch(API + '/api/leader/engineer/hours?id=' + engId + '&date_from=' + ly.yearStart + '&date_to=' + ly.yearEnd, { credentials: 'include' }).then(r => r.json()),
+        ]);
+
+        var getH = function(resp) { return parseFloat((resp.data||resp).total_hours || 0); };
+        var hourData = {
+          today: { actual: getH(tr), standard: todayStd, lastActual: getH(yrtr) },
+          week: { actual: getH(wr), standard: week.standardHours, lastActual: getH(lwr) },
+          month: { actual: getH(mr), standard: month.standardHours, lastActual: getH(lmr) },
+          year: { actual: getH(yr), standard: year.standardHours, lastActual: getH(lyr) },
+        };
+
+        document.getElementById('statToday').textContent = hourData.today.actual.toFixed(1);
+        document.getElementById('statTodayStd').textContent = '标准 ' + hourData.today.standard + ' h';
+        document.getElementById('statWeek').textContent = hourData.week.actual.toFixed(1);
+        document.getElementById('statWeekStd').textContent = '标准 ' + hourData.week.standard.toFixed(1) + ' h';
+        document.getElementById('statMonth').textContent = hourData.month.actual.toFixed(1);
+        document.getElementById('statMonthStd').textContent = '标准 ' + hourData.month.standard.toFixed(1) + ' h';
+
+        renderRings(hourData);
+
+        // 出勤
+        var attStart = new Date(now);
+        attStart.setMonth(attStart.getMonth() - 11);
+        attStart.setDate(1);
+        var attRes = await fetch(API + '/api/leader/attendance?engineer_id=' + engId + '&date_from=' + fmtDate(attStart) + '&date_to=' + todayStr, { credentials: 'include' });
+        if (attRes.ok) {
+          var attData = await attRes.json();
+          renderAttendance(attData.data || attData);
+        }
+      } catch(e) {
+        document.getElementById('ringsContainer').innerHTML = '<div class="empty-state-text" style="grid-column:1/-1">加载失败</div>';
+      }
+    }
+
+    function clearSearch() {
+      selectedEng = null;
+      document.getElementById('searchInput').value = '';
+      document.getElementById('detailView').style.display = 'none';
+      document.getElementById('backBtn').style.display = 'none';
+      document.getElementById('rankingsView').style.display = '';
+    }
+
+    // ===== 渲染 4 环 =====
+    function renderRings(hd) {
+      var rings = [
+        { label: '今日', key: 'today', periodLabel: '日' },
+        { label: '本周', key: 'week', periodLabel: '周' },
+        { label: '本月', key: 'month', periodLabel: '月' },
+        { label: '年度', key: 'year', periodLabel: '年' },
+      ];
+      var html = rings.map(function(r) {
+        var data = hd[r.key];
+        var R = 82, C = 2 * Math.PI * R, STROKE = 24;
+        var standard = data.standard;
+        if (standard === 0) {
+          return '<div class="ring-card"><div class="ring-label">' + r.label + '</div><div class="ring-wrap"><svg viewBox="0 0 240 240"><circle cx="120" cy="120" r="' + R + '" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="' + STROKE + '"/></svg><div class="ring-center"><div style="font-size:11px;color:var(--text3)">暂无</div></div></div></div>';
+        }
+        var actual = data.actual, lastActual = data.lastActual;
+        var overtime = Math.max(0, actual - standard);
+        var done = Math.min(actual, standard);
+        var doneLen = (done / standard) * C;
+        var orangeLen = Math.min(doneLen, C);
+        var redLen = overtime > 0 ? (overtime / standard) * C : 0;
+        var remaining = actual < standard ? C - orangeLen : 0;
+        var hb = lastActual > 0 ? ((actual - lastActual) / lastActual) * 100 : 0;
+        var rate = (actual / standard) * 100;
+        var isToday = r.key === 'today';
+        var hbText = hb >= 0 ? '+' + hb.toFixed(1) + '%' : hb.toFixed(1) + '%';
+        var hbColor = hb > 0 ? 'var(--amber)' : hb < 0 ? 'var(--red)' : 'var(--text3)';
+
+        var svg = '<svg viewBox="0 0 240 240">';
+        svg += '<circle cx="120" cy="120" r="' + R + '" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="' + STROKE + '" transform="rotate(-90 120 120)"/>';
+        svg += '<circle cx="120" cy="120" r="' + R + '" fill="none" stroke="#fb923c" stroke-width="' + STROKE + '" stroke-dasharray="' + orangeLen + ' ' + C + '" stroke-linecap="butt" transform="rotate(-90 120 120)"/>';
+        if (remaining > 0) {
+          svg += '<circle cx="120" cy="120" r="' + R + '" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="' + STROKE + '" stroke-dasharray="' + remaining + ' ' + C + '" stroke-dashoffset="' + (-orangeLen) + '" stroke-linecap="butt" transform="rotate(-90 120 120)"/>';
+        }
+        if (redLen > 0) {
+          svg += '<g transform="scale(-1, 1)"><circle cx="-120" cy="120" r="' + R + '" fill="none" stroke="#ef4444" stroke-width="' + STROKE + '" stroke-dasharray="' + redLen + ' ' + C + '" stroke-linecap="butt" transform="rotate(-90 -120 120)"/></g>';
+        }
+        svg += '</svg>';
+
+        var centerHtml;
+        if (isToday) {
+          centerHtml = '<div style="font-size:28px;font-weight:900;color:var(--text);line-height:1.1">' + actual.toFixed(1) + '</div><div style="font-size:12px;font-weight:600;color:var(--text3)">小时</div>';
+        } else {
+          centerHtml = '<div style="font-size:16px;font-weight:800;color:' + hbColor + '"><span style="font-size:10px;font-weight:500;color:var(--text4);margin-right:3px">环比</span>' + hbText + '</div><div style="font-size:12px;font-weight:700;color:var(--text3);margin-top:2px"><span style="font-size:10px;font-weight:500;color:var(--text4);margin-right:3px">完成</span>' + Math.round(rate) + '%</div>';
+        }
+
+        var tooltip = '<div class="ring-tooltip" style="display:none" data-ring="' + r.key + '">';
+        tooltip += '<div class="tooltip-row"><span class="tooltip-label">标准</span><span class="tooltip-val">' + standard.toFixed(1) + ' h</span></div>';
+        tooltip += '<div class="tooltip-row"><span class="tooltip-label">实际</span><span class="tooltip-val">' + actual.toFixed(1) + ' h</span></div>';
+        tooltip += '<div class="tooltip-row"><span class="tooltip-label">上' + r.periodLabel + '</span><span class="tooltip-val">' + lastActual.toFixed(1) + ' h</span></div>';
+        tooltip += '</div>';
+
+        return '<div class="ring-card"><div class="ring-label">' + r.label + '</div><div class="ring-wrap" onmouseenter="showRingTooltip(this)" onmouseleave="hideRingTooltip(this)">' + svg + tooltip + '<div class="ring-center">' + centerHtml + '</div></div></div>';
+      }).join('');
+      document.getElementById('ringsContainer').innerHTML = html;
+    }
+
+    function showRingTooltip(el) {
+      var tip = el.querySelector('.ring-tooltip');
+      if (tip) tip.style.display = '';
+    }
+    function hideRingTooltip(el) {
+      var tip = el.querySelector('.ring-tooltip');
+      if (tip) tip.style.display = 'none';
+    }
+
+    // ===== 出勤格子 =====
+    function renderAttendance(data) {
+      var dates = data.dates || [];
+      var attendance = data.attendance || {};
+      var engineers = data.engineers || [];
+      var engId = engineers.length > 0 ? engineers[0].id : null;
+      if (!engId || !dates.length) return;
+
+      // 按月份分组
+      var byMonth = {};
+      dates.forEach(function(d) {
+        var ym = d.slice(0, 7);
+        if (!byMonth[ym]) byMonth[ym] = [];
+        byMonth[ym].push(d);
+      });
+
+      // 补齐当月
+      var now = new Date();
+      var currentYM = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+      var lastDay = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+      var fullCurrent = [];
+      for (var i = 1; i <= lastDay; i++) {
+        fullCurrent.push(currentYM + '-' + String(i).padStart(2,'0'));
+      }
+      byMonth[currentYM] = fullCurrent;
+
+      var sorted = Object.keys(byMonth).sort();
+
+      var container = document.getElementById('attGridContainer');
+      var html = '';
+      sorted.forEach(function(ym) {
+        var ds = byMonth[ym];
+        var mLabel = parseInt(ym.split('-')[1]) + '月';
+        html += '<div class="att-month-row"><div class="att-month-label">' + mLabel + '</div><div class="att-grid" style="grid-template-columns:repeat(' + ds.length + ', 1fr)">';
+        ds.forEach(function(d) {
+          var cell = attendance[engId] ? attendance[engId][d] : null;
+          var color = '#000';
+          var title = d;
+          if (cell) {
+            if (cell.has_report || cell.destination === 'existing_project' || cell.destination === 'new_project') { color = '#4ade80'; }
+            else if (cell.destination === 'back_to_office') { color = '#60a5fa'; }
+            else if (cell.destination === 'other') { color = '#fbbf24'; }
+            else if (cell.color === 'weekend') { color = 'var(--bg3)'; }
+          }
+          html += '<div class="att-cell" style="background:' + color + '" title="' + title + '"></div>';
+        });
+        html += '</div></div>';
+      });
+      container.innerHTML = html;
+      document.getElementById('attSection').style.display = '';
+    }
+
+    // ===== 初始化 =====
+    (async function init() {
+      restoreSidebar();
+      var user = await checkAuth();
+      if (!user) return;
+      setActiveNav(currentPage);
+      await loadAll();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>账户管理 - 日报系统</title>
+  <link rel="stylesheet" href="../shared.css"/>
+  <link rel="stylesheet" href="../admin-layout.css"/>
+  <script src="../auth.js"></script>
+  <script src="../global.js"></script>
+  <script>
+    if (typeof API === 'undefined') {
+      var SERVER_URL_KEY = 'workorder-server-url';
+      var DEFAULT_API = 'http://172.40.93.99:31663';
+      var API = (function() {
+        try {
+          var saved = localStorage.getItem(SERVER_URL_KEY);
+          if (saved) return saved.replace(/\/+$/, '');
+        } catch(e) {}
+        return DEFAULT_API;
+      })();
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    /* 页面专用样式 */
+    .action-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+    .engineer-search-results { max-height: 160px; overflow-y: auto; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-top: 4px; }
+    .engineer-search-results .result-item { padding: 6px 10px; cursor: pointer; font-size: 12px; }
+    .engineer-search-results .result-item:hover { background: var(--bg4); }
+    .sidebar-group-label {
+      padding: 12px 12px 4px; font-size: 10px; font-weight: 600;
+      color: var(--text3); letter-spacing: 0.5px; text-transform: uppercase;
+    }
+    .sidebar.collapsed .sidebar-group-label { display: none; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <button class="sidebar-toggle" onclick="toggleSidebar()" title="折叠侧边栏"><i class="fa-solid fa-angles-left"></i></button>
+      <h2>日报系统</h2>
+      <div class="brand-sub">管理控制台</div>
+    </div>
+    <div class="sidebar-user">
+      <div class="avatar" id="userAvatar">?</div>
+      <div>
+        <div class="user-name" id="userDisplay">加载中..</div>
+        <div class="user-role" id="roleDisplay"></div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="engineers.html" id="nav-engineers"><i class="fa-solid fa-users"></i> 员工管理</a>
+      <a href="projects.html" id="nav-projects"><i class="fa-solid fa-diagram-project"></i> 项目管理</a>
+      <a href="reports.html" id="nav-reports"><i class="fa-solid fa-file-lines"></i> 日报管理</a>
+      <a href="hours.html" id="nav-hours"><i class="fa-solid fa-clock"></i> 工时统计</a>
+      <a href="accounts.html" id="nav-accounts"><i class="fa-solid fa-user-gear"></i> 账户管理</a>
+      <a href="email.html" id="nav-email"><i class="fa-solid fa-envelope"></i> 邮件管理</a>
+      <a href="messages.html" id="nav-messages"><i class="fa-solid fa-bullhorn"></i> 消息管理</a>
+      <a href="submit-report.html" id="nav-submit-report"><i class="fa-solid fa-pen-to-square"></i> 提交日报</a>
+    </nav>
+    <div class="sidebar-footer">
+      <button onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> 退出登录</button>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="topbar"></div>
+    <div class="filter-bar">
+      <input type="text" id="searchInput" placeholder="搜索用户名..." style="width:200px">
+      <button class="btn-primary" onclick="openAddModal()" style="margin-left:auto"><i class="fa-solid fa-plus"></i> 新增账户</button>
+    </div>
+    <div class="content">
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>用户名</th>
+                <th style="cursor:pointer;user-select:none" onclick="toggleRoleSort()">角色 <span id="roleSortIcon" style="margin-left:4px;font-size:11px;color:var(--text3)"><i class="fa-solid fa-sort"></i></span></th>
+                <th>关联工程师</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <div id="emptyState" class="empty-state" style="display:none">
+          <i class="fa-solid fa-inbox"></i>
+          <p>暂无数据</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 新增 Modal -->
+  <div class="modal-overlay" id="formModal" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <span id="modalTitle">新增账户</span>
+        <button onclick="closeModal('formModal')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>用户名<span class="required">*</span></label>
+          <input type="text" id="editUsername" placeholder="输入用户名>
+        </div>
+        <div class="form-group">
+          <label>密码 <span class="required">*</span></label>
+          <input type="password" id="editPassword" placeholder="输入密码">
+        </div>
+        <div class="form-group">
+          <label>角色</label>
+          <select id="editRole">
+            <option value="engineer">工程师</option>
+            <option value="team_lead">组长</option>
+            <option value="admin">管理员</option>
+            <option value="viewer">观察者</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>关联工程师（选填）?/label>
+          <input type="text" id="engineerSearch" placeholder="搜索工程师.." oninput="searchEngineers(this.value)">
+          <div id="engineerResults" class="engineer-search-results" style="display:none"></div>
+          <div id="selectedEngineer" style="margin-top:4px"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('formModal')">取消</button>
+        <button class="btn-primary" onclick="saveAccount()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 重置密码 Modal -->
+  <div class="modal-overlay" id="passwordModal" style="display:none">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <span>重置密码</span>
+        <button onclick="closeModal('passwordModal')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>新密码<span class="required">*</span></label>
+          <input type="password" id="newPassword" placeholder="输入新密码 style="width:100%">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('passwordModal')">取消</button>
+        <button class="btn-primary" onclick="confirmResetPassword()">确认重置</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 修改角色 Modal -->
+  <div class="modal-overlay" id="roleModal" style="display:none">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <span>修改角色</span>
+        <button onclick="closeModal('roleModal')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>新角色</label>
+          <select id="newRole" style="width:100%">
+            <option value="admin">管理员</option>
+            <option value="engineer">工程师</option>
+            <option value="team_lead">组长</option>
+            <option value="viewer">观察者</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('roleModal')">取消</button>
+        <button class="btn-primary" onclick="confirmChangeRole()">确认修改</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 纳管分配 Modal -->
+  <div class="modal-overlay" id="assignModal" style="display:none">
+    <div class="modal" style="max-width:480px">
+      <div class="modal-header">
+        <span>管理下属 — <span id="assignLeadName"></span></span>
+        <button onclick="closeModal('assignModal')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>搜索并分配工程师</label>
+          <input type="text" id="assignSearch" placeholder="搜索工程师姓名..." oninput="filterAssignList()">
+        </div>
+        <div id="assignEngineerList" class="engineer-search-results" style="max-height:260px;display:block"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('assignModal')">关闭</button>
+        <button class="btn-primary" onclick="saveAssignments()">保存分配</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 删除确认 Modal -->
+  <div class="modal-overlay" id="deleteModal" style="display:none">
+    <div class="delete-confirm-box">
+      <h3>确认删除</h3>
+      <p>确定要删除该账户吗？此操作不可撤销。请输入密码确认。</p>
+      <div class="form-group">
+        <label>密码</label>
+        <input type="password" id="deletePassword" placeholder="输入管理员密码 style="width:100%">
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('deleteModal')">取消</button>
+        <button class="btn-danger" onclick="confirmDelete()">确认删除</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var currentPage = 'accounts';
+    var accounts = [];
+    var allEngineers = [];
+    var selectedEngineerId = null;
+    var passwordTargetId = null;
+    var roleTargetId = null;
+    var deletingId = null;
+
+    // 获取CSS变量值（用于主题适配）
+    function getCSSVar(name) {
+      return getComputedStyle(document.documentElement).getPropertyValue('--' + name).trim();
+    }
+    var engSearchTimer = null;
+    var assignLeadId = null;
+    var assignedEngineers = []; // 已分配的工程师 ID 列表
+    var assignableEngineers = []; // 全部可选工程师
+    var roleSortDir = null; // null / 'asc' / 'desc'
+
+    // ===== 列宽拖拽 =====
+    var COLUMNS = [
+      { key: 'username', label: '用户名' },
+      { key: 'role', label: '角色' },
+      { key: 'engineer', label: '关联工程师' },
+      { key: 'actions', label: '操作' },
+    ];
+    var DEFAULT_COL_WIDTHS = {
+      username: 100, role: 80, engineer: 120, actions: 140
+    };
+    var colWidths = {};
+    var colResizeState = null;
+
+    function loadColWidths() {
+      try { var saved = localStorage.getItem('accounts-col-widths'); if (saved) colWidths = JSON.parse(saved); } catch(e) {}
+      Object.keys(DEFAULT_COL_WIDTHS).forEach(function(k) { if (colWidths[k] === undefined) colWidths[k] = DEFAULT_COL_WIDTHS[k]; });
+    }
+    function saveColWidths() {
+      try { localStorage.setItem('accounts-col-widths', JSON.stringify(colWidths)); } catch(e) {}
+    }
+    function onColResizeStart(e, colKey) {
+      e.preventDefault();
+      var th = e.currentTarget.parentElement;
+      colResizeState = { key: colKey, startX: e.clientX, startW: th.offsetWidth, th: th };
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      e.currentTarget.classList.add('active');
+    }
+    document.addEventListener('mousemove', function(e) {
+      if (!colResizeState) return;
+      var diff = e.clientX - colResizeState.startX;
+      var newW = Math.max(60, colResizeState.startW + diff);
+      colResizeState.th.style.width = newW + 'px';
+      colWidths[colResizeState.key] = newW;
+    });
+    document.addEventListener('mouseup', function() {
+      if (!colResizeState) return;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      var active = document.querySelector('.col-resize-handle.active');
+      if (active) active.classList.remove('active');
+      colResizeState = null;
+      saveColWidths();
+    });
+    function initColResize() {
+      loadColWidths();
+      var ths = document.querySelectorAll('table thead th');
+      ths.forEach(function(th, idx) {
+        var col = COLUMNS[idx];
+        if (!col) return;
+        var w = colWidths[col.key];
+        if (w) { th.style.width = w + 'px'; th.style.minWidth = '60px'; }
+        th.style.position = 'relative';
+        var handle = document.createElement('div');
+        handle.className = 'col-resize-handle';
+        handle.addEventListener('mousedown', function(e) { onColResizeStart(e, col.key); });
+        th.appendChild(handle);
+      });
+    }
+
+    function showToast(msg, type) {
+      if (type === undefined) type = 'success';
+      var container = document.querySelector('.toast-container');
+      if (!container) { container = document.createElement('div'); container.className = 'toast-container'; document.body.appendChild(container); }
+      var toast = document.createElement('div'); toast.className = 'toast toast-' + type;
+      toast.textContent = msg; container.appendChild(toast);
+      setTimeout(function() { toast.style.opacity = '0'; setTimeout(function() { toast.remove(); }, 200); }, 3000);
+    }
+
+
+    function setActiveNav(page) { var link = document.getElementById('nav-' + page); if (link) link.classList.add('active'); }
+    function toggleSidebar() {
+      var sidebar = document.querySelector('.sidebar');
+      sidebar.classList.toggle('collapsed');
+      var icon = sidebar.querySelector('.sidebar-toggle i');
+      var collapsed = sidebar.classList.contains('collapsed');
+      icon.className = collapsed ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left';
+      try { localStorage.setItem('sidebar-collapsed', collapsed ? '1' : '0'); } catch(e) {}
+    }
+    function restoreSidebar() {
+      try {
+        var sidebar = document.querySelector('.sidebar');
+        var collapsed = localStorage.getItem('sidebar-collapsed') === '1';
+        if (collapsed) {
+          sidebar.classList.add('collapsed');
+        } else {
+          sidebar.classList.remove('collapsed');
+        }
+        var icon = sidebar.querySelector('.sidebar-toggle i');
+        icon.className = collapsed ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left';
+      } catch(e) {}
+    }
+    
+
+    function getRoleBadge(role) {
+      if (role === 'admin') return '<span class="badge badge-red">管理员</span>';
+      if (role === 'engineer') return '<span class="badge badge-blue">工程师</span>';
+      if (role === 'team_lead') return '<span class="badge badge-green">组长</span>';
+      if (role === 'viewer') return '<span class="badge badge-amber">观察者</span>';
+      return '<span class="badge badge-blue">' + (role || '-') + '</span>';
+    }
+
+    function toggleRoleSort() {
+      if (roleSortDir === null || roleSortDir === 'desc') { roleSortDir = 'asc'; }
+      else { roleSortDir = 'desc'; }
+      updateRoleSortIcon();
+      renderTable();
+    }
+    function updateRoleSortIcon() {
+      var icon = document.getElementById('roleSortIcon');
+      if (!icon) return;
+      if (roleSortDir === 'asc') icon.innerHTML = '<i class="fa-solid fa-sort-up" style="color:' + getCSSVar('blue') + '"></i>';
+      else if (roleSortDir === 'desc') icon.innerHTML = '<i class="fa-solid fa-sort-down" style="color:' + getCSSVar('blue') + '"></i>';
+      else icon.innerHTML = '<i class="fa-solid fa-sort"></i>';
+    }
+
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+    // ===== 纳管分配 =====
+    async function openAssignModal(id, name) {
+      assignLeadId = id;
+      document.getElementById('assignLeadName').textContent = name;
+      document.getElementById('assignSearch').value = '';
+      document.getElementById('assignModal').style.display = 'flex';
+      // 加载已分配的工程师
+      try {
+        var res = await fetch(API + '/api/admin/accounts/' + id + '/assignees', { credentials: 'include' });
+        if (res.ok) {
+          var data = await res.json();
+          assignedEngineers = (data.data || data).engineer_ids || [];
+        }
+      } catch(e) { assignedEngineers = []; }
+      // 加载全部工程师列表
+      await loadEngineers();
+      filterAssignList();
+    }
+
+    function filterAssignList() {
+      var q = (document.getElementById('assignSearch').value || '').trim().toLowerCase();
+      var list = document.getElementById('assignEngineerList');
+      var filtered = q ? allEngineers.filter(function(e) { return (e.name || '').toLowerCase().indexOf(q) >= 0; }) : allEngineers;
+      list.innerHTML = '';
+      if (!filtered.length) { list.innerHTML = '<div class="result-item" style="color:var(--text3)">无匹配工程师</div>'; return; }
+      filtered.forEach(function(e) {
+        var checked = assignedEngineers.indexOf(e.id) >= 0;
+        var div = document.createElement('div');
+        div.className = 'result-item';
+        div.style.display = 'flex';
+        div.style.alignItems = 'center';
+        div.style.gap = '8px';
+        div.innerHTML = '<input type="checkbox" ' + (checked ? 'checked' : '') + ' data-eid="' + e.id + '" onchange="toggleAssign(this, \'' + e.id + '\')">' +
+          '<span>' + (e.name || '-') + '</span>' +
+          '<span style="color:var(--text3);font-size:11px;margin-left:auto">' + (e.department || '') + '</span>';
+        list.appendChild(div);
+      });
+    }
+
+    function toggleAssign(cb, eid) {
+      var id = parseInt(eid, 10);
+      if (cb.checked) {
+        if (assignedEngineers.indexOf(id) < 0) assignedEngineers.push(id);
+      } else {
+        assignedEngineers = assignedEngineers.filter(function(x) { return x !== id; });
+      }
+    }
+
+    async function saveAssignments() {
+      try {
+        var res = await fetch(API + '/api/admin/accounts/' + assignLeadId + '/assignees', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ engineer_ids: assignedEngineers })
+        });
+        if (!res.ok) throw new Error('保存失败');
+        showToast('分配已保存', 'success');
+        closeModal('assignModal');
+      } catch(e) {
+        showToast(e.message, 'error');
+      }
+    }
+
+    // ===== 页面专用逻辑 =====
+    async function loadEngineers() {
+      try {
+        var res = await fetch(API + '/api/admin/engineers?status=active', { credentials: 'include' });
+        if (res.ok) {
+          var data = await res.json();
+          allEngineers = Array.isArray(data) ? data : (data.engineers || data.data || []);
+        }
+      } catch (e) {}
+    }
+
+    async function loadData() {
+      try {
+        var res = await fetch(API + '/api/admin/accounts', { credentials: 'include' });
+        if (!res.ok) throw new Error('请求失败');
+        var data = await res.json();
+        var inner = (data.data && Array.isArray(data.data)) ? data.data : (data.data || data);
+        accounts = Array.isArray(inner) ? inner : (inner.accounts || inner.data || []);
+        renderTable();
+      } catch (e) {
+        showToast('加载失败: ' + e.message, 'error');
+      }
+    }
+
+    function renderTable() {
+      var tbody = document.getElementById('tableBody');
+      var empty = document.getElementById('emptyState');
+      tbody.innerHTML = '';
+      var q = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+      var filtered = q ? accounts.filter(function(a) { return (a.username || '').toLowerCase().indexOf(q) >= 0; }) : accounts;
+      // 角色排序（自定义顺序：engineer → team_lead → viewer → admin）
+      var roleOrder = { engineer: 1, team_lead: 2, viewer: 3, admin: 4 };
+      if (roleSortDir) {
+        filtered = filtered.slice().sort(function(a, b) {
+          var va = roleOrder[a.role] || 99, vb = roleOrder[b.role] || 99;
+          return roleSortDir === 'asc' ? va - vb : vb - va;
+        });
+      }
+      if (!filtered || filtered.length === 0) {
+        empty.style.display = 'block';
+        empty.querySelector('p').textContent = q ? '无匹配账户' : '暂无数据';
+        return;
+      }
+      empty.style.display = 'none';
+      filtered.forEach(function(a) {
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td>' + (a.username || '-') + '</td>' +
+          '<td>' + getRoleBadge(a.role) + '</td>' +
+          '<td>' + (a.engineer_name || '-') + '</td>' +
+          '<td><div class="action-btns">' +
+          (a.role === 'team_lead' ? '<button class="btn-sm btn-secondary" onclick="openAssignModal(\'' + a.id + '\',\'' + (a.engineer_name || '') + '\')"><i class="fa-solid fa-user-plus"></i> 管理下属</button>' : '') +
+          '<button class="btn-sm btn-secondary" onclick="openPasswordModal(\'' + a.id + '\')"><i class="fa-solid fa-key"></i> 重置密码</button>' +
+          '<button class="btn-sm btn-secondary" onclick="openRoleModal(\'' + a.id + '\')"><i class="fa-solid fa-shield"></i> 修改角色</button>' +
+          '<button class="btn-sm btn-danger" onclick="openDeleteModal(\'' + a.id + '\')"><i class="fa-solid fa-trash"></i></button>' +
+          '</div></td>';
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById('searchInput').addEventListener('input', function() { renderTable(); });
+
+    function openAddModal() {
+      document.getElementById('modalTitle').textContent = '新增账户';
+      document.getElementById('editUsername').value = '';
+      document.getElementById('editPassword').value = '';
+      document.getElementById('editRole').value = 'engineer';
+      document.getElementById('engineerSearch').value = '';
+      document.getElementById('engineerResults').style.display = 'none';
+      selectedEngineerId = null;
+      document.getElementById('selectedEngineer').innerHTML = '';
+      document.getElementById('formModal').style.display = 'flex';
+    }
+
+    function searchEngineers(query) {
+      clearTimeout(engSearchTimer);
+      if (!query.trim()) {
+        document.getElementById('engineerResults').style.display = 'none';
+        return;
+      }
+      engSearchTimer = setTimeout(function() {
+        var results = allEngineers.filter(function(e) {
+          return e.name && e.name.indexOf(query) !== -1;
+        });
+        var container = document.getElementById('engineerResults');
+        if (results.length === 0) {
+          container.style.display = 'block';
+          container.innerHTML = '<div class="result-item" style="color:var(--text3)">无匹配结果</div>';
+          return;
+        }
+        container.style.display = 'block';
+        container.innerHTML = '';
+        results.forEach(function(e) {
+          var div = document.createElement('div');
+          div.className = 'result-item';
+          div.textContent = e.name + (e.department ? ' (' + e.department + ')' : '');
+          div.onclick = function() {
+            selectedEngineerId = e.id;
+            document.getElementById('engineerSearch').value = e.name;
+            document.getElementById('selectedEngineer').innerHTML = '<span class="badge badge-blue">' + e.name + '</span>';
+            container.style.display = 'none';
+          };
+          container.appendChild(div);
+        });
+      }, 200);
+    }
+
+    async function saveAccount() {
+      var username = document.getElementById('editUsername').value.trim();
+      var password = document.getElementById('editPassword').value;
+      if (!username) { showToast('请输入用户名', 'error'); return; }
+      if (!password) { showToast('请输入密码', 'error'); return; }
+      var body = {
+        username: username,
+        password: password,
+        role: document.getElementById('editRole').value,
+        engineer_id: selectedEngineerId
+      };
+      try {
+        var res = await fetch(API + '/api/admin/accounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) });
+        if (!res.ok) { var err = await res.json(); throw new Error(err.message || err.error || '创建失败'); }
+        showToast('账户创建成功');
+        closeModal('formModal');
+        loadData();
+      } catch (e) {
+        showToast('操作失败: ' + e.message, 'error');
+      }
+    }
+
+    function openPasswordModal(id) {
+      passwordTargetId = id;
+      document.getElementById('newPassword').value = '';
+      document.getElementById('passwordModal').style.display = 'flex';
+    }
+
+    async function confirmResetPassword() {
+      var newPassword = document.getElementById('newPassword').value;
+      if (!newPassword) { showToast('请输入新密码', 'error'); return; }
+      try {
+        var res = await fetch(API + '/api/admin/accounts/' + passwordTargetId + '/password', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ password: newPassword }) });
+        if (!res.ok) { var err = await res.json(); throw new Error(err.message || err.error || '重置失败'); }
+        showToast('密码已重置');
+        closeModal('passwordModal');
+      } catch (e) {
+        showToast('操作失败: ' + e.message, 'error');
+      }
+    }
+
+    function openRoleModal(id) {
+      roleTargetId = id;
+      var account = accounts.find(function(a) { return a.id == id || a.id === id; });
+      document.getElementById('newRole').value = account ? account.role : 'engineer';
+      document.getElementById('roleModal').style.display = 'flex';
+    }
+
+    async function confirmChangeRole() {
+      var newRole = document.getElementById('newRole').value;
+      try {
+        var res = await fetch(API + '/api/admin/accounts/' + roleTargetId + '/role', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ role: newRole }) });
+        if (!res.ok) { var err = await res.json(); throw new Error(err.message || err.error || '修改失败'); }
+        showToast('角色已更改');
+        closeModal('roleModal');
+        loadData();
+      } catch (e) {
+        showToast('操作失败: ' + e.message, 'error');
+      }
+    }
+
+    function openDeleteModal(id) {
+      deletingId = id;
+      document.getElementById('deletePassword').value = '';
+      document.getElementById('deleteModal').style.display = 'flex';
+    }
+
+    async function confirmDelete() {
+      var password = document.getElementById('deletePassword').value;
+      if (!password) { showToast('请输入密码', 'error'); return; }
+      try {
+        var res = await fetch(API + '/api/admin/accounts/' + deletingId, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ password: password }) });
+        if (!res.ok) { var err = await res.json(); throw new Error(err.message || err.error || '删除失败'); }
+        showToast('账户已删除');
+        closeModal('deleteModal');
+        loadData();
+      } catch (e) {
+        showToast('操作失败: ' + e.message, 'error');
+      }
+    }
+
+    document.getElementById('formModal').addEventListener('click', function(e) { if (e.target === this) closeModal('formModal'); });
+    document.getElementById('passwordModal').addEventListener('click', function(e) { if (e.target === this) closeModal('passwordModal'); });
+    document.getElementById('roleModal').addEventListener('click', function(e) { if (e.target === this) closeModal('roleModal'); });
+    document.getElementById('deleteModal').addEventListener('click', function(e) { if (e.target === this) closeModal('deleteModal'); });
+
+    (async function init() {
+      restoreSidebar();
+      var user = await checkAuth();
+      if (!user) return;
+      setActiveNav(currentPage);
+      initColResize();
+      await loadEngineers();
+      loadData();
+    })();
+  </script>
+</body>
+</html>

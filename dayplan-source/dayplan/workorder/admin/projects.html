@@ -1,0 +1,1846 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>项目管理 - 日报系统</title>
+  <link rel="stylesheet" href="../shared.css"/>
+  <link rel="stylesheet" href="../admin-layout.css"/>
+  <script src="../auth.js"></script>
+  <script src="../global.js"></script>
+  <script>
+    if (typeof API === 'undefined') {
+      var SERVER_URL_KEY = 'workorder-server-url';
+      var DEFAULT_API = 'http://172.40.93.99:31663';
+      var API = (function() {
+        try {
+          var saved = localStorage.getItem(SERVER_URL_KEY);
+          if (saved) return saved.replace(/\/+$/, '');
+        } catch(e) {}
+        return DEFAULT_API;
+      })();
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    /* 页面专用样式 */
+    .action-btns { display: flex; gap: 6px; }
+    .sidebar-group-label {
+      padding: 12px 12px 4px; font-size: 10px; font-weight: 600;
+      color: var(--text3); letter-spacing: 0.5px; text-transform: uppercase;
+    }
+    .sidebar.collapsed .sidebar-group-label { display: none; }
+    .custom-fields-section { border-top: 1px solid var(--border2); margin-top: 16px; padding-top: 14px; }
+    .custom-fields-title { font-size: 12px; color: var(--text3); margin-bottom: 10px; font-weight: 500; }
+    .transfer-search-wrap { position: relative; }
+    .transfer-search-results {
+      position: absolute; top: 100%; left: 0; right: 0; max-height: 160px;
+      overflow-y: auto; background: var(--bg); border: 1px solid var(--border2);
+      border-radius: 6px; margin-top: 4px; z-index: 10; display: none;
+    }
+    .transfer-search-results .result-item {
+      padding: 7px 10px; cursor: pointer; font-size: 12px;
+      color: var(--text2); transition: background 0.1s;
+    }
+    .transfer-search-results .result-item:hover { background: var(--bg3); }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <button class="sidebar-toggle" onclick="toggleSidebar()" title="折叠侧边栏"><i class="fa-solid fa-angles-left"></i></button>
+      <h2>日报系统</h2>
+      <div class="brand-sub">管理控制台</div>
+    </div>
+    <div class="sidebar-user">
+      <div class="avatar" id="userAvatar">?</div>
+      <div>
+        <div class="user-name" id="userDisplay">加载中..</div>
+        <div class="user-role" id="roleDisplay"></div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="engineers.html" id="nav-engineers"><i class="fa-solid fa-users"></i> 员工管理</a>
+      <a href="projects.html" id="nav-projects"><i class="fa-solid fa-diagram-project"></i> 项目管理</a>
+      <a href="reports.html" id="nav-reports"><i class="fa-solid fa-file-lines"></i> 日报管理</a>
+      <a href="hours.html" id="nav-hours"><i class="fa-solid fa-clock"></i> 工时统计</a>
+      <a href="accounts.html" id="nav-accounts"><i class="fa-solid fa-user-gear"></i> 账户管理</a>
+      <a href="email.html" id="nav-email"><i class="fa-solid fa-envelope"></i> 邮件管理</a>
+      <a href="messages.html" id="nav-messages"><i class="fa-solid fa-bullhorn"></i> 消息管理</a>
+      <a href="submit-report.html" id="nav-submit-report"><i class="fa-solid fa-pen-to-square"></i> 提交日报</a>
+    </nav>
+    <div class="sidebar-footer">
+      <button onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> 退出登录</button>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="topbar"></div>
+    <div class="filter-bar">
+      <input type="text" id="searchInput" placeholder="搜索项目名.." style="width:160px">
+      <input type="text" id="engineerSearch" placeholder="搜索工程师..." style="width:140px">
+      <button class="btn-secondary" onclick="openColSettings()" style="margin-left:auto;display:none" id="colSettingsBtn">
+        <i class="fa-solid fa-gear"></i> 列设置
+      </button>
+      <button class="btn-secondary" onclick="openFieldConfig()" style="display:none" id="fieldConfigBtn">
+        <i class="fa-solid fa-list"></i> 字段配置
+      </button>
+      <button class="btn-primary" onclick="openAddModal()"><i class="fa-solid fa-plus"></i> 新增项目</button>
+    </div>
+    <div class="content">
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr id="tableHeader"></tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <div id="emptyState" class="empty-state" style="display:none">
+          <i class="fa-solid fa-inbox"></i>
+          <p>暂无数据</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 新增/编辑 Modal -->
+  <div class="modal-overlay" id="formModal" style="display:none">
+    <div class="modal" style="max-width:560px">
+      <div class="modal-header">
+        <span id="modalTitle">新增项目</span>
+        <button onclick="closeModal('formModal')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label>项目名<span class="required">*</span></label>
+            <input type="text" id="editName" placeholder="输入项目名">
+          </div>
+          <div class="form-group">
+            <label>订单号</label>
+            <input type="text" id="editOrderNo" placeholder="输入订单号">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>客户</label>
+            <input type="text" id="editCustomer" placeholder="输入客户名">
+          </div>
+          <div class="form-group">
+            <label>订单类型</label>
+            <input type="text" id="editOrderType" placeholder="输入订单类型">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>联系人</label>
+            <input type="text" id="editContact" placeholder="输入联系人">
+          </div>
+          <div class="form-group">
+            <label>联系电话</label>
+            <input type="text" id="editContactPhone" placeholder="输入联系电话">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>产品版本</label>
+            <input type="text" id="editVersion" placeholder="输入产品版本">
+          </div>
+          <div class="form-group">
+            <label>安装地址</label>
+            <input type="text" id="editAddress" placeholder="输入安装地址">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>项目所在地<span class="required">*</span></label>
+            <select id="editProvince">
+              <option value="">请选择</option>
+              <option value="北京市">北京市</option>
+              <option value="天津市">天津市</option>
+              <option value="上海市">上海市</option>
+              <option value="重庆市">重庆市</option>
+              <option value="河北省">河北省</option>
+              <option value="山西省">山西省</option>
+              <option value="辽宁省">辽宁省</option>
+              <option value="吉林省">吉林省</option>
+              <option value="黑龙江省">黑龙江省</option>
+              <option value="江苏省">江苏省</option>
+              <option value="浙江省">浙江省</option>
+              <option value="安徽省">安徽省</option>
+              <option value="福建省">福建省</option>
+              <option value="江西省">江西省</option>
+              <option value="山东省">山东省</option>
+              <option value="河南省">河南省</option>
+              <option value="湖北省">湖北省</option>
+              <option value="湖南省">湖南省</option>
+              <option value="广东省">广东省</option>
+              <option value="海南省">海南省</option>
+              <option value="四川省">四川省</option>
+              <option value="贵州省">贵州省</option>
+              <option value="云南省">云南省</option>
+              <option value="陕西省">陕西省</option>
+              <option value="甘肃省">甘肃省</option>
+              <option value="青海省">青海省</option>
+              <option value="台湾省">台湾省</option>
+              <option value="内蒙古自治区">内蒙古自治区</option>
+              <option value="广西壮族自治区">广西壮族自治区</option>
+              <option value="西藏自治区">西藏自治区</option>
+              <option value="宁夏回族自治区">宁夏回族自治区</option>
+              <option value="新疆维吾尔自治区">新疆维吾尔自治区</option>
+              <option value="香港特别行政区">香港特别行政区</option>
+              <option value="澳门特别行政区">澳门特别行政区</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>厂商<span class="required">*</span></label>
+            <input type="text" id="editManufacturer" placeholder="输入厂商">
+          </div>
+          <div class="form-group">
+            <label>代理商</label>
+            <input type="text" id="editAgent" placeholder="输入代理商">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>技术负责人</label>
+            <input type="text" id="editTechLead" placeholder="输入技术负责人">
+          </div>
+          <div class="form-group">
+            <label>服务经理</label>
+            <input type="text" id="editServiceManager" placeholder="输入服务经理">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>状态</label>
+          <select id="editStatus">
+            <option value="active">进行中</option>
+            <option value="completed">已完成</option>
+            <option value="paused">暂停</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>所属工程师</label>
+          <div class="transfer-search-wrap">
+            <input type="text" id="editEngineerSearch" placeholder="输入姓名搜索工程师..." autocomplete="off">
+            <div id="editEngineerSearchResults" class="transfer-search-results"></div>
+          </div>
+          <div id="editEngineerChips" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;min-height:22px"></div>
+        </div>
+        <div id="customFieldsContainer" class="custom-fields-section" style="display:none">
+          <div class="custom-fields-title">自定义字段</div>
+          <div id="customFieldsInner"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('formModal')">取消</button>
+        <button class="btn-primary" onclick="saveProject()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 删除确认 Modal -->
+  <div class="modal-overlay" id="deleteModal" style="display:none">
+    <div class="delete-confirm-box">
+      <h3>确认删除</h3>
+      <p>确定要删除该项目吗？此操作不可撤销。请输入密码确认。</p>
+      <div class="form-group">
+        <label>密码</label>
+        <input type="password" id="deletePassword" placeholder="输入管理员密码" style="width:100%">
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('deleteModal')">取消</button>
+        <button class="btn-danger" onclick="confirmDelete()">确认删除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 项目交接 Modal -->
+  <div class="modal-overlay" id="transferModal" style="display:none">
+    <div class="modal" style="max-width:480px">
+      <div class="modal-header"><span>项目交接</span><button onclick="closeTransferModal()"><i class="fa-solid fa-xmark"></i></button></div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>来源工程师 <span class="required">*</span></label>
+          <select id="transferFromEngineer"><option value="">请选择</option></select>
+        </div>
+        <div class="form-group">
+          <label>目标工程师 <span class="required">*</span></label>
+          <div class="transfer-search-wrap">
+            <input type="text" id="transferTargetSearch" placeholder="输入姓名搜索..." disabled>
+            <div id="transferSearchResults" class="transfer-search-results"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>交接日期 <span class="required">*</span></label>
+          <input type="date" id="transferDate">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeTransferModal()">取消</button>
+        <button class="btn-primary" onclick="confirmTransfer()">确认交接</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 列设置 Modal -->
+  <div class="modal-overlay" id="colSettingsModal" style="display:none">
+    <div class="modal modal-sm">
+      <div class="modal-header"><span>列设置</span><button onclick="closeModal('colSettingsModal')"><i class="fa-solid fa-xmark"></i></button></div>
+      <div class="modal-body">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:12px">勾选控制列显示/隐藏</div>
+        <div id="colSettingsList"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="resetColSettings()">重置默认</button>
+        <button class="btn-primary" onclick="closeModal('colSettingsModal')">完成</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 字段配置 Modal -->
+  <div class="modal-overlay" id="fieldConfigModal" style="display:none">
+    <div class="modal" style="max-width:640px">
+      <div class="modal-header"><span>字段配置</span><button onclick="closeModal('fieldConfigModal')"><i class="fa-solid fa-xmark"></i></button></div>
+      <div class="modal-body">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:12px">配置字段属性</div>
+        <div id="fieldConfigList"></div>
+        <div style="border-top:1px solid var(--border2);padding-top:14px;margin-top:14px">
+          <div style="font-size:12px;color:var(--text3);font-weight:600;margin-bottom:8px">新增自定义字段</div>
+          <div class="form-row">
+            <div class="form-group"><label>字段名称</label><input type="text" id="newFieldName" placeholder="如:项目等级"></div>
+            <div class="form-group"><label>字段类型</label>
+              <select id="newFieldType">
+                <option value="text">文本</option>
+                <option value="number">数字</option>
+                <option value="date">日期</option>
+                <option value="select">下拉选择</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group" id="newFieldOptionsGroup">
+            <label>下拉选项</label>
+            <div style="display:flex;gap:6px;margin-bottom:6px">
+              <input type="text" id="newFieldOptionInput" placeholder="输入选项" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();addOptionChip()}">
+              <button class="btn-sm btn-secondary" onclick="addOptionChip()"><i class="fa-solid fa-plus"></i></button>
+            </div>
+            <div id="optionChips" style="display:flex;flex-wrap:wrap;gap:4px;min-height:22px"></div>
+            <input type="hidden" id="newFieldOptions" value="">
+          </div>
+          <button class="btn-primary btn-sm" onclick="addCustomField()" style="margin-top:4px"><i class="fa-solid fa-plus"></i> 添加字段</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" onclick="closeModal('fieldConfigModal');loadCustomFields();loadFieldFilters().then(function(){renderTableHeader()})">完成</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 编辑字段子弹窗 -->
+  <div class="modal-overlay" id="editFieldModal" style="display:none">
+    <div class="modal modal-sm">
+      <div class="modal-header"><span>编辑字段：<span id="editFieldLabel"></span></span><button onclick="document.getElementById('editFieldModal').style.display='none'"><i class="fa-solid fa-xmark"></i></button></div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>是否唯一值</label>
+          <select id="editFieldUnique">
+            <option value="0">否</option>
+            <option value="1">是</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>字段类型</label>
+          <select id="editFieldType">
+            <option value="text">文本</option>
+            <option value="number">数字</option>
+            <option value="date">日期</option>
+            <option value="select">下拉选择</option>
+          </select>
+        </div>
+        <div id="editFieldNonUnique" class="form-group">
+          <label>模式</label>
+          <select id="editFieldMode">
+            <option value="none">无</option>
+            <option value="filterable">可筛选</option>
+          </select>
+        </div>
+        <div id="editFieldFilterOpts" class="form-group" style="display:none">
+          <label>可选项</label>
+          <div style="display:flex;gap:6px;margin-bottom:6px">
+            <input type="text" id="editFieldOptInput" placeholder="输入选项" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();addEditOpt()}">
+            <button class="btn-sm btn-secondary" onclick="addEditOpt()"><i class="fa-solid fa-plus"></i></button>
+          </div>
+          <div id="editFieldOptChips" style="display:flex;flex-wrap:wrap;gap:4px;min-height:22px"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="document.getElementById('editFieldModal').style.display='none'">取消</button>
+        <button class="btn-primary" onclick="saveFieldEdit()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 项目日报历史 Modal -->
+  <div class="modal-overlay" id="viewModal" style="display:none">
+    <div class="modal" style="max-width:720px">
+      <div class="modal-header">
+        <span id="viewModalTitle">日报历史</span>
+        <button onclick="closeModal('viewModal')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div id="viewModalContent" style="min-height:200px">
+          <div style="text-align:center;padding:40px 0;color:var(--text3);font-size:13px">加载中...</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('viewModal')">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var currentPage = 'projects';
+    var projects = [];
+    var engineers = [];
+    var editingId = null;
+    var deletingId = null;
+    var searchTimer = null;
+    var formEngineers = [];
+    var formEngSearchTimer = null;
+
+    // ===== 列宽拖拽 =====
+    var BASE_COLUMNS = [
+      { key: 'name', label: '项目名', always: true },
+      { key: 'manufacturer', label: '厂商' },
+      { key: 'order_type', label: '订单类型' },
+      { key: 'order_no', label: '订单号' },
+      { key: 'customer', label: '客户' },
+      { key: 'contact_name', label: '联系人' },
+      { key: 'contact_phone', label: '联系电话' },
+      { key: 'product_version', label: '版本' },
+      { key: 'install_address', label: '安装地址' },
+      { key: 'province', label: '项目所在地' },
+      { key: 'agent', label: '代理商' },
+      { key: 'tech_lead', label: '技术负责人' },
+      { key: 'service_manager', label: '服务经理' },
+      { key: 'status', label: '状态' },
+      { key: 'engineers', label: '所属工程师' },
+      { key: 'actions', label: '操作', always: true },
+    ];
+    var COLUMNS = BASE_COLUMNS.slice();
+    var BASE_COL_WIDTHS = {
+      name: 120, manufacturer: 70, order_type: 70, order_no: 100, customer: 100,
+      contact_name: 70, contact_phone: 90, product_version: 70, install_address: 150,
+      province: 90, agent: 70, tech_lead: 80, service_manager: 80, status: 70,
+      engineers: 160, actions: 160
+    };
+    var DEFAULT_COL_WIDTHS = {};
+    Object.keys(BASE_COL_WIDTHS).forEach(function(k) { DEFAULT_COL_WIDTHS[k] = BASE_COL_WIDTHS[k]; });
+    var colWidths = {};
+    var colResizeState = null;
+    var colVisibility = {};
+    var activeFilters = {};
+
+    function loadColWidths() {
+      try { var saved = localStorage.getItem('projects-col-widths' + (window._currentUser ? '_' + window._currentUser.id : '')); if (saved) colWidths = JSON.parse(saved); } catch(e) {}
+      Object.keys(DEFAULT_COL_WIDTHS).forEach(function(k) { if (colWidths[k] === undefined) colWidths[k] = DEFAULT_COL_WIDTHS[k]; });
+    }
+    function saveColWidths() {
+      try { localStorage.setItem('projects-col-widths' + (window._currentUser ? '_' + window._currentUser.id : ''), JSON.stringify(colWidths)); } catch(e) {}
+    }
+
+    function loadColVisibility() {
+      try { var saved = localStorage.getItem('projects-col-visibility' + (window._currentUser ? '_' + window._currentUser.id : '')); if (saved) colVisibility = JSON.parse(saved); } catch(e) {}
+    }
+    function saveColVisibility() {
+      try { localStorage.setItem('projects-col-visibility' + (window._currentUser ? '_' + window._currentUser.id : ''), JSON.stringify(colVisibility)); } catch(e) {}
+    }
+
+    var colOrder = [];
+
+    function loadColOrder() {
+      try { var saved = localStorage.getItem('projects-col-order' + (window._currentUser ? '_' + window._currentUser.id : '')); if (saved) colOrder = JSON.parse(saved); } catch(e) {}
+    }
+    function saveColOrder() {
+      try { localStorage.setItem('projects-col-order' + (window._currentUser ? '_' + window._currentUser.id : ''), JSON.stringify(colOrder)); } catch(e) {}
+    }
+
+    function getVisibleColumns() {
+      var cols = COLUMNS.slice();
+      if (colOrder && colOrder.length > 0) {
+        var ordered = [];
+        colOrder.forEach(function(key) {
+          var idx = cols.findIndex(function(c) { return c.key === key; });
+          if (idx >= 0) { ordered.push(cols[idx]); cols.splice(idx, 1); }
+        });
+        cols = ordered.concat(cols);
+      }
+      return cols.filter(function(col) {
+        if (col.always) return true;
+        return colVisibility[col.key] !== false;
+      });
+    }
+
+    function getVisibleColumnsRaw() {
+      var cols = COLUMNS.slice();
+      if (colOrder && colOrder.length > 0) {
+        var ordered = [];
+        colOrder.forEach(function(key) {
+          var idx = cols.findIndex(function(c) { return c.key === key; });
+          if (idx >= 0) { ordered.push(cols[idx]); cols.splice(idx, 1); }
+        });
+        cols = ordered.concat(cols);
+      }
+      return cols;
+    }
+
+    function onColResizeStart(e, colKey) {
+      e.preventDefault();
+      var th = e.currentTarget.parentElement;
+      colResizeState = { key: colKey, startX: e.clientX, startW: th.offsetWidth, th: th };
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      e.currentTarget.classList.add('active');
+    }
+    document.addEventListener('mousemove', function(e) {
+      if (!colResizeState) return;
+      var diff = e.clientX - colResizeState.startX;
+      var newW = Math.max(60, colResizeState.startW + diff);
+      colResizeState.th.style.width = newW + 'px';
+      colWidths[colResizeState.key] = newW;
+    });
+    document.addEventListener('mouseup', function() {
+      if (!colResizeState) return;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      var active = document.querySelector('.col-resize-handle.active');
+      if (active) active.classList.remove('active');
+      colResizeState = null;
+      saveColWidths();
+    });
+    function renderTableHeader() {
+      loadColWidths();
+      var thead = document.getElementById('tableHeader');
+      thead.innerHTML = '';
+      getVisibleColumns().forEach(function(col) {
+        var th = document.createElement('th');
+        th.setAttribute('data-col-key', col.key);
+        var w = colWidths[col.key];
+        if (w) { th.style.width = w + 'px'; th.style.minWidth = '60px'; }
+        var label = document.createElement('span');
+        label.textContent = col.label;
+        th.appendChild(label);
+        // 表头过滤
+        var cfg = fieldFilterConfigs[col.key];
+        if (cfg && cfg.filterable && cfg.options && cfg.options.length > 0) {
+          var filterBtn = document.createElement('button');
+          filterBtn.className = 'th-filter-btn';
+          filterBtn.innerHTML = '<i class="fa-solid fa-caret-down"></i>';
+          filterBtn.setAttribute('data-filter-key', col.key);
+          filterBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            toggleFilterDropdown(col.key, this);
+          });
+          th.appendChild(filterBtn);
+        }
+        var handle = document.createElement('div');
+        handle.className = 'col-resize-handle';
+        handle.addEventListener('mousedown', function(e) { onColResizeStart(e, col.key); });
+        th.appendChild(handle);
+        thead.appendChild(th);
+      });
+    }
+
+    function showToast(msg, type) {
+      if (type === undefined) type = 'success';
+      var container = document.querySelector('.toast-container');
+      if (!container) { container = document.createElement('div'); container.className = 'toast-container'; document.body.appendChild(container); }
+      var toast = document.createElement('div'); toast.className = 'toast toast-' + type;
+      toast.textContent = msg; container.appendChild(toast);
+      setTimeout(function() { toast.style.opacity = '0'; setTimeout(function() { toast.remove(); }, 200); }, 3000);
+    }
+
+
+    function setActiveNav(page) { var link = document.getElementById('nav-' + page); if (link) link.classList.add('active'); }
+    function toggleSidebar() {
+      var sidebar = document.querySelector('.sidebar');
+      sidebar.classList.toggle('collapsed');
+      var icon = sidebar.querySelector('.sidebar-toggle i');
+      var collapsed = sidebar.classList.contains('collapsed');
+      icon.className = collapsed ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left';
+      try { localStorage.setItem('sidebar-collapsed', collapsed ? '1' : '0'); } catch(e) {}
+    }
+    function restoreSidebar() {
+      try {
+        var sidebar = document.querySelector('.sidebar');
+        var collapsed = localStorage.getItem('sidebar-collapsed') === '1';
+        if (collapsed) {
+          sidebar.classList.add('collapsed');
+        } else {
+          sidebar.classList.remove('collapsed');
+        }
+        var icon = sidebar.querySelector('.sidebar-toggle i');
+        icon.className = collapsed ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left';
+      } catch(e) {}
+    }
+    
+
+    function formatDate(d) {
+      if (!d) return '-';
+      var date = new Date(d);
+      return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+    }
+    function formatDateTime(d) {
+      if (!d) return '-';
+      var date = new Date(d);
+      return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0') +
+        ' ' + String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0');
+    }
+
+    function getStatusBadge(status) {
+      var map = {
+        'active': '进行中', 'in_progress': '进行中', 'ongoing': '进行中', '进行中': '进行中',
+        'completed': '完成', '已完成': '完成', '完成': '完成',
+        'paused': '暂停', '暂停': '暂停',
+        'blocked': '受阻', '受阻': '受阻',
+      };
+      var label = map[status] || status || '-';
+      if (label === '进行中') return '<span class="badge badge-green">进行中</span>';
+      if (label === '完成') return '<span class="badge badge-blue">完成</span>';
+      if (label === '暂停') return '<span class="badge badge-amber">暂停</span>';
+      if (label === '受阻') return '<span class="badge badge-red">受阻</span>';
+      return '<span class="badge badge-blue">' + label + '</span>';
+    }
+
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+    // ===== 页面专用逻辑 =====
+    async function loadEngineers() {
+      try {
+        var res = await fetch(API + '/api/admin/engineers?status=active', { credentials: 'include' });
+        if (res.ok) {
+          var data = await res.json();
+          engineers = Array.isArray(data) ? data : (data.engineers || data.data || []);
+        }
+      } catch (e) {}
+    }
+
+    async function loadData() {
+      var search = document.getElementById('searchInput').value;
+      var engineer = document.getElementById('engineerSearch').value;
+      var params = new URLSearchParams();
+      if (search) params.set('keyword', search);
+      if (engineer) params.set('engineer', engineer);
+      Object.keys(activeFilters).forEach(function(key) {
+        var vals = activeFilters[key];
+        if (vals && vals.length > 0) {
+          params.set('filter_' + key, vals.join(','));
+        }
+      });
+      try {
+        var res = await fetch(API + '/api/admin/projects?' + params.toString(), { credentials: 'include' });
+        if (!res.ok) throw new Error('请求失败');
+        var data = await res.json();
+        var inner = (data.data && Array.isArray(data.data)) ? data.data : (data.data || data);
+        projects = Array.isArray(inner) ? inner : (inner.projects || inner.data || []);
+        renderTable();
+      } catch (e) {
+        showToast('加载失败: ' + e.message, 'error');
+      }
+    }
+
+    function getCellValue(p, key) {
+      switch (key) {
+        case 'name': return p.name || '-';
+        case 'manufacturer': return p.manufacturer || '-';
+        case 'order_type': return p.order_type || '-';
+        case 'order_no': return p.order_no || p.orderNo || '-';
+        case 'customer': return p.customer || '-';
+        case 'contact_name': return p.contact_name || '-';
+        case 'contact_phone': return p.contact_phone || '-';
+        case 'product_version': return p.product_version || '-';
+        case 'install_address': return '<span class="truncate" style="max-width:150px">' + (p.install_address || '-') + '</span>';
+        case 'province': return p.province || '-';
+        case 'agent': return p.agent || '-';
+        case 'tech_lead': return p.tech_lead || '-';
+        case 'service_manager': return p.service_manager || '-';
+        case 'status': return getStatusBadge(p.status);
+        case 'engineers':
+          if (p.engineers && p.engineers.length > 0) {
+            return p.engineers.map(function(e) { return '<span class="badge badge-blue" style="margin:1px;font-size:11px">' + (e.name || e) + '</span>'; }).join(' ');
+          }
+          return '<span style="color:var(--text3)">-</span>';
+        case 'actions':
+          var btns = '';
+          btns += '<button class="btn-sm btn-secondary" onclick="openViewModal(\'' + p.id + '\')"><i class="fa-solid fa-eye"></i></button>';
+          btns += '<button class="btn-sm btn-secondary" onclick="event.stopPropagation();openEditModal(\'' + p.id + '\')"><i class="fa-solid fa-pen"></i></button>';
+          btns += '<button class="btn-sm btn-secondary" onclick="event.stopPropagation();openTransferModal(\'' + p.id + '\')"><i class="fa-solid fa-rotate"></i></button>';
+          btns += '<button class="btn-sm btn-danger" onclick="event.stopPropagation();openDeleteModal(\'' + p.id + '\')"><i class="fa-solid fa-trash"></i></button>';
+          return '<div class="action-btns">' + btns + '</div>';
+        default:
+          if (key.indexOf('cf_') === 0) {
+            var fName = key.substring(3);
+            var cfs = p.custom_fields || p.customFields || {};
+            if (typeof cfs === 'string') { try { cfs = JSON.parse(cfs); } catch(e2) { cfs = {}; } }
+            return cfs[fName] || '-';
+          }
+          return p[key] || '-';
+      }
+    }
+
+    function renderTable() {
+      var tbody = document.getElementById('tableBody');
+      var empty = document.getElementById('emptyState');
+      var visibleCols = getVisibleColumns();
+      tbody.innerHTML = '';
+      if (!projects || projects.length === 0) {
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+      var filterKeys = Object.keys(activeFilters);
+      var filtered = projects;
+      if (filterKeys.length > 0) {
+        filtered = projects.filter(function(p) {
+          return filterKeys.every(function(key) {
+            var selected = activeFilters[key];
+            if (!selected || selected.length === 0) return true;
+            var val = p[key] || '';
+            return selected.indexOf(val) >= 0;
+          });
+        });
+      }
+      if (filtered.length === 0) { empty.style.display = 'block'; return; }
+      filtered.forEach(function(p) {
+        var pid = p.id;
+        var tr = document.createElement('tr');
+        var html = '';
+        visibleCols.forEach(function(col) {
+          html += '<td>' + getCellValue(p, col.key) + '</td>';
+        });
+        tr.innerHTML = html;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // ===== 查看日报历史弹窗 =====
+    function openViewModal(id) {
+      var p = projects.find(function(x) { return x.id == id || x.id === id; });
+      if (!p) return;
+      document.getElementById('viewModalTitle').textContent = '日报历史 - ' + (p.name || '');
+      document.getElementById('viewModal').style.display = 'flex';
+      var content = document.getElementById('viewModalContent');
+      content.innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--text3);font-size:13px">加载中...</div>';
+      loadViewReports(id, content);
+    }
+
+    async function loadViewReports(pid, content) {
+      try {
+        var res = await fetch(API + '/api/admin/reports?project_id=' + pid, { credentials: 'include' });
+        if (!res.ok) { content.innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--text3);font-size:13px">请求失败 (HTTP ' + res.status + ')</div>'; return; }
+        var reports = [];
+        if (res.ok) {
+          var rData = await res.json();
+          var rInner = Array.isArray(rData) ? rData : (rData.reports || rData.data || []);
+          reports = Array.isArray(rInner) ? rInner : [];
+        }
+
+        if (reports.length === 0) {
+          content.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;color:var(--text3);font-size:13px;gap:8px"><i class="fa-solid fa-inbox" style="font-size:28px;opacity:0.3"></i><span>暂无日报记录</span></div>';
+          return;
+        }
+
+        var html = '<div style="max-height:480px;overflow-y:auto"><table style="width:100%">' +
+          '<thead><tr style="color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:0.3px">' +
+          '<th style="text-align:left;padding:8px 10px;font-weight:400;border-bottom:1px solid var(--border2);white-space:nowrap">提交日期</th>' +
+          '<th style="text-align:left;padding:8px 10px;font-weight:400;border-bottom:1px solid var(--border2);white-space:nowrap">工程师</th>' +
+          '<th style="text-align:left;padding:8px 10px;font-weight:400;border-bottom:1px solid var(--border2)">工作内容</th>' +
+          '<th style="text-align:left;padding:8px 4px;font-weight:400;border-bottom:1px solid var(--border2);white-space:nowrap;width:70px">完成情况</th>' +
+          '<th style="text-align:left;padding:8px 4px;font-weight:400;border-bottom:1px solid var(--border2);white-space:nowrap;width:120px">进度</th>' +
+          '</tr></thead><tbody>';
+
+        reports.forEach(function(r) {
+          var tasksArr = r.tasks;
+          if (!Array.isArray(tasksArr) && typeof r.content === 'string') tasksArr = r.content.split('\n');
+          if (!Array.isArray(tasksArr)) tasksArr = ['-'];
+          var contentHtml = tasksArr.map(function(t) { return '<div>' + (typeof t === 'string' ? t : String(t || '-')) + '</div>'; }).join('');
+          var progress = r.progress || r.progress_rate || 0;
+          var dateStr = r.report_date;
+          html += '<tr style="border-bottom:1px solid var(--border2);transition:background 0.1s" onmouseenter="this.style.background=\'rgba(255,255,255,0.02)\'" onmouseleave="this.style.background=\'transparent\'">' +
+            '<td style="padding:8px 10px;color:var(--text2);font-size:12px;white-space:nowrap;vertical-align:top">' + formatDate(dateStr) + '</td>' +
+            '<td style="padding:8px 10px;color:var(--text2);font-size:12px;white-space:nowrap;vertical-align:top">' + (r.engineer_name || '-') + '</td>' +
+            '<td style="padding:8px 10px;color:var(--text2);font-size:12px;line-height:1.6">' + contentHtml + '</td>' +
+            '<td style="padding:8px 4px;font-size:12px;white-space:nowrap;vertical-align:top">' + getStatusBadge(r.status) + '</td>' +
+            '<td style="padding:8px 4px;font-size:12px;white-space:nowrap;vertical-align:top"><div style="display:flex;align-items:center;gap:6px"><div class="progress-bar" style="flex:1;max-width:80px"><div class="progress-fill" style="width:' + progress + '%"></div></div><span style="font-size:11px;color:var(--text2)">' + progress + '%</span></div></td>' +
+            '</tr>';
+        });
+
+        html += '</tbody></table></div>';
+        content.innerHTML = html;
+      } catch (e) {
+        content.innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--text3);font-size:13px">加载失败: ' + e.message + '</div>';
+      }
+    }
+
+    var engSearchTimers = {};
+
+    function searchEngineerToAdd(pid, query) {
+      clearTimeout(engSearchTimers[pid]);
+      if (!query.trim()) {
+        document.getElementById('engSearchResults-' + pid).style.display = 'none';
+        return;
+      }
+      engSearchTimers[pid] = setTimeout(function() {
+        var results = engineers.filter(function(e) {
+          return e.name && e.name.indexOf(query) !== -1;
+        });
+        var container = document.getElementById('engSearchResults-' + pid);
+        if (results.length === 0) {
+          container.style.display = 'block';
+          container.innerHTML = '<div class="result-item" style="color:var(--text3)">无匹配结果</div>';
+          return;
+        }
+        container.style.display = 'block';
+        container.innerHTML = '';
+        results.forEach(function(e) {
+          var div = document.createElement('div');
+          div.className = 'result-item';
+          div.textContent = e.name + (e.department ? ' (' + e.department + ')' : '');
+          div.onclick = function() { addEngineerToProject(pid, e.id); };
+          container.appendChild(div);
+        });
+      }, 200);
+    }
+
+    async function addEngineerToProject(pid, eid) {
+      try {
+        var res = await fetch(API + '/api/admin/projects/' + pid + '/engineers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ engineer_id: eid }) });
+        if (!res.ok) { var err = await res.json(); throw new Error(err.message || err.error || '添加失败'); }
+        showToast('工程师已添加到项目');
+        document.getElementById('engSearchResults-' + pid).style.display = 'none';
+        document.getElementById('engSearch-' + pid).value = '';
+        loadData();
+      } catch (e) {
+        showToast('操作失败: ' + e.message, 'error');
+      }
+    }
+
+    async function removeEngineerFromProject(pid, eid) {
+      try {
+        var res = await fetch(API + '/api/admin/projects/' + pid + '/engineers/' + eid, { method: 'DELETE', credentials: 'include' });
+        if (!res.ok) { var err = await res.json(); throw new Error(err.message || err.error || '移除失败'); }
+        showToast('工程师已从项目移除');
+        loadData();
+      } catch (e) {
+        showToast('操作失败: ' + e.message, 'error');
+      }
+    }
+
+    function renderCustomFieldsInModal(values) {
+      var container = document.getElementById('customFieldsContainer');
+      var inner = document.getElementById('customFieldsInner');
+      inner.innerHTML = '';
+      if (!customFieldsDefs || customFieldsDefs.length === 0) {
+        container.style.display = 'none';
+        return;
+      }
+      container.style.display = 'block';
+
+      for (var i = 0; i < customFieldsDefs.length; i += 2) {
+        var row = document.createElement('div');
+        row.className = 'form-row';
+        for (var j = i; j < i + 2 && j < customFieldsDefs.length; j++) {
+          var fd = customFieldsDefs[j];
+          var fieldName = fd.field_name || fd.name || fd.fieldName || '';
+          var fieldType = fd.field_type || fd.type || 'text';
+          var fieldOptions = fd.options || [];
+          var required = fd.required === true || fd.required === 'true';
+          var value = (values && values[fieldName]) || '';
+
+          var group = document.createElement('div');
+          group.className = 'form-group';
+          var label = document.createElement('label');
+          label.textContent = fieldName + (required ? ' *' : '');
+          group.appendChild(label);
+
+          var opts = [];
+          if (typeof fieldOptions === 'string') {
+            opts = fieldOptions.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+          } else if (Array.isArray(fieldOptions)) {
+            opts = fieldOptions;
+          }
+
+          if (opts.length > 0 && (fieldType === 'select' || fieldType === 'dropdown')) {
+            var select = document.createElement('select');
+            select.className = 'cf-field';
+            select.dataset.fieldName = fieldName;
+            var emptyOpt = document.createElement('option');
+            emptyOpt.value = '';
+            emptyOpt.textContent = '请选择';
+            select.appendChild(emptyOpt);
+            opts.forEach(function(o) {
+              var opt = document.createElement('option');
+              opt.value = o;
+              opt.textContent = o;
+              if (o === value) opt.selected = true;
+              select.appendChild(opt);
+            });
+            group.appendChild(select);
+          } else {
+            var input = document.createElement('input');
+            input.type = fieldType === 'number' ? 'number' : fieldType === 'date' ? 'date' : 'text';
+            input.className = 'cf-field';
+            input.dataset.fieldName = fieldName;
+            input.value = value;
+            input.placeholder = '请输入' + fieldName;
+            group.appendChild(input);
+          }
+          row.appendChild(group);
+        }
+        inner.appendChild(row);
+      }
+    }
+
+    function collectCustomFieldValues() {
+      var values = {};
+      document.querySelectorAll('#customFieldsInner .cf-field').forEach(function(el) {
+        values[el.dataset.fieldName] = el.value;
+      });
+      return values;
+    }
+
+    function syncFormFieldToConfig(fieldKey, inputId, explicitVal) {
+      var cfg = fieldFilterConfigs[fieldKey];
+      var el = document.getElementById(inputId);
+      if (!el) return;
+      var currentVal = explicitVal !== undefined ? explicitVal : el.value;
+      var hasOptions = cfg && cfg.filterable && cfg.options && cfg.options.length > 0;
+      var isSelect = el.tagName === 'SELECT';
+
+      if (hasOptions && isSelect) {
+        // 更新已有 select 的选项
+        el.innerHTML = '';
+        var emptyOpt = document.createElement('option');
+        emptyOpt.value = ''; emptyOpt.textContent = '请选择';
+        el.appendChild(emptyOpt);
+        cfg.options.forEach(function(opt) {
+          var option = document.createElement('option');
+          option.value = opt; option.textContent = opt;
+          if (opt === currentVal) option.selected = true;
+          el.appendChild(option);
+        });
+      } else if (hasOptions && !isSelect) {
+        // input → select
+        var select = document.createElement('select');
+        select.id = inputId;
+        var emptyOpt = document.createElement('option');
+        emptyOpt.value = ''; emptyOpt.textContent = '请选择';
+        select.appendChild(emptyOpt);
+        cfg.options.forEach(function(opt) {
+          var option = document.createElement('option');
+          option.value = opt; option.textContent = opt;
+          if (opt === currentVal) option.selected = true;
+          select.appendChild(option);
+        });
+        el.parentNode.replaceChild(select, el);
+      } else if (!hasOptions && isSelect) {
+        // select → input（字段配置移除了选项）
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.id = inputId;
+        input.placeholder = {
+          manufacturer: '输入厂商', order_type: '输入订单类型', customer: '输入客户',
+          agent: '输入代理商', contact_name: '输入联系人', contact_phone: '输入联系电话',
+          tech_lead: '输入技术负责人', service_manager: '输入服务经理'
+        }[fieldKey] || '';
+        input.value = currentVal;
+        el.parentNode.replaceChild(input, el);
+      }
+    }
+
+    // ===== 表单内工程师管理 =====
+    function renderFormEngineerChips() {
+      var container = document.getElementById('editEngineerChips');
+      container.innerHTML = '';
+      formEngineers.forEach(function(e) {
+        var chip = document.createElement('span');
+        chip.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:rgba(96,165,250,0.15);border:1px solid rgba(96,165,250,0.3);border-radius:4px;font-size:11px;color:var(--blue)';
+        chip.textContent = e.name;
+        var rm = document.createElement('i');
+        rm.className = 'fa-solid fa-xmark';
+        rm.style.cssText = 'cursor:pointer;opacity:0.6;font-size:10px';
+        rm.onclick = function() { removeFormEngineer(e.id); };
+        chip.appendChild(rm);
+        container.appendChild(chip);
+      });
+    }
+
+    function searchFormEngineer(query) {
+      clearTimeout(formEngSearchTimer);
+      var container = document.getElementById('editEngineerSearchResults');
+      if (!query || !query.trim()) {
+        container.style.display = 'none';
+        return;
+      }
+      formEngSearchTimer = setTimeout(function() {
+        var q = query.trim().toLowerCase();
+        var existingIds = formEngineers.map(function(e) { return e.id; });
+        var results = engineers.filter(function(e) {
+          return e.name && e.name.toLowerCase().indexOf(q) !== -1 && existingIds.indexOf(e.id) === -1;
+        });
+        container.innerHTML = '';
+        if (results.length === 0) {
+          container.innerHTML = '<div class="result-item" style="color:var(--text3);cursor:default">无匹配结果</div>';
+          container.style.display = 'block';
+          return;
+        }
+        container.style.display = 'block';
+        results.forEach(function(e) {
+          var div = document.createElement('div');
+          div.className = 'result-item';
+          div.textContent = e.name + (e.department_name ? ' (' + e.department_name + ')' : '');
+          div.addEventListener('mousedown', function() {
+            selectFormEngineer(e.id, e.name);
+          });
+          container.appendChild(div);
+        });
+      }, 200);
+    }
+
+    function selectFormEngineer(id, name) {
+      if (formEngineers.some(function(e) { return e.id === id; })) return;
+      formEngineers.push({ id: id, name: name });
+      document.getElementById('editEngineerSearch').value = '';
+      document.getElementById('editEngineerSearchResults').style.display = 'none';
+      renderFormEngineerChips();
+    }
+
+    function removeFormEngineer(id) {
+      formEngineers = formEngineers.filter(function(e) { return e.id !== id; });
+      renderFormEngineerChips();
+    }
+
+    function openAddModal() {
+      editingId = null;
+      formEngineers = [];
+      document.getElementById('modalTitle').textContent = '新增项目';
+      ['editName','editOrderNo','editCustomer','editOrderType','editContact','editContactPhone','editVersion','editAddress','editManufacturer','editAgent','editTechLead','editServiceManager'].forEach(function(id) {
+        document.getElementById(id).value = '';
+      });
+      document.getElementById('editProvince').value = '';
+      document.getElementById('editStatus').value = 'active';
+      document.getElementById('editEngineerSearch').value = '';
+      document.getElementById('editEngineerSearchResults').style.display = 'none';
+      renderFormEngineerChips();
+      renderCustomFieldsInModal({});
+      // 按字段配置渲染 filterable 字段为下拉框
+      var FILTERABLE_INPUT_MAP = { manufacturer: 'editManufacturer', order_type: 'editOrderType', customer: 'editCustomer', agent: 'editAgent', contact_name: 'editContact', contact_phone: 'editContactPhone', tech_lead: 'editTechLead', service_manager: 'editServiceManager' };
+      Object.keys(FILTERABLE_INPUT_MAP).forEach(function(key) { syncFormFieldToConfig(key, FILTERABLE_INPUT_MAP[key]); });
+      document.getElementById('formModal').style.display = 'flex';
+    }
+
+    function openEditModal(id) {
+      var p = projects.find(function(x) { return x.id == id || x.id === id; });
+      if (!p) return;
+      editingId = id;
+      formEngineers = (p.engineers || []).map(function(e) { return { id: e.id, name: e.name }; });
+      document.getElementById('editEngineerSearch').value = '';
+      document.getElementById('editEngineerSearchResults').style.display = 'none';
+      renderFormEngineerChips();
+      document.getElementById('modalTitle').textContent = '编辑项目';
+      document.getElementById('editName').value = p.name || '';
+      document.getElementById('editOrderNo').value = p.order_no || '';
+      document.getElementById('editCustomer').value = p.customer || '';
+      document.getElementById('editOrderType').value = p.order_type || '';
+      document.getElementById('editContact').value = p.contact_name || '';
+      document.getElementById('editContactPhone').value = p.contact_phone || '';
+      document.getElementById('editVersion').value = p.product_version || '';
+      document.getElementById('editAddress').value = p.install_address || '';
+      document.getElementById('editManufacturer').value = p.manufacturer || '';
+      document.getElementById('editAgent').value = p.agent || '';
+      document.getElementById('editTechLead').value = p.tech_lead || '';
+      document.getElementById('editServiceManager').value = p.service_manager || '';
+      document.getElementById('editProvince').value = p.province || '';
+      document.getElementById('editStatus').value = p.status || 'active';
+      var customVals = p.custom_fields || p.customFields || {};
+      if (typeof customVals === 'string') {
+        try { customVals = JSON.parse(customVals); } catch(e) { customVals = {}; }
+      }
+      renderCustomFieldsInModal(customVals);
+      // 按字段配置渲染 filterable 字段为下拉框（传显式值避免 select 重建时丢失）
+      var FILTERABLE_INPUT_MAP = { manufacturer: 'editManufacturer', order_type: 'editOrderType', customer: 'editCustomer', agent: 'editAgent', contact_name: 'editContact', contact_phone: 'editContactPhone', tech_lead: 'editTechLead', service_manager: 'editServiceManager' };
+      Object.keys(FILTERABLE_INPUT_MAP).forEach(function(key) { syncFormFieldToConfig(key, FILTERABLE_INPUT_MAP[key], p[key] || ''); });
+      document.getElementById('formModal').style.display = 'flex';
+    }
+
+    async function saveProject() {
+      var name = document.getElementById('editName').value.trim();
+      if (!name) { showToast('请输入项目名', 'error'); return; }
+      var province = document.getElementById('editProvince').value;
+      if (!province) { showToast('请选择项目所在地', 'error'); return; }
+      var body = {
+        name: name,
+        order_no: document.getElementById('editOrderNo').value.trim(),
+        customer: document.getElementById('editCustomer').value.trim(),
+        order_type: document.getElementById('editOrderType').value.trim(),
+        contact_name: document.getElementById('editContact').value.trim(),
+        contact_phone: document.getElementById('editContactPhone').value.trim(),
+        product_version: document.getElementById('editVersion').value.trim(),
+        install_address: document.getElementById('editAddress').value.trim(),
+        province: province,
+        manufacturer: document.getElementById('editManufacturer').value.trim(),
+        agent: document.getElementById('editAgent').value.trim(),
+        tech_lead: document.getElementById('editTechLead').value.trim(),
+        service_manager: document.getElementById('editServiceManager').value.trim(),
+        status: document.getElementById('editStatus').value,
+        custom_fields: collectCustomFieldValues()
+      };
+      try {
+        var url = editingId ? API + '/api/admin/projects/' + editingId : API + '/api/admin/projects';
+        var method = editingId ? 'PUT' : 'POST';
+        var res = await fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) });
+        if (!res.ok) { var err = await res.json(); throw new Error(err.message || err.error || '保存失败'); }
+        // 同步工程师
+        var projectId = editingId;
+        if (!projectId) {
+          var resData = await res.json();
+          projectId = resData.id || (resData.data && resData.data.id) || (resData.project && resData.project.id);
+        }
+        if (projectId) {
+          var originalEngineers = editingId ? (projects.find(function(x) { return x.id == editingId || x.id === editingId; }) || {}).engineers || [] : [];
+          var originalIds = originalEngineers.map(function(e) { return e.id; });
+          var formIds = formEngineers.map(function(e) { return e.id; });
+          // 移除取消选择的工程师
+          var toRemove = originalIds.filter(function(id) { return formIds.indexOf(id) === -1; });
+          for (var i = 0; i < toRemove.length; i++) {
+            try { await fetch(API + '/api/admin/projects/' + projectId + '/engineers/' + toRemove[i], { method: 'DELETE', credentials: 'include' }); } catch(e) {}
+          }
+          // 添加新选择的工程师
+          var toAdd = formIds.filter(function(id) { return originalIds.indexOf(id) === -1; });
+          for (var j = 0; j < toAdd.length; j++) {
+            try { await fetch(API + '/api/admin/projects/' + projectId + '/engineers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ engineer_id: toAdd[j] }) }); } catch(e) {}
+          }
+        }
+        showToast(editingId ? '更新成功' : '创建成功');
+        closeModal('formModal');
+        loadData();
+      } catch (e) {
+        showToast('操作失败: ' + e.message, 'error');
+      }
+    }
+
+    function openDeleteModal(id) {
+      deletingId = id;
+      document.getElementById('deletePassword').value = '';
+      document.getElementById('deleteModal').style.display = 'flex';
+    }
+
+    async function confirmDelete() {
+      var password = document.getElementById('deletePassword').value;
+      if (!password) { showToast('请输入密码', 'error'); return; }
+      try {
+        var res = await fetch(API + '/api/admin/projects/' + deletingId, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ password: password }) });
+        if (!res.ok) { var err = await res.json(); throw new Error(err.message || err.error || '删除失败'); }
+        showToast('删除成功');
+        closeModal('deleteModal');
+        loadData();
+      } catch (e) {
+        showToast('操作失败: ' + e.message, 'error');
+      }
+    }
+
+    document.getElementById('searchInput').addEventListener('input', function() {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(loadData, 300);
+    });
+    document.getElementById('engineerSearch').addEventListener('input', function() {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(loadData, 300);
+    });
+    document.getElementById('formModal').addEventListener('click', function(e) { if (e.target === this) closeModal('formModal'); });
+    document.getElementById('deleteModal').addEventListener('click', function(e) { if (e.target === this) closeModal('deleteModal'); });
+    document.getElementById('colSettingsModal').addEventListener('click', function(e) { if (e.target === this) closeModal('colSettingsModal'); });
+    document.getElementById('fieldConfigModal').addEventListener('click', function(e) { if (e.target === this) closeModal('fieldConfigModal'); });
+    document.getElementById('viewModal').addEventListener('click', function(e) { if (e.target === this) closeModal('viewModal'); });
+
+    // 表单工程师搜索
+    document.getElementById('editEngineerSearch').addEventListener('input', function() {
+      searchFormEngineer(this.value);
+    });
+    document.getElementById('editEngineerSearch').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        var firstItem = document.querySelector('#editEngineerSearchResults .result-item');
+        if (firstItem && firstItem.style.cursor !== 'default') firstItem.click();
+      }
+    });
+
+    // ========== 列设置弹窗（含拖拽排序） ==========
+    var _dragSrcKey = null;
+
+    function openColSettings() {
+      var list = document.getElementById('colSettingsList');
+      list.innerHTML = '';
+      loadColOrder();
+      var orderedCols = getVisibleColumnsRaw();
+      orderedCols.forEach(function(col) {
+        var item = document.createElement('div');
+        item.draggable = !col.always;
+        item.dataset.colKey = col.key;
+        item.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;background:rgba(255,255,255,0.03);margin-bottom:4px;cursor:' + (col.always ? 'default' : 'grab');
+        if (!col.always) {
+          item.addEventListener('dragstart', function(e) {
+            _dragSrcKey = col.key;
+            item.style.opacity = '0.4';
+            e.dataTransfer.effectAllowed = 'move';
+          });
+          item.addEventListener('dragend', function() {
+            _dragSrcKey = null;
+            item.style.opacity = '1';
+            list.querySelectorAll('div').forEach(function(el) { el.style.border = ''; });
+          });
+          item.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            list.querySelectorAll('div').forEach(function(el) { el.style.border = ''; });
+            if (_dragSrcKey && _dragSrcKey !== col.key) {
+              item.style.borderTop = '2px solid #4ade80';
+            }
+          });
+          item.addEventListener('dragleave', function() {
+            item.style.border = '';
+          });
+          item.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            list.querySelectorAll('div').forEach(function(el) { el.style.border = ''; });
+            if (!_dragSrcKey || _dragSrcKey === col.key) return;
+            var srcItem = list.querySelector('[data-col-key="' + _dragSrcKey + '"]');
+            if (srcItem) {
+              list.insertBefore(srcItem, item);
+              var items = list.querySelectorAll('div');
+              var newOrder = [];
+              items.forEach(function(el) { newOrder.push(el.dataset.colKey); });
+              colOrder = newOrder;
+              saveColOrder();
+              renderTableHeader();
+              renderTable();
+            }
+          });
+        }
+        var dragIcon = document.createElement('i');
+        dragIcon.className = col.always ? 'fa-solid fa-lock' : 'fa-solid fa-grip-lines';
+        dragIcon.style.cssText = 'font-size:12px;color:' + (col.always ? 'var(--text3)' : 'var(--text3)');
+        item.appendChild(dragIcon);
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = col.always || colVisibility[col.key] !== false;
+        cb.disabled = col.always;
+        if (col.always) cb.style.opacity = '0.4';
+        cb.addEventListener('change', function() {
+          if (!col.always) {
+            colVisibility[col.key] = cb.checked;
+            saveColVisibility();
+            renderTableHeader();
+            renderTable();
+          }
+        });
+        item.appendChild(cb);
+        var label = document.createElement('span');
+        label.style.cssText = 'font-size:13px;color:#fff;font-weight:500;flex:1';
+        label.textContent = col.label + (col.always ? ' (固定)' : '');
+        item.appendChild(label);
+        list.appendChild(item);
+      });
+      document.getElementById('colSettingsModal').style.display = 'flex';
+    }
+
+    // 容器级 dragover 阻止默认
+    document.getElementById('colSettingsList').addEventListener('dragover', function(e) { e.preventDefault(); });
+
+    function resetColSettings() {
+      if (!confirm('确定重置为默认列设置？')) return;
+      colVisibility = {};
+      colOrder = [];
+      saveColVisibility();
+      saveColOrder();
+      renderTableHeader();
+      renderTable();
+      closeModal('colSettingsModal');
+    }
+
+    // ========== 字段配置 ==========
+    var fieldOptions = [];
+    var customFieldsDefs = [];
+    var fieldFilterConfigs = {};
+
+    var BUILTIN_FIELDS = [
+      { key: 'name', label: '项目名', filterable: false, unique: true, options: [] },
+      { key: 'manufacturer', label: '厂商', filterable: true, unique: false, options: [] },
+      { key: 'order_type', label: '订单类型', filterable: true, unique: false, options: [] },
+      { key: 'order_no', label: '订单号', filterable: false, unique: true, options: [] },
+      { key: 'customer', label: '客户', filterable: true, unique: false, options: [] },
+      { key: 'contact_name', label: '联系人', filterable: false, unique: false, options: [] },
+      { key: 'contact_phone', label: '联系电话', filterable: false, unique: false, options: [] },
+      { key: 'product_version', label: '版本', filterable: false, unique: false, options: [] },
+      { key: 'install_address', label: '安装地址', filterable: false, unique: false, options: [] },
+      { key: 'province', label: '项目所在地', filterable: true, unique: false, options: [] },
+      { key: 'agent', label: '代理商', filterable: false, unique: false, options: [] },
+      { key: 'tech_lead', label: '技术负责人', filterable: false, unique: false, options: [] },
+      { key: 'service_manager', label: '服务经理', filterable: false, unique: false, options: [] },
+      { key: 'status', label: '状态', filterable: true, unique: false, options: [] },
+    ];
+
+    function addOptionChip() {
+      var input = document.getElementById('newFieldOptionInput');
+      var val = input.value.trim();
+      if (!val) return;
+      if (fieldOptions.indexOf(val) >= 0) { showToast('选项已存在', 'error'); return; }
+      fieldOptions.push(val);
+      input.value = '';
+      renderOptionChips();
+    }
+
+    function removeOptionChip(val) {
+      fieldOptions = fieldOptions.filter(function(v) { return v !== val; });
+      renderOptionChips();
+    }
+
+    function renderOptionChips() {
+      var container = document.getElementById('optionChips');
+      var hidden = document.getElementById('newFieldOptions');
+      container.innerHTML = '';
+      fieldOptions.forEach(function(opt) {
+        var chip = document.createElement('span');
+        chip.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:rgba(255,255,255,0.08);border-radius:4px;font-size:11px;color:var(--text)';
+        chip.textContent = opt;
+        var rm = document.createElement('i');
+        rm.className = 'fa-solid fa-xmark';
+        rm.style.cssText = 'cursor:pointer;opacity:0.5;font-size:10px';
+        rm.onclick = function() { removeOptionChip(opt); };
+        chip.appendChild(rm);
+        container.appendChild(chip);
+      });
+      hidden.value = fieldOptions.join(',');
+    }
+
+    async function loadCustomFields() {
+      try {
+        var res = await fetch(API + '/api/admin/custom-fields?target=projects', { credentials: 'include' });
+        if (!res.ok) return;
+        var json = await res.json();
+        var inner = json.data || json;
+        if (!Array.isArray(inner) && inner.data && Array.isArray(inner.data)) inner = inner.data;
+        if (!Array.isArray(inner) && inner.fields) inner = inner.fields;
+        if (!Array.isArray(inner) && inner.list) inner = inner.list;
+        customFieldsDefs = Array.isArray(inner) ? inner : [];
+        // 同步自定义字段到表格列
+        COLUMNS = BASE_COLUMNS.slice();
+        for (var k in BASE_COL_WIDTHS) { DEFAULT_COL_WIDTHS[k] = BASE_COL_WIDTHS[k]; }
+        customFieldsDefs.forEach(function(fd) {
+          var key = 'cf_' + (fd.field_name || fd.name || '');
+          COLUMNS.splice(COLUMNS.length - 1, 0, { key: key, label: fd.field_name || fd.name });
+          DEFAULT_COL_WIDTHS[key] = 100;
+        });
+      } catch(e) {
+        customFieldsDefs = [];
+      }
+    }
+
+    async function loadFieldFilters() {
+      try {
+        var res = await fetch(API + '/api/admin/field-filters', { credentials: 'include' });
+        if (res.ok) {
+          var json = await res.json();
+          var list = json.data || json || [];
+          fieldFilterConfigs = {};
+          list.forEach(function(f) {
+            fieldFilterConfigs[f.field_key] = {
+              filterable: !!f.filterable,
+              unique: !!f['unique'],
+              options: f.options ? (typeof f.options === 'string' ? JSON.parse(f.options) : f.options) : []
+            };
+          });
+        }
+      } catch(e) {}
+    }
+
+    function saveFieldFilter(key, data) {
+      fetch(API + '/api/admin/field-filters/' + key, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', body: JSON.stringify(data)
+      }).catch(function() {});
+    }
+
+    // ========== 表头筛选下拉 ==========
+    function toggleFilterDropdown(fieldKey, btnEl) {
+      document.querySelectorAll('.th-filter-menu.show').forEach(function(m) {
+        if (m.id !== 'filter-menu-' + fieldKey) m.classList.remove('show');
+      });
+      var menu = document.getElementById('filter-menu-' + fieldKey);
+      if (menu && menu.classList.contains('show')) {
+        menu.classList.remove('show');
+        return;
+      }
+      if (!menu) {
+        menu = document.createElement('div');
+        menu.className = 'th-filter-menu';
+        menu.id = 'filter-menu-' + fieldKey;
+        document.body.appendChild(menu);
+      }
+      var rect = btnEl.getBoundingClientRect();
+      menu.style.top = (rect.bottom + 2) + 'px';
+      menu.style.left = rect.left + 'px';
+      menu.style.minWidth = '140px';
+      menu.style.maxHeight = '260px';
+      menu.style.overflowY = 'auto';
+
+      var cfg = fieldFilterConfigs[fieldKey] || {};
+      var options = cfg.options || [];
+      var selected = activeFilters[fieldKey] || [];
+      menu.innerHTML = '';
+      if (options.length > 0) {
+        options.forEach(function(opt) {
+          var label = document.createElement('label');
+          var cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.checked = selected.indexOf(opt) >= 0;
+          cb.addEventListener('change', function() {
+            if (!activeFilters[fieldKey]) activeFilters[fieldKey] = [];
+            var idx = activeFilters[fieldKey].indexOf(opt);
+            if (cb.checked && idx < 0) activeFilters[fieldKey].push(opt);
+            else if (!cb.checked && idx >= 0) activeFilters[fieldKey].splice(idx, 1);
+            if (activeFilters[fieldKey].length === 0) delete activeFilters[fieldKey];
+            renderTable();
+            loadData();
+          });
+          label.appendChild(cb);
+          label.appendChild(document.createTextNode(opt));
+          menu.appendChild(label);
+        });
+      } else {
+        menu.innerHTML = '<div style="padding:8px 10px;font-size:11px;color:var(--text3)">暂无选项</div>';
+      }
+      menu.classList.add('show');
+    }
+
+    // 筛选下拉菜单 document click 关闭
+    document.addEventListener('click', function(e) {
+      document.querySelectorAll('.th-filter-menu.show').forEach(function(m) {
+        if (!m.contains(e.target)) {
+          var btn = document.querySelector('.th-filter-btn[data-filter-key="' + m.id.replace('filter-menu-', '') + '"]');
+          if (!btn || !btn.contains(e.target)) {
+            m.classList.remove('show');
+          }
+        }
+      });
+    });
+
+    // === 字段配置 ===
+    var _editFieldKey = null, _editFieldOpts = [];
+
+    function openFieldConfig() {
+      document.getElementById('newFieldName').value = '';
+      document.getElementById('newFieldOptionInput').value = '';
+      fieldOptions = [];
+      renderOptionChips();
+      renderFieldConfigList();
+      document.getElementById('fieldConfigModal').style.display = 'flex';
+    }
+
+    function renderFieldConfigList() {
+      var container = document.getElementById('fieldConfigList');
+      container.innerHTML = '';
+      // 合并内建 + 自定义字段
+      var allFields = [];
+      BUILTIN_FIELDS.forEach(function(f) { allFields.push({ key: f.key, label: f.label, isBuiltin: true, id: f.key, fieldType: 'text' }); });
+      customFieldsDefs.forEach(function(fd) { allFields.push({ key: fd.field_name, label: fd.field_name, isBuiltin: false, id: fd.id || fd._id, fieldType: fd.field_type || 'text' }); });
+
+      allFields.forEach(function(f) {
+        var cfg = fieldFilterConfigs[f.key] || {};
+        var filterable = cfg.filterable !== undefined ? cfg.filterable : false;
+        var unique = cfg.unique !== undefined ? cfg.unique : false;
+        var options = cfg.options || [];
+
+        var row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:6px;background:var(--bg3);margin-bottom:4px;gap:10px;flex-wrap:wrap';
+
+        var left = document.createElement('div');
+        left.style.cssText = 'display:flex;align-items:center;gap:6px;min-width:0;flex:1;flex-wrap:wrap';
+        var nameSpan = document.createElement('span');
+        nameSpan.style.cssText = 'font-size:13px;color:#fff;font-weight:500;white-space:nowrap';
+        nameSpan.textContent = f.label;
+        left.appendChild(nameSpan);
+
+        var typeTag = document.createElement('span');
+        typeTag.style.cssText = 'font-size:10px;color:var(--text4);background:var(--bg3);padding:1px 6px;border-radius:3px;white-space:nowrap';
+        typeTag.textContent = f.isBuiltin ? '内建' : '自定义';
+        left.appendChild(typeTag);
+
+        if (unique) {
+          var uTag = document.createElement('span');
+          uTag.style.cssText = 'font-size:10px;color:#fbbf24;background:rgba(251,191,36,0.1);padding:1px 6px;border-radius:3px;white-space:nowrap';
+          uTag.textContent = '唯一';
+          left.appendChild(uTag);
+        }
+        if (filterable) {
+          var fTag = document.createElement('span');
+          fTag.style.cssText = 'font-size:10px;color:#60a5fa;background:rgba(96,165,250,0.1);padding:1px 6px;border-radius:3px;white-space:nowrap';
+          fTag.textContent = '可筛选';
+          left.appendChild(fTag);
+          if (options.length > 0) {
+            options.forEach(function(opt) {
+              var oTag = document.createElement('span');
+              oTag.style.cssText = 'font-size:10px;color:rgba(255,255,255,0.5);background:rgba(255,255,255,0.04);padding:1px 6px;border-radius:3px;white-space:nowrap';
+              oTag.textContent = opt;
+              left.appendChild(oTag);
+            });
+          }
+        }
+
+        row.appendChild(left);
+
+        var right = document.createElement('div');
+        right.style.cssText = 'display:flex;gap:4px;flex-shrink:0';
+        var editBtn = document.createElement('button');
+        editBtn.className = 'btn-xs btn-secondary';
+        editBtn.innerHTML = '<i class="fa-solid fa-pen"></i>';
+        editBtn.title = '编辑';
+        (function(fieldKey, fieldLabel, curUnique, curFilterable, curOpts) {
+          editBtn.onclick = function() { openEditFieldModal(fieldKey, fieldLabel, curUnique, curFilterable, curOpts, f.fieldType); };
+        })(f.key, f.label, unique, filterable, options);
+        right.appendChild(editBtn);
+        if (!f.isBuiltin) {
+          var delBtn = document.createElement('button');
+          delBtn.className = 'btn-xs btn-danger';
+          delBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+          (function(fieldId) { delBtn.onclick = function() { deleteCustomField(fieldId); }; })(f.id);
+          right.appendChild(delBtn);
+        }
+        row.appendChild(right);
+        container.appendChild(row);
+      });
+    }
+
+    function openEditFieldModal(key, label, curUnique, curFilterable, curOpts, fieldType) {
+      _editFieldKey = key;
+      _editFieldOpts = curOpts.slice();
+      document.getElementById('editFieldLabel').textContent = label;
+      document.getElementById('editFieldUnique').value = curUnique ? '1' : '0';
+      document.getElementById('editFieldType').value = fieldType || 'text';
+      document.getElementById('editFieldMode').value = curFilterable ? 'filterable' : 'none';
+      toggleEditFieldUI();
+      renderEditOptChips();
+      document.getElementById('editFieldModal').style.display = 'flex';
+    }
+
+    function toggleEditFieldUI() {
+      var isUnique = document.getElementById('editFieldUnique').value === '1';
+      var fieldType = document.getElementById('editFieldType').value;
+      var isDateType = fieldType === 'date';
+      document.getElementById('editFieldNonUnique').style.display = (isUnique || isDateType) ? 'none' : '';
+      var mode = document.getElementById('editFieldMode').value;
+      document.getElementById('editFieldFilterOpts').style.display = (!isUnique && !isDateType && mode === 'filterable') ? '' : 'none';
+    }
+
+    document.getElementById('editFieldUnique').addEventListener('change', toggleEditFieldUI);
+    document.getElementById('editFieldMode').addEventListener('change', toggleEditFieldUI);
+    document.getElementById('editFieldType').addEventListener('change', toggleEditFieldUI);
+
+    function addEditOpt() {
+      var input = document.getElementById('editFieldOptInput');
+      var val = input.value.trim();
+      if (!val) return;
+      if (_editFieldOpts.indexOf(val) >= 0) { showToast('选项已存在', 'error'); return; }
+      _editFieldOpts.push(val);
+      input.value = '';
+      renderEditOptChips();
+    }
+
+    function removeEditOpt(val) {
+      _editFieldOpts = _editFieldOpts.filter(function(v) { return v !== val; });
+      renderEditOptChips();
+    }
+
+    function renderEditOptChips() {
+      var container = document.getElementById('editFieldOptChips');
+      container.innerHTML = '';
+      _editFieldOpts.forEach(function(opt) {
+        var chip = document.createElement('span');
+        chip.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:rgba(255,255,255,0.08);border-radius:4px;font-size:11px;color:var(--text)';
+        chip.textContent = opt;
+        var rm = document.createElement('i');
+        rm.className = 'fa-solid fa-xmark';
+        rm.style.cssText = 'cursor:pointer;opacity:0.5;font-size:10px';
+        rm.onclick = function() { removeEditOpt(opt); };
+        chip.appendChild(rm);
+        container.appendChild(chip);
+      });
+    }
+
+    function saveFieldEdit() {
+      var isUnique = document.getElementById('editFieldUnique').value === '1';
+      var mode = document.getElementById('editFieldMode').value;
+      var fieldType = document.getElementById('editFieldType').value;
+      var filterable = !isUnique && mode === 'filterable';
+      var unique = isUnique;
+      var opts = filterable ? _editFieldOpts : [];
+      var data = { filterable: filterable, unique: unique, options: opts, field_type: fieldType };
+      saveFieldFilter(_editFieldKey, data);
+      if (!fieldFilterConfigs[_editFieldKey]) fieldFilterConfigs[_editFieldKey] = {};
+      fieldFilterConfigs[_editFieldKey].filterable = filterable;
+      fieldFilterConfigs[_editFieldKey].unique = unique;
+      fieldFilterConfigs[_editFieldKey].options = opts;
+      document.getElementById('editFieldModal').style.display = 'none';
+      renderFieldConfigList();
+      renderTableHeader();
+      showToast('字段配置已保存');
+    }
+
+    async function addCustomField() {
+      var name = document.getElementById('newFieldName').value.trim();
+      if (!name) { showToast('请输入字段名称', 'error'); return; }
+      var type = document.getElementById('newFieldType').value;
+      var body = { field_name: name, field_type: type, target_type: 'projects' };
+      if (type === 'select' && fieldOptions.length > 0) {
+        body.options = fieldOptions;
+      }
+      try {
+        var res = await fetch(API + '/api/admin/custom-fields', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) });
+        if (!res.ok) { var err = await res.json(); throw new Error(err.message || err.error || '添加失败'); }
+        showToast('字段添加成功');
+        document.getElementById('newFieldName').value = '';
+        document.getElementById('newFieldOptionInput').value = '';
+        fieldOptions = [];
+        renderOptionChips();
+        await loadCustomFields();
+        renderFieldConfigList();
+      } catch (e) { showToast('添加失败: ' + e.message, 'error'); }
+    }
+
+    async function deleteCustomField(id) {
+      if (!id) { showToast('无法删除此字段', 'error'); return; }
+      if (!confirm('确定要删除该自定义字段吗？')) return;
+      try {
+        var res = await fetch(API + '/api/admin/custom-fields/' + id, { method: 'DELETE', credentials: 'include' });
+        if (!res.ok) { var err = await res.json(); throw new Error(err.message || err.error || '删除失败'); }
+        showToast('字段已删除');
+        await loadCustomFields();
+        renderFieldConfigList();
+      } catch (e) { showToast('删除失败: ' + e.message, 'error'); }
+    }
+
+    // ========== 项目交接 ==========
+    var transferProjectId = null;
+    var transferProjectEngineers = [];
+    var transferSearchTimer = null;
+    var transferSelectedToId = null;
+
+    function openTransferModal(id) {
+      var p = projects.find(function(x) { return x.id == id || x.id === id; });
+      if (!p) return;
+      transferProjectId = id;
+      transferProjectEngineers = p.engineers || [];
+      transferSelectedToId = null;
+
+      var select = document.getElementById('transferFromEngineer');
+      select.innerHTML = '';
+      if (transferProjectEngineers.length === 0) {
+        var opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = '无 (新分配)';
+        select.appendChild(opt);
+      } else {
+        var emptyOpt = document.createElement('option');
+        emptyOpt.value = '';
+        emptyOpt.textContent = '请选择';
+        select.appendChild(emptyOpt);
+        transferProjectEngineers.forEach(function(e) {
+          var opt = document.createElement('option');
+          opt.value = e.id;
+          opt.textContent = e.name + (e.abbr ? ' (' + e.abbr + ')' : '');
+          select.appendChild(opt);
+        });
+        // 默认选中第一个工程师
+        select.value = transferProjectEngineers[0].id;
+      }
+      document.getElementById('transferTargetSearch').value = '';
+      document.getElementById('transferTargetSearch').disabled = false;
+      document.getElementById('transferSearchResults').style.display = 'none';
+      setTimeout(function() { document.getElementById('transferTargetSearch').focus(); }, 100);
+      var today = new Date();
+      document.getElementById('transferDate').value = today.getFullYear() + '-' +
+        String(today.getMonth() + 1).padStart(2, '0') + '-' +
+        String(today.getDate()).padStart(2, '0');
+
+      document.getElementById('transferModal').style.display = 'flex';
+    }
+
+    document.getElementById('transferFromEngineer').addEventListener('change', function() {
+      var targetInput = document.getElementById('transferTargetSearch');
+      transferSelectedToId = null;
+      targetInput.value = '';
+      targetInput.disabled = false;
+      document.getElementById('transferSearchResults').style.display = 'none';
+      setTimeout(function() { targetInput.focus(); }, 100);
+    });
+
+    document.getElementById('transferTargetSearch').addEventListener('input', function() {
+      searchTransferTarget(this.value);
+    });
+    document.getElementById('transferTargetSearch').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        var firstItem = document.querySelector('#transferSearchResults .result-item');
+        if (firstItem && firstItem.style.cursor !== 'default') {
+          firstItem.click();
+        }
+      }
+    });
+
+    function selectTransferTarget(id, name) {
+      transferSelectedToId = id;
+      document.getElementById('transferTargetSearch').value = name;
+      document.getElementById('transferSearchResults').style.display = 'none';
+    }
+
+    function searchTransferTarget(query) {
+      clearTimeout(transferSearchTimer);
+      var container = document.getElementById('transferSearchResults');
+      if (!query || !query.trim()) {
+        container.style.display = 'none';
+        return;
+      }
+      transferSearchTimer = setTimeout(function() {
+        fetch(API + '/api/admin/engineers?all=1&search=' + encodeURIComponent(query.trim()), { credentials: 'include' })
+          .then(function(res) { return res.json(); })
+          .then(function(data) {
+            var list = Array.isArray(data) ? data : (data.engineers || data.data || []);
+            var fromId = document.getElementById('transferFromEngineer').value;
+            var existingIds = transferProjectEngineers.map(function(e) { return e.id; });
+            var filtered = list.filter(function(e) {
+              return String(e.id) !== String(fromId) && existingIds.indexOf(e.id) === -1;
+            });
+            container.innerHTML = '';
+            if (filtered.length === 0) {
+              container.innerHTML = '<div class="result-item" style="color:var(--text3);cursor:default">未找到匹配的工程师</div>';
+              container.style.display = 'block';
+              return;
+            }
+            container.style.display = 'block';
+            filtered.forEach(function(e) {
+              var div = document.createElement('div');
+              div.className = 'result-item';
+              div.textContent = e.name + (e.department_name ? ' (' + e.department_name + ')' : '');
+              div.addEventListener('mousedown', function() {
+                selectTransferTarget(e.id, e.name);
+              });
+              container.appendChild(div);
+            });
+            // 唯一结果自动选中
+            if (filtered.length === 1) {
+              selectTransferTarget(filtered[0].id, filtered[0].name);
+              container.style.display = 'none';
+            }
+          })
+          .catch(function() {
+            container.innerHTML = '<div class="result-item" style="color:var(--text3);cursor:default">搜索失败</div>';
+            container.style.display = 'block';
+          });
+      }, 300);
+    }
+
+    document.addEventListener('click', function(e) {
+      // 关闭交接弹窗中的搜索结果
+      var transferWrap = document.getElementById('transferModal');
+      if (!e.target.closest('#transferModal .transfer-search-wrap')) {
+        var tr = document.getElementById('transferSearchResults');
+        if (tr) tr.style.display = 'none';
+      }
+      // 关闭表单中的工程师搜索结果
+      if (!e.target.closest('#formModal .transfer-search-wrap')) {
+        var fr = document.getElementById('editEngineerSearchResults');
+        if (fr) fr.style.display = 'none';
+      }
+    });
+
+    function closeTransferModal() {
+      document.getElementById('transferModal').style.display = 'none';
+      transferProjectId = null;
+      transferProjectEngineers = [];
+      transferSelectedToId = null;
+      clearTimeout(transferSearchTimer);
+    }
+
+    document.getElementById('transferModal').addEventListener('click', function(e) {
+      if (e.target === this) closeTransferModal();
+    });
+
+    async function confirmTransfer() {
+      var fromId = document.getElementById('transferFromEngineer').value;
+      var transferDate = document.getElementById('transferDate').value;
+      var toId = transferSelectedToId;
+
+      if (!toId) { showToast('请选择目标工程师', 'error'); return; }
+      if (!transferDate) { showToast('请选择交接日期', 'error'); return; }
+
+      try {
+        var res;
+        if (!fromId) {
+          // 项目无工程师，直接分配（不使用 transfer 接口）
+          res = await fetch(API + '/api/admin/projects/' + transferProjectId + '/engineers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ engineer_id: toId })
+          });
+        } else {
+          // 有来源工程师，使用交接接口
+          res = await fetch(API + '/api/admin/projects/' + transferProjectId + '/transfer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              from_engineer_id: parseInt(fromId),
+              to_engineer_id: toId,
+              transfer_date: transferDate
+            })
+          });
+        }
+        if (!res.ok) { var err = await res.json(); throw new Error(err.message || err.error || '交接失败'); }
+        showToast('项目交接成功');
+        closeTransferModal();
+        loadData();
+      } catch (e) {
+        showToast('交接失败: ' + e.message, 'error');
+      }
+    }
+
+    (async function init() {
+      restoreSidebar();
+      var user = await checkAuth();
+      if (!user) return;
+      // 列设置对所有角色可见（除查看者），字段配置仅管理员
+      if (user.role !== 'viewer') {
+        document.getElementById('colSettingsBtn').style.display = 'inline-flex';
+      }
+      if (user.role === 'admin') {
+        document.getElementById('fieldConfigBtn').style.display = 'inline-flex';
+      }
+      window._currentUser = user;
+      setActiveNav(currentPage);
+      loadColOrder();
+      loadColVisibility();
+      renderTableHeader();
+      await loadEngineers();
+      await loadCustomFields();
+      await loadFieldFilters();
+      renderTableHeader();
+      loadData();
+    })();
+  </script>
+</body>
+</html>
+
+
+

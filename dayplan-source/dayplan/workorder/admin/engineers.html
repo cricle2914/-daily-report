@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>员工管理 - 日报系统</title>
+  <link rel="stylesheet" href="../shared.css"/>
+  <link rel="stylesheet" href="../admin-layout.css"/>
+  <script src="../auth.js"></script>
+  <script src="../global.js"></script>
+  <script>
+    // 确保 API 被定义（备用初始化）
+    if (typeof API === 'undefined') {
+      var SERVER_URL_KEY = 'workorder-server-url';
+      var DEFAULT_API = 'http://172.40.93.99:31663';
+      var API = (function() {
+        try {
+          var saved = localStorage.getItem(SERVER_URL_KEY);
+          if (saved) return saved.replace(/\/+$/, '');
+        } catch(e) {}
+        return DEFAULT_API;
+      })();
+      console.log('[engineers] API 初始化:', API);
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    .action-btns { display: flex; gap: 6px; }
+    .delete-confirm-box p { font-size: 13px; color: var(--text2); margin-bottom: 16px; }
+    .delete-error { padding: 8px 12px; background: var(--red-bg); color: var(--red); border-radius: 6px; font-size: 12px; margin-bottom: 12px; font-weight: 500; display: none; }
+    .custom-fields-section { border-top: 1px solid var(--border); margin-top: 16px; padding-top: 14px; }
+    .custom-fields-title { font-size: 12px; color: var(--text3); margin-bottom: 10px; font-weight: 500; }
+    th { position: relative; user-select: none; white-space: nowrap; }
+    .filter-option { padding: 6px 14px; font-size: 12px; cursor: pointer; color: var(--text2); display: flex; align-items: center; gap: 6px; border-radius: 4px; transition: background 0.1s; }
+    .filter-option:hover { background: var(--bg3); }
+    .filter-option.active { background: var(--bg3); color: var(--text); }
+    .filter-option input { accent-color: var(--green); pointer-events: none; }
+    .filter-bar { position: relative; }
+    .sidebar-group-label {
+      padding: 12px 12px 4px; font-size: 10px; font-weight: 600;
+      color: var(--text3); letter-spacing: 0.5px; text-transform: uppercase;
+    }
+    .sidebar.collapsed .sidebar-group-label { display: none; }
+    /* 动态生成内容的辅助类 */
+    .cell-name { color: var(--text); font-weight: 600; }
+    .cell-label { color: var(--text); font-weight: 500; }
+    .chip-tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: var(--bg3); border-radius: 4px; font-size: 11px; color: var(--text2); }
+    .field-type { font-size: 10px; color: var(--text3); background: var(--bg3); padding: 1px 6px; border-radius: 3px; white-space: nowrap; }
+    .field-u { font-size: 10px; color: var(--amber); background: var(--amber-bg); padding: 1px 6px; border-radius: 3px; white-space: nowrap; }
+    .field-f { font-size: 10px; color: var(--blue); background: var(--blue-bg); padding: 1px 6px; border-radius: 3px; white-space: nowrap; }
+    .field-o { font-size: 10px; color: var(--text2); background: var(--bg3); padding: 1px 6px; border-radius: 3px; white-space: nowrap; }
+    .option-empty { padding: 8px 10px; font-size: 11px; color: var(--text3); }
+    .filter-empty { padding: 8px 10px; font-size: 11px; color: var(--text3); }
+    .col-settings-text { font-size: 12px; color: var(--text3); margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <button class="sidebar-toggle" onclick="toggleSidebar()" title="折叠侧边栏"><i class="fa-solid fa-angles-left"></i></button>
+      <h2>日报系统</h2>
+      <div class="brand-sub">管理控制台</div>
+    </div>
+    <div class="sidebar-user">
+      <div class="avatar" id="userAvatar">?</div>
+      <div>
+        <div class="user-name" id="userDisplay">加载中..</div>
+        <div class="user-role" id="roleDisplay"></div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="engineers.html" id="nav-engineers"><i class="fa-solid fa-users"></i> 员工管理</a>
+      <a href="projects.html" id="nav-projects"><i class="fa-solid fa-diagram-project"></i> 项目管理</a>
+      <a href="reports.html" id="nav-reports"><i class="fa-solid fa-file-lines"></i> 日报管理</a>
+      <a href="hours.html" id="nav-hours"><i class="fa-solid fa-clock"></i> 工时统计</a>
+      <a href="accounts.html" id="nav-accounts"><i class="fa-solid fa-user-gear"></i> 账户管理</a>
+      <a href="email.html" id="nav-email"><i class="fa-solid fa-envelope"></i> 邮件管理</a>
+      <a href="messages.html" id="nav-messages"><i class="fa-solid fa-bullhorn"></i> 消息管理</a>
+      <a href="submit-report.html" id="nav-submit-report"><i class="fa-solid fa-pen-to-square"></i> 提交日报</a>
+    </nav>
+    <div class="sidebar-footer">
+      <button onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> 退出登录</button>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="topbar"></div>
+    <div class="filter-bar">
+      <input type="text" id="searchInput" placeholder="搜索姓名..." style="width:200px">
+      <button class="btn-secondary" id="colSettingsBtn" style="display:none;margin-left:auto" onclick="openColSettings()">
+        <i class="fa-solid fa-gear"></i> 列设置
+      </button>
+      <button class="btn-secondary" id="fieldConfigBtn" style="display:none" onclick="openFieldConfig()"><i class="fa-solid fa-list"></i> 字段配置</button>
+      <button class="btn-primary" onclick="openAddModal()" id="addEmployeeBtn" style="display:none"><i class="fa-solid fa-plus"></i> 新增员工</button>
+    </div>
+    <div class="content">
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr id="tableHeader"></tr></thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <div id="emptyState" class="empty-state" style="display:none"><i class="fa-solid fa-inbox"></i><p>暂无数据</p></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 新增/编辑 Modal -->
+  <div class="modal-overlay" id="formModal" style="display:none">
+    <div class="modal">
+      <div class="modal-header"><span id="modalTitle">新增员工</span><button onclick="closeModal('formModal')"><i class="fa-solid fa-xmark"></i></button></div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group"><label>姓名 <span class="required">*</span></label><input type="text" id="editName" placeholder="输入姓名"></div>
+          <div class="form-group"><label>缩写</label><input type="text" id="editInitials" placeholder="如:ZS"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>部门</label><input type="text" id="editDept" placeholder="输入部门"></div>
+          <div class="form-group"><label>职位</label><input type="text" id="editPosition" placeholder="输入职位"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>电话</label><input type="text" id="editPhone" placeholder="输入电话"></div>
+          <div class="form-group"><label>邮箱</label><input type="text" id="editEmail" placeholder="输入邮箱"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>省份</label><input type="text" id="editProvince" placeholder="输入省份"></div>
+          <div class="form-group"><label>状态</label><select id="editStatus"><option value="active">在职</option><option value="inactive">离职</option></select></div>
+        </div>
+        <!-- 自定义字段-->
+        <div id="customFieldsContainer" class="custom-fields-section" style="display:none">
+          <div class="custom-fields-title">自定义字段</div>
+          <div id="customFieldsInner"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('formModal')">取消</button>
+        <button class="btn-primary" onclick="saveEngineer()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 删除确认 Modal -->
+  <div class="modal-overlay" id="deleteModal" style="display:none">
+    <div class="delete-confirm-box">
+      <h3>确认删除</h3>
+      <p>确定要删除该员工吗？此操作不可撤销。请输入密码确认。</p>
+      <div class="delete-error" id="deleteError"></div>
+      <div class="form-group"><label>密码</label><input type="password" id="deletePassword" placeholder="输入管理员密码 style="width:100%"></div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('deleteModal')">取消</button>
+        <button class="btn-danger" onclick="confirmDelete()">确认删除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 列设置 Modal -->
+  <div class="modal-overlay" id="colSettingsModal" style="display:none">
+    <div class="modal modal-sm">
+      <div class="modal-header"><span>列设置</span><button onclick="closeModal('colSettingsModal')"><i class="fa-solid fa-xmark"></i></button></div>
+      <div class="modal-body">
+        <div class="col-settings-text">勾选控制列显示/隐藏，拖动调整列顺序</div>
+        <div id="colSettingsList"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="resetColSettings()">重置默认</button>
+        <button class="btn-primary" onclick="closeModal('colSettingsModal')">完成</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 字段配置 Modal -->
+  <div class="modal-overlay" id="fieldConfigModal" style="display:none">
+    <div class="modal" style="max-width:640px">
+      <div class="modal-header"><span>字段配置</span><button onclick="closeModal('fieldConfigModal')"><i class="fa-solid fa-xmark"></i></button></div>
+      <div class="modal-body">
+        <div id="fieldConfigList"></div>
+        <div style="border-top:1px solid var(--border2);padding-top:14px;margin-top:14px">
+          <div style="font-size:12px;color:var(--text2);font-weight:600;margin-bottom:8px">新增字段</div>
+          <div class="form-row">
+            <div class="form-group"><label>字段名称</label><input type="text" id="newFieldName" placeholder="如:工号"></div>
+            <div class="form-group"><label>字段类型</label>
+              <select id="newFieldType">
+                <option value="text">文本</option>
+                <option value="number">数字</option>
+                <option value="date">日期</option>
+                <option value="select">下拉选择</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group" id="newFieldOptionsGroup">
+            <label>下拉选项</label>
+            <div style="display:flex;gap:6px;margin-bottom:6px">
+              <input type="text" id="newFieldOptionInput" placeholder="输入选项" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();addOptionChip()}">
+              <button class="btn-sm btn-secondary" onclick="addOptionChip()"><i class="fa-solid fa-plus"></i></button>
+            </div>
+            <div id="optionChips" style="display:flex;flex-wrap:wrap;gap:4px;min-height:22px"></div>
+            <input type="hidden" id="newFieldOptions" value="">
+          </div>
+          <button class="btn-primary btn-sm" onclick="addCustomField()" style="margin-top:4px"><i class="fa-solid fa-plus"></i> 添加字段</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" onclick="closeModal('fieldConfigModal');loadCustomFields();loadFieldFilters().then(function(){renderTableHeader()})">完成</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 编辑字段子弹窗 -->
+  <div class="modal-overlay" id="editFieldModal" style="display:none">
+    <div class="modal modal-sm">
+      <div class="modal-header"><span>编辑字段：<span id="editFieldLabel"></span></span><button onclick="document.getElementById('editFieldModal').style.display='none'"><i class="fa-solid fa-xmark"></i></button></div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>是否唯一值</label>
+          <select id="editFieldUnique">
+            <option value="0">否</option>
+            <option value="1">是</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>字段类型</label>
+          <select id="editFieldType">
+            <option value="text">文本</option>
+            <option value="number">数字</option>
+            <option value="date">日期</option>
+            <option value="select">下拉选择</option>
+          </select>
+        </div>
+        <div id="editFieldNonUnique" class="form-group">
+          <label>模式</label>
+          <select id="editFieldMode">
+            <option value="none">无</option>
+            <option value="filterable">可筛选</option>
+          </select>
+        </div>
+        <div id="editFieldFilterOpts" class="form-group" style="display:none">
+          <label>可选项</label>
+          <div style="display:flex;gap:6px;margin-bottom:6px">
+            <input type="text" id="editFieldOptInput" placeholder="输入选项" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();addEditOpt()}">
+            <button class="btn-sm btn-secondary" onclick="addEditOpt()"><i class="fa-solid fa-plus"></i></button>
+          </div>
+          <div id="editFieldOptChips" style="display:flex;flex-wrap:wrap;gap:4px;min-height:22px"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="document.getElementById('editFieldModal').style.display='none'">取消</button>
+        <button class="btn-primary" onclick="saveFieldEdit()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var currentPage = 'engineers';
+    var engineers = [], editingId = null, deletingId = null, searchTimer = null;
+    var customFieldsDefs = [], fieldFilterConfigs = {}, activeFilters = {};
+    var resizeState = null;
+
+    // 获取CSS变量值（用于主题适配）
+    function getCSSVar(name) {
+      return getComputedStyle(document.documentElement).getPropertyValue('--' + name).trim();
+    }
+
+    // ========== 列配置==========
+    // 列定义在 loadCustomFields 中动态设置（base + custom fields）
+
+    var BUILTIN_FIELDS = [
+      { key: 'name', label: '姓名', filterable: false, unique: true, options: [] },
+      { key: 'abbr', label: '缩写', filterable: false, unique: false, options: [] },
+      { key: 'department', label: '部门', filterable: true, unique: false, options: [] },
+      { key: 'position', label: '职位', filterable: false, unique: false, options: [] },
+      { key: 'phone', label: '电话', filterable: false, unique: false, options: [] },
+      { key: 'email', label: '邮箱', filterable: false, unique: false, options: [] },
+      { key: 'status', label: '状态', filterable: true, unique: false, options: [] },
+      { key: 'province', label: '省份', filterable: true, unique: false, options: [] },
+    ];
+
+    var FIELD_MAP = {
+      name:     { elId: 'editName', label: '姓名', type: 'text', required: true },
+      abbr:     { elId: 'editInitials', label: '缩写', type: 'text' },
+      department: { elId: 'editDept', label: '部门', type: 'text' },
+      position: { elId: 'editPosition', label: '职位', type: 'text' },
+      phone:    { elId: 'editPhone', label: '电话', type: 'text' },
+      email:    { elId: 'editEmail', label: '邮箱', type: 'text' },
+      status:   { elId: 'editStatus', label: '状态', type: 'select', options: [{v:'active',l:'在职'},{v:'inactive',l:'离职'}] },
+      province: { elId: 'editProvince', label: '省份', type: 'text' },
+    };
+
+    var colWidths = {};
+    var colVisibility = {};
+
+    function loadColWidths() {
+      try {
+        var saved = localStorage.getItem('engineers-col-widths');
+        if (saved) { colWidths = JSON.parse(saved); }
+      } catch(e) {}
+      Object.keys(DEFAULT_COL_WIDTHS).forEach(function(k) {
+        if (colWidths[k] === undefined) colWidths[k] = DEFAULT_COL_WIDTHS[k];
+      });
+    }
+    function saveColWidths() {
+      try { localStorage.setItem('engineers-col-widths', JSON.stringify(colWidths)); } catch(e) {}
+    }
+
+    function loadColVisibility() {
+      try {
+        var saved = localStorage.getItem('engineers-col-visibility');
+        if (saved) colVisibility = JSON.parse(saved);
+      } catch(e) {}
+    }
+    function saveColVisibility() {
+      try { localStorage.setItem('engineers-col-visibility', JSON.stringify(colVisibility)); } catch(e) {}
+    }
+
+    // ========== 基础函数 ==========
+    function showToast(msg, type) {
+      if (type === undefined) type = 'success';
+      var container = document.querySelector('.toast-container');
+      if (!container) { container = document.createElement('div'); container.className = 'toast-container'; document.body.appendChild(container); }
+      var toast = document.createElement('div'); toast.className = 'toast toast-' + type;
+      toast.textContent = msg; container.appendChild(toast);
+      setTimeout(function() { toast.style.opacity = '0'; setTimeout(function() { toast.remove(); }, 200); }, 3000);
+    }
+
+
+    function setActiveNav(page) { var link = document.getElementById('nav-' + page); if (link) link.classList.add('active'); }
+
+    function toggleSidebar() {
+      var sidebar = document.querySelector('.sidebar');
+      sidebar.classList.toggle('collapsed');
+      var icon = sidebar.querySelector('.sidebar-toggle i');
+      var collapsed = sidebar.classList.contains('collapsed');
+      icon.className = collapsed ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left';
+      try { localStorage.setItem('sidebar-collapsed', collapsed ? '1' : '0'); } catch(e) {}
+    }
+
+    function restoreSidebar() {
+      try {
+        var sidebar = document.querySelector('.sidebar');
+        var collapsed = localStorage.getItem('sidebar-collapsed') === '1';
+        if (collapsed) {
+          sidebar.classList.add('collapsed');
+        } else {
+          sidebar.classList.remove('collapsed');
+        }
+        var icon = sidebar.querySelector('.sidebar-toggle i');
+        icon.className = collapsed ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left';
+      } catch(e) {}
+    }
+    
+
+    function getStatusBadge(status) {
+      return status === 'active' ? '<span class="badge badge-green">在职</span>' : '<span class="badge badge-red">离职</span>';
+    }
+
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+    // ========== 表头渲染 ==========
+    function renderTableHeader() {
+      var thead = document.getElementById('tableHeader');
+      thead.innerHTML = '';
+      getVisibleColumns().forEach(function(col) {
+        var th = document.createElement('th');
+        th.setAttribute('data-col-key', col.key);
+        var w = colWidths[col.key];
+        if (w) { th.style.width = w + 'px'; th.style.minWidth = '60px'; }
+
+        var label = document.createElement('span');
+        label.textContent = col.label;
+        th.appendChild(label);
+
+        // 表头过滤三角 — 对可筛选字段显示
+        var cfg = fieldFilterConfigs[col.key];
+        if (cfg && cfg.filterable && cfg.options && cfg.options.length > 0) {
+          var filterBtn = document.createElement('button');
+          filterBtn.className = 'th-filter-btn';
+          filterBtn.innerHTML = '<i class="fa-solid fa-caret-down"></i>';
+          filterBtn.setAttribute('data-filter-key', col.key);
+          filterBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            toggleFilterDropdown(col.key, this);
+          });
+          th.appendChild(filterBtn);
+        }
+
+        // 拖拽调整列宽手柄
+        var handle = document.createElement('div');
+        handle.className = 'col-resize-handle';
+        handle.setAttribute('data-resize-key', col.key);
+        handle.addEventListener('mousedown', function(e) { onResizeStart(e, col.key); });
+        th.appendChild(handle);
+
+        thead.appendChild(th);
+      });
+    }
+
+    // ========== 数据加载与表格渲染==========
+    async function loadData() {
+      var search = document.getElementById('searchInput').value;
+      var params = new URLSearchParams();
+      if (search) params.set('search', search);
+      // 传递筛选参数
+      Object.keys(activeFilters).forEach(function(key) {
+        var vals = activeFilters[key];
+        if (vals && vals.length > 0) {
+          params.set('filter_' + key, vals.join(','));
+        }
+      });
+      try {
+        var url = API + '/api/admin/engineers?' + params.toString();
+        console.log('[engineers] 加载URL:', url);
+        var res = await fetch(url, { credentials: 'include' });
+        console.log('[engineers] 响应状态:', res.status, res.statusText);
+
+        if (!res.ok) {
+          var errText = await res.text();
+          console.error('[engineers] 响应内容:', errText.substring(0, 500));
+          throw new Error('请求失败 ' + res.status);
+        }
+
+        var data = await res.json();
+        console.log('[engineers] 响应数据:', JSON.stringify(data).substring(0, 500));
+        var inner = (data.data && Array.isArray(data.data)) ? data.data : (data.data || data);
+        engineers = Array.isArray(inner) ? inner : (inner.engineers || inner.data || []);
+        console.log('[engineers] 加载成功，共', engineers.length, '条');
+        renderTable();
+      } catch (e) {
+        console.error('[engineers] 加载异常:', e.message);
+        showToast('加载失败: ' + e.message, 'error');
+      }
+    }
+    function getCellValue(e, key) {
+      switch (key) {
+        case 'name': return '<strong class="cell-name">' + (e.name || '-') + '</strong>';
+        case 'abbr': return e.initials || '-';
+        case 'department': return e.department || '-';
+        case 'position': return e.position || '-';
+        case 'phone': return e.phone || '-';
+        case 'email': return e.email || '-';
+        case 'province': return e.province || '-';
+        case 'status': return getStatusBadge(e.status);
+        case 'projects': return e.project_count || e.projectCount || 0;
+        case 'actions': return '<div class="action-btns">' +
+          '<button class="btn-sm btn-secondary" onclick="openEditModal(\'' + e.id + '\')"><i class="fa-solid fa-pen"></i></button>' +
+          '<button class="btn-sm btn-danger" onclick="openDeleteModal(\'' + e.id + '\')"><i class="fa-solid fa-trash"></i></button>' +
+          '</div>';
+        default:
+          if (key.indexOf('cf_') === 0) {
+            var fName = key.substring(3);
+            var cfs = e.custom_fields || e.customFields || {};
+            if (typeof cfs === 'string') { try { cfs = JSON.parse(cfs); } catch(e2) { cfs = {}; } }
+            return cfs[fName] || '-';
+          }
+          return e[key] || '-';
+      }
+    }
+
+    function renderTable() {
+      var tbody = document.getElementById('tableBody'), empty = document.getElementById('emptyState');
+      tbody.innerHTML = '';
+      if (!engineers || engineers.length === 0) { empty.style.display = 'block'; return; }
+      empty.style.display = 'none';
+      var visibleCols = getVisibleColumns();
+      // 本地筛选
+      var filterKeys = Object.keys(activeFilters);
+      var filtered = engineers;
+      if (filterKeys.length > 0) {
+        filtered = engineers.filter(function(e) {
+          return filterKeys.every(function(key) {
+            var selected = activeFilters[key];
+            if (!selected || selected.length === 0) return true;
+            var val = e[key] || '';
+            return selected.indexOf(val) >= 0;
+          });
+        });
+      }
+      if (filtered.length === 0) { empty.style.display = 'block'; return; }
+      filtered.forEach(function(e) {
+        var tr = document.createElement('tr');
+        var html = '';
+        visibleCols.forEach(function(col) {
+          html += '<td>' + getCellValue(e, col.key) + '</td>';
+        });
+        tr.innerHTML = html;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // ========== 列宽拖拽 ==========
+    function onResizeStart(e, colKey) {
+      e.preventDefault();
+      var th = e.currentTarget.parentElement;
+      var startX = e.clientX;
+      var startW = th.offsetWidth;
+      resizeState = { key: colKey, startX: startX, startW: startW, th: th };
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      e.currentTarget.classList.add('active');
+    }
+
+    document.addEventListener('mousemove', function(e) {
+      if (!resizeState) return;
+      var diff = e.clientX - resizeState.startX;
+      var newW = Math.max(60, resizeState.startW + diff);
+      resizeState.th.style.width = newW + 'px';
+      colWidths[resizeState.key] = newW;
+    });
+
+    document.addEventListener('mouseup', function() {
+      if (!resizeState) return;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.querySelectorAll('.col-resize-handle.active').forEach(function(el) { el.classList.remove('active'); });
+      saveColWidths();
+      resizeState = null;
+    });
+
+    // ========== 列设置弹窗 ==========
+    var colOrder = [];
+
+    function loadColOrder() {
+      try { var saved = localStorage.getItem('engineers-col-order'); if (saved) colOrder = JSON.parse(saved); } catch(e) {}
+    }
+    function saveColOrder() {
+      try { localStorage.setItem('engineers-col-order', JSON.stringify(colOrder)); } catch(e) {}
+    }
+
+    function getVisibleColumns() {
+      var cols = COLUMNS.slice();
+      if (colOrder && colOrder.length > 0) {
+        var ordered = [];
+        colOrder.forEach(function(key) {
+          var idx = cols.findIndex(function(c) { return c.key === key; });
+          if (idx >= 0) { ordered.push(cols[idx]); cols.splice(idx, 1); }
+        });
+        cols = ordered.concat(cols);
+      }
+      return cols.filter(function(col) {
+        if (col.always) return true;
+        return colVisibility[col.key] !== false;
+      });
+    }
+
+    var _dragSrcKey = null;
+
+    function openColSettings() {
+      var list = document.getElementById('colSettingsList');
+      list.innerHTML = '';
+      loadColOrder();
+      var orderedCols = getVisibleColumnsRaw();
+      orderedCols.forEach(function(col) {
+        var item = document.createElement('div');
+        item.draggable = !col.always;
+        item.dataset.colKey = col.key;
+        item.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;background:var(--bg3);margin-bottom:4px;cursor:' + (col.always ? 'default' : 'grab');
+        if (!col.always) {
+          item.addEventListener('dragstart', function(e) {
+            _dragSrcKey = col.key;
+            item.style.opacity = '0.4';
+            e.dataTransfer.effectAllowed = 'move';
+          });
+          item.addEventListener('dragend', function() {
+            _dragSrcKey = null;
+            item.style.opacity = '1';
+            list.querySelectorAll('div').forEach(function(el) { el.style.border = ''; });
+          });
+          item.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            list.querySelectorAll('div').forEach(function(el) { el.style.border = ''; });
+            if (_dragSrcKey && _dragSrcKey !== col.key) {
+              item.style.borderTop = '2px solid var(--green)';
+            }
+          });
+          item.addEventListener('dragleave', function() {
+            item.style.border = '';
+          });
+          item.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            list.querySelectorAll('div').forEach(function(el) { el.style.border = ''; });
+            if (!_dragSrcKey || _dragSrcKey === col.key) return;
+            var srcItem = list.querySelector('[data-col-key="' + _dragSrcKey + '"]');
+            if (srcItem) {
+              list.insertBefore(srcItem, item);
+              var items = list.querySelectorAll('div');
+              var newOrder = [];
+              items.forEach(function(el) { newOrder.push(el.dataset.colKey); });
+              colOrder = newOrder;
+              saveColOrder();
+              renderTableHeader();
+              renderTable();
+            }
+          });
+        }
+        var dragIcon = document.createElement('i');
+        dragIcon.className = col.always ? 'fa-solid fa-lock' : 'fa-solid fa-grip-lines';
+        dragIcon.style.cssText = 'font-size:12px;color:' + getCSSVar(col.always ? 'text3' : 'text3') + ';cursor:grab';
+        item.appendChild(dragIcon);
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = col.always || colVisibility[col.key] !== false;
+        cb.disabled = col.always;
+        if (col.always) cb.style.opacity = '0.4';
+        cb.addEventListener('change', function() {
+          if (!col.always) {
+            colVisibility[col.key] = cb.checked;
+            saveColVisibility();
+            renderTableHeader();
+            renderTable();
+          }
+        });
+        item.appendChild(cb);
+        var label = document.createElement('span');
+        label.style.cssText = 'font-size:13px;color:' + getCSSVar('text') + ';font-weight:500;flex:1;cursor:move';
+        label.textContent = col.label + (col.always ? ' (固定)' : '');
+        item.appendChild(label);
+        list.appendChild(item);
+      });
+      document.getElementById('colSettingsModal').style.display = 'flex';
+    }
+
+    // 容器级 dragover 阻止默认
+    document.getElementById('colSettingsList').addEventListener('dragover', function(e) { e.preventDefault(); });
+
+    function resetColSettings() {
+      if (!confirm('确定重置为默认列设置？')) return;
+      colVisibility = {};
+      colOrder = [];
+      saveColVisibility();
+      saveColOrder();
+      renderTableHeader();
+      renderTable();
+      closeModal('colSettingsModal');
+    }
+
+    function getVisibleColumnsRaw() {
+      var cols = COLUMNS.slice();
+      if (colOrder && colOrder.length > 0) {
+        var ordered = [];
+        colOrder.forEach(function(key) {
+          var idx = cols.findIndex(function(c) { return c.key === key; });
+          if (idx >= 0) { ordered.push(cols[idx]); cols.splice(idx, 1); }
+        });
+        cols = ordered.concat(cols);
+      }
+      return cols;
+    }
+
+    // ========== 关闭下拉菜单 (document click) ==========
+    document.addEventListener('click', function(e) {
+      // 筛选下拉菜单
+      document.querySelectorAll('.th-filter-menu.show').forEach(function(m) {
+        if (!m.contains(e.target)) {
+          var btn = document.querySelector('.th-filter-btn[data-filter-key="' + m.id.replace('filter-menu-', '') + '"]');
+          if (!btn || !btn.contains(e.target)) {
+            m.classList.remove('show');
+          }
+        }
+      });
+    });
+
+    // ========== 自定义字段==========
+    // 原始列（不含自定义字段），用于重置
+    var BASE_COLUMNS = [
+      { key: 'name', label: '姓名', always: true },
+      { key: 'abbr', label: '缩写' },
+      { key: 'department', label: '部门' },
+      { key: 'position', label: '职位' },
+      { key: 'phone', label: '电话' },
+      { key: 'email', label: '邮箱' },
+      { key: 'province', label: '省份' },
+      { key: 'status', label: '状态' },
+      { key: 'projects', label: '项目数' },
+      { key: 'actions', label: '操作', always: true },
+    ];
+    var BASE_COL_WIDTHS = {
+      name: 80, abbr: 60, department: 80, position: 80, phone: 100, email: 120,
+      province: 70, status: 60, projects: 60, actions: 80
+    };
+    var COLUMNS = BASE_COLUMNS.slice();
+    var DEFAULT_COL_WIDTHS = {};
+    Object.keys(BASE_COL_WIDTHS).forEach(function(k) { DEFAULT_COL_WIDTHS[k] = BASE_COL_WIDTHS[k]; });
+
+    async function loadCustomFields() {
+      try {
+        var res = await fetch(API + '/api/admin/custom-fields?target=engineers', { credentials: 'include' });
+        if (!res.ok) return;
+        var json = await res.json();
+        var inner = json.data || json;
+        if (!Array.isArray(inner) && inner.data && Array.isArray(inner.data)) inner = inner.data;
+        if (!Array.isArray(inner) && inner.fields) inner = inner.fields;
+        if (!Array.isArray(inner) && inner.list) inner = inner.list;
+        customFieldsDefs = Array.isArray(inner) ? inner : [];
+
+        // 同步自定义字段到表格列
+        COLUMNS = BASE_COLUMNS.slice();
+        for (var k in BASE_COL_WIDTHS) { DEFAULT_COL_WIDTHS[k] = BASE_COL_WIDTHS[k]; }
+        customFieldsDefs.forEach(function(fd) {
+          var key = 'cf_' + (fd.field_name || fd.name || '');
+          COLUMNS.splice(COLUMNS.length - 1, 0, { key: key, label: fd.field_name || fd.name }); // insert before actions
+          DEFAULT_COL_WIDTHS[key] = 100;
+        });
+      } catch(e) { customFieldsDefs = []; }
+    }
+
+    function renderCustomFieldsInModal(values) {
+      var container = document.getElementById('customFieldsContainer');
+      var inner = document.getElementById('customFieldsInner');
+      inner.innerHTML = '';
+      if (!customFieldsDefs || customFieldsDefs.length === 0) {
+        container.style.display = 'none';
+        return;
+      }
+      container.style.display = 'block';
+
+      for (var i = 0; i < customFieldsDefs.length; i += 2) {
+        var row = document.createElement('div');
+        row.className = 'form-row';
+        for (var j = i; j < i + 2 && j < customFieldsDefs.length; j++) {
+          var fd = customFieldsDefs[j];
+          var fieldName = fd.field_name || fd.name || fd.fieldName || '';
+          var fieldType = fd.field_type || fd.type || 'text';
+          var fieldOptions = fd.options || [];
+          var required = fd.required === true || fd.required === 'true';
+          var value = (values && values[fieldName]) || '';
+
+          var group = document.createElement('div');
+          group.className = 'form-group';
+          var label = document.createElement('label');
+          label.textContent = fieldName + (required ? ' *' : '');
+          group.appendChild(label);
+
+          var opts = [];
+          if (typeof fieldOptions === 'string') {
+            opts = fieldOptions.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+          } else if (Array.isArray(fieldOptions)) {
+            opts = fieldOptions;
+          }
+
+          if (opts.length > 0 && (fieldType === 'select' || fieldType === 'dropdown')) {
+            var select = document.createElement('select');
+            select.className = 'cf-field';
+            select.dataset.fieldName = fieldName;
+            var emptyOpt = document.createElement('option');
+            emptyOpt.value = '';
+            emptyOpt.textContent = '请选择';
+            select.appendChild(emptyOpt);
+            opts.forEach(function(o) {
+              var opt = document.createElement('option');
+              opt.value = o;
+              opt.textContent = o;
+              if (o === value) opt.selected = true;
+              select.appendChild(opt);
+            });
+            group.appendChild(select);
+          } else {
+            var input = document.createElement('input');
+            input.type = fieldType === 'number' ? 'number' : fieldType === 'date' ? 'date' : 'text';
+            input.className = 'cf-field';
+            input.dataset.fieldName = fieldName;
+            input.value = value;
+            input.placeholder = '请输入' + fieldName;
+            group.appendChild(input);
+          }
+          row.appendChild(group);
+        }
+        inner.appendChild(row);
+      }
+    }
+
+    function collectCustomFieldValues() {
+      var values = {};
+      document.querySelectorAll('#customFieldsInner .cf-field').forEach(function(el) {
+        values[el.dataset.fieldName] = el.value;
+      });
+      return values;
+    }
+
+    function applyFieldConfigToForm() {
+      BUILTIN_FIELDS.forEach(function(f) {
+        var cfg = fieldFilterConfigs[f.key] || {};
+        var options = cfg.options || [];
+        if (!cfg.filterable || options.length === 0) return;
+        var elId = (FIELD_MAP[f.key] || {}).elId;
+        if (!elId) return;
+        var el = document.getElementById(elId);
+        if (!el || el.tagName === 'SELECT') return;
+        var select = document.createElement('select');
+        select.id = elId;
+        select.style.cssText = el.style.cssText;
+        select.innerHTML = '<option value="">请选择</option>';
+        options.forEach(function(o) {
+          select.innerHTML += '<option value="' + o + '">' + o + '</option>';
+        });
+        el.parentNode.replaceChild(select, el);
+      });
+    }
+
+    // ========== 新增/编辑 ==========
+    function openAddModal() {
+      editingId = null;
+      document.getElementById('modalTitle').textContent = '新增员工';
+      ['editName','editInitials','editDept','editPosition','editPhone','editEmail','editProvince'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+      document.getElementById('editInitials').readOnly = false;
+      document.getElementById('editStatus').value = 'active';
+      applyFieldConfigToForm();
+      renderCustomFieldsInModal({});
+      document.getElementById('formModal').style.display = 'flex';
+    }
+
+    function openEditModal(id) {
+      var e = engineers.find(function(x) { return x.id == id || x.id === id; });
+      if (!e) return;
+      editingId = id;
+      document.getElementById('modalTitle').textContent = '编辑员工';
+      applyFieldConfigToForm();
+      document.getElementById('editName').value = e.name || '';
+      document.getElementById('editInitials').value = e.initials || '';
+      document.getElementById('editInitials').readOnly = true;
+      document.getElementById('editDept').value = e.department || '';
+      document.getElementById('editPosition').value = e.position || '';
+      document.getElementById('editPhone').value = e.phone || '';
+      document.getElementById('editEmail').value = e.email || '';
+      document.getElementById('editProvince').value = e.province || '';
+      document.getElementById('editStatus').value = e.status || 'active';
+
+      // 预填自定义字段
+      var customVals = e.custom_fields || e.customFields || {};
+      if (typeof customVals === 'string') {
+        try { customVals = JSON.parse(customVals); } catch(e) { customVals = {}; }
+      }
+      renderCustomFieldsInModal(customVals);
+      document.getElementById('formModal').style.display = 'flex';
+    }
+
+    // 新增模式自动生成缩写
+    document.getElementById('editName').addEventListener('input', function() {
+      if (!editingId) {
+        document.getElementById('editInitials').value = getInitials(this.value);
+      }
+    });
+
+    async function saveEngineer() {
+      var name = document.getElementById('editName').value.trim();
+      if (!name) { showToast('请输入姓名', 'error'); return; }
+      var body = {
+        name: name,
+        abbr: document.getElementById('editInitials').value.trim(),
+        department: document.getElementById('editDept').value.trim(),
+        position: document.getElementById('editPosition').value.trim(),
+        phone: document.getElementById('editPhone').value.trim(),
+        email: document.getElementById('editEmail').value.trim(),
+        province: document.getElementById('editProvince').value.trim(),
+        status: document.getElementById('editStatus').value,
+        custom_fields: collectCustomFieldValues()
+      };
+      try {
+        var url = editingId ? API + '/api/admin/engineers/' + editingId : API + '/api/admin/engineers';
+        var method = editingId ? 'PUT' : 'POST';
+        var res = await fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) });
+        if (!res.ok) { var err = await res.json(); throw new Error(err.message || err.error || '保存失败'); }
+        showToast(editingId ? '更新成功' : '创建成功');
+        closeModal('formModal'); loadData();
+      } catch (e) { showToast('操作失败: ' + e.message, 'error'); }
+    }
+
+    // ========== 删除 ==========
+    function openDeleteModal(id) {
+      deletingId = id;
+      document.getElementById('deletePassword').value = '';
+      document.getElementById('deleteError').style.display = 'none';
+      document.getElementById('deleteModal').style.display = 'flex';
+    }
+
+    document.getElementById('deletePassword').addEventListener('input', function() {
+      document.getElementById('deleteError').style.display = 'none';
+    });
+
+    async function confirmDelete() {
+      var password = document.getElementById('deletePassword').value;
+      var errorDiv = document.getElementById('deleteError');
+      errorDiv.style.display = 'none';
+      if (!password) {
+        errorDiv.textContent = '请输入管理员密码';
+        errorDiv.style.display = 'block';
+        return;
+      }
+      try {
+        var res = await fetch(API + '/api/admin/engineers/' + deletingId, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ password: password }) });
+        if (!res.ok) {
+          var err;
+          try { err = await res.json(); } catch(e) { err = {}; }
+          throw new Error(err.message || err.error || '密码错误');
+        }
+        showToast('删除成功'); closeModal('deleteModal'); loadData();
+      } catch (e) {
+        errorDiv.textContent = e.message;
+        errorDiv.style.display = 'block';
+      }
+    }
+
+    // ========== 字段配置 ==========
+    var fieldOptions = [];
+
+    function addOptionChip() {
+      var input = document.getElementById('newFieldOptionInput');
+      var val = input.value.trim();
+      if (!val) return;
+      if (fieldOptions.indexOf(val) >= 0) { showToast('选项已存在', 'error'); return; }
+      fieldOptions.push(val);
+      input.value = '';
+      renderOptionChips();
+    }
+
+    function removeOptionChip(val) {
+      fieldOptions = fieldOptions.filter(function(v) { return v !== val; });
+      renderOptionChips();
+    }
+
+    function renderOptionChips() {
+      var container = document.getElementById('optionChips');
+      var hidden = document.getElementById('newFieldOptions');
+      container.innerHTML = '';
+      fieldOptions.forEach(function(opt) {
+        var chip = document.createElement('span');
+        chip.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:' + getCSSVar('bg3') + ';border-radius:4px;font-size:11px;color:' + getCSSVar('text');
+        chip.textContent = opt;
+        var rm = document.createElement('i');
+        rm.className = 'fa-solid fa-xmark';
+        rm.style.cssText = 'cursor:pointer;opacity:0.5;font-size:10px';
+        rm.onclick = function() { removeOptionChip(opt); };
+        chip.appendChild(rm);
+        container.appendChild(chip);
+      });
+      hidden.value = fieldOptions.join(',');
+    }
+
+    function openFieldConfig() {
+      document.getElementById('newFieldName').value = '';
+      document.getElementById('newFieldOptionInput').value = '';
+      fieldOptions = [];
+      renderOptionChips();
+      loadFieldFilters().then(function() {
+        renderFieldConfigList();
+      });
+      document.getElementById('fieldConfigModal').style.display = 'flex';
+    }
+
+    async function loadFieldFilters() {
+      try {
+        var res = await fetch(API + '/api/admin/field-filters?target=engineers', { credentials: 'include' });
+        if (res.ok) {
+          var json = await res.json();
+          var list = json.data || json || [];
+          fieldFilterConfigs = {};
+          list.forEach(function(f) {
+            fieldFilterConfigs[f.field_key] = {
+              filterable: !!f.filterable,
+              unique: !!f['unique'],
+              options: f.options ? (typeof f.options === 'string' ? JSON.parse(f.options) : f.options) : []
+            };
+          });
+        }
+      } catch(e) {}
+    }
+
+    function saveFieldFilter(key, data) {
+      fetch(API + '/api/admin/field-filters/' + key, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', body: JSON.stringify(data)
+      }).catch(function() {});
+    }
+
+    // ========== 表头筛选下拉 ==========
+    function toggleFilterDropdown(fieldKey, btnEl) {
+      // 关闭其他筛选菜单
+      document.querySelectorAll('.th-filter-menu.show').forEach(function(m) {
+        if (m.id !== 'filter-menu-' + fieldKey) m.classList.remove('show');
+      });
+      var menu = document.getElementById('filter-menu-' + fieldKey);
+      if (menu && menu.classList.contains('show')) {
+        menu.classList.remove('show');
+        return;
+      }
+      if (!menu) {
+        menu = document.createElement('div');
+        menu.className = 'th-filter-menu';
+        menu.id = 'filter-menu-' + fieldKey;
+        document.body.appendChild(menu);
+      }
+      var rect = btnEl.getBoundingClientRect();
+      menu.style.top = (rect.bottom + 2) + 'px';
+      menu.style.left = rect.left + 'px';
+      menu.style.minWidth = '140px';
+      menu.style.maxHeight = '260px';
+      menu.style.overflowY = 'auto';
+
+      var cfg = fieldFilterConfigs[fieldKey] || {};
+      var options = cfg.options || [];
+      var selected = activeFilters[fieldKey] || [];
+      menu.innerHTML = '';
+      if (options.length > 0) {
+        options.forEach(function(opt) {
+          var label = document.createElement('label');
+          var cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.checked = selected.indexOf(opt) >= 0;
+          cb.addEventListener('change', function() {
+            if (!activeFilters[fieldKey]) activeFilters[fieldKey] = [];
+            var idx = activeFilters[fieldKey].indexOf(opt);
+            if (cb.checked && idx < 0) activeFilters[fieldKey].push(opt);
+            else if (!cb.checked && idx >= 0) activeFilters[fieldKey].splice(idx, 1);
+            if (activeFilters[fieldKey].length === 0) delete activeFilters[fieldKey];
+            renderTable();
+            loadData();
+          });
+          label.appendChild(cb);
+          label.appendChild(document.createTextNode(opt));
+          menu.appendChild(label);
+        });
+      } else {
+        menu.innerHTML = '<div class="filter-empty">暂无选项</div>';
+      }
+      menu.classList.add('show');
+    }
+
+    // === 编辑字段子弹窗状态 ===
+    var _editFieldKey = null, _editFieldOpts = [];
+
+    function openEditFieldModal(key, label, curUnique, curFilterable, curOpts, fieldType) {
+      _editFieldKey = key;
+      _editFieldOpts = curOpts.slice();
+      document.getElementById('editFieldLabel').textContent = label;
+      document.getElementById('editFieldUnique').value = curUnique ? '1' : '0';
+      document.getElementById('editFieldType').value = fieldType || 'text';
+      document.getElementById('editFieldMode').value = curFilterable ? 'filterable' : 'none';
+      toggleEditFieldUI();
+      renderEditOptChips();
+      document.getElementById('editFieldModal').style.display = 'flex';
+    }
+
+    function toggleEditFieldUI() {
+      var isUnique = document.getElementById('editFieldUnique').value === '1';
+      var fieldType = document.getElementById('editFieldType').value;
+      var isDateType = fieldType === 'date';
+      document.getElementById('editFieldNonUnique').style.display = (isUnique || isDateType) ? 'none' : '';
+      var mode = document.getElementById('editFieldMode').value;
+      document.getElementById('editFieldFilterOpts').style.display = (!isUnique && !isDateType && mode === 'filterable') ? '' : 'none';
+    }
+
+    document.getElementById('editFieldUnique').addEventListener('change', toggleEditFieldUI);
+    document.getElementById('editFieldMode').addEventListener('change', toggleEditFieldUI);
+    document.getElementById('editFieldType').addEventListener('change', toggleEditFieldUI);
+
+    function addEditOpt() {
+      var input = document.getElementById('editFieldOptInput');
+      var val = input.value.trim();
+      if (!val) return;
+      if (_editFieldOpts.indexOf(val) >= 0) { showToast('选项已存在', 'error'); return; }
+      _editFieldOpts.push(val);
+      input.value = '';
+      renderEditOptChips();
+    }
+
+    function removeEditOpt(val) {
+      _editFieldOpts = _editFieldOpts.filter(function(v) { return v !== val; });
+      renderEditOptChips();
+    }
+
+    function renderEditOptChips() {
+      var container = document.getElementById('editFieldOptChips');
+      container.innerHTML = '';
+      _editFieldOpts.forEach(function(opt) {
+        var chip = document.createElement('span');
+        chip.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:' + getCSSVar('bg3') + ';border-radius:4px;font-size:11px;color:' + getCSSVar('text');
+        chip.textContent = opt;
+        var rm = document.createElement('i');
+        rm.className = 'fa-solid fa-xmark';
+        rm.style.cssText = 'cursor:pointer;opacity:0.5;font-size:10px';
+        rm.onclick = function() { removeEditOpt(opt); };
+        chip.appendChild(rm);
+        container.appendChild(chip);
+      });
+    }
+
+    function saveFieldEdit() {
+      var isUnique = document.getElementById('editFieldUnique').value === '1';
+      var mode = document.getElementById('editFieldMode').value;
+      var fieldType = document.getElementById('editFieldType').value;
+      var filterable = !isUnique && mode === 'filterable';
+      var unique = isUnique;
+      var opts = filterable ? _editFieldOpts : [];
+      var data = { filterable: filterable, unique: unique, options: opts, field_type: fieldType };
+      saveFieldFilter(_editFieldKey, data);
+      if (!fieldFilterConfigs[_editFieldKey]) fieldFilterConfigs[_editFieldKey] = {};
+      fieldFilterConfigs[_editFieldKey].filterable = filterable;
+      fieldFilterConfigs[_editFieldKey].unique = unique;
+      fieldFilterConfigs[_editFieldKey].options = opts;
+      document.getElementById('editFieldModal').style.display = 'none';
+      renderFieldConfigList();
+      renderTableHeader();
+      showToast('字段配置已保存');
+    }
+
+    function renderFieldConfigList() {
+      var container = document.getElementById('fieldConfigList');
+      container.innerHTML = '';
+      // 合并内建 + 自定义字段
+      var allFields = [];
+      BUILTIN_FIELDS.forEach(function(f) { allFields.push({ key: f.key, label: f.label, isBuiltin: true, id: f.key, fieldType: (FIELD_MAP[f.key] || {}).type || 'text' }); });
+      customFieldsDefs.forEach(function(fd) { allFields.push({ key: fd.field_name, label: fd.field_name, isBuiltin: false, id: fd.id || fd._id, fieldType: fd.field_type || 'text' }); });
+
+      allFields.forEach(function(f) {
+        var cfg = fieldFilterConfigs[f.key] || {};
+        var filterable = cfg.filterable !== undefined ? cfg.filterable : false;
+        var unique = cfg.unique !== undefined ? cfg.unique : false;
+        var options = cfg.options || [];
+
+        var row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:6px;background:var(--bg3);margin-bottom:4px;gap:10px;flex-wrap:wrap';
+
+        // 左侧：字段名 + 标签
+        var left = document.createElement('div');
+        left.style.cssText = 'display:flex;align-items:center;gap:6px;min-width:0;flex:1;flex-wrap:wrap';
+        var nameSpan = document.createElement('span');
+        nameSpan.style.cssText = 'font-size:13px;color:' + getCSSVar('text') + ';font-weight:500;white-space:nowrap';
+        nameSpan.textContent = f.label;
+        left.appendChild(nameSpan);
+
+        var typeTag = document.createElement('span');
+        typeTag.style.cssText = 'font-size:10px;color:' + getCSSVar('text3') + ';background:' + getCSSVar('bg3') + ';padding:1px 6px;border-radius:3px;white-space:nowrap';
+        typeTag.textContent = f.isBuiltin ? '内建' : '自定义';
+        left.appendChild(typeTag);
+
+        if (unique) {
+          var uTag = document.createElement('span');
+          uTag.style.cssText = 'font-size:10px;color:' + getCSSVar('amber') + ';background:' + getCSSVar('amber-bg') + ';padding:1px 6px;border-radius:3px;white-space:nowrap';
+          uTag.textContent = '唯一';
+          left.appendChild(uTag);
+        }
+        if (filterable) {
+          var fTag = document.createElement('span');
+          fTag.style.cssText = 'font-size:10px;color:' + getCSSVar('blue') + ';background:' + getCSSVar('blue-bg') + ';padding:1px 6px;border-radius:3px;white-space:nowrap';
+          fTag.textContent = '可筛选';
+          left.appendChild(fTag);
+          if (options.length > 0) {
+            options.forEach(function(opt) {
+              var oTag = document.createElement('span');
+              oTag.style.cssText = 'font-size:10px;color:' + getCSSVar('text2') + ';background:' + getCSSVar('bg3') + ';padding:1px 6px;border-radius:3px;white-space:nowrap';
+              oTag.textContent = opt;
+              left.appendChild(oTag);
+            });
+          }
+        }
+
+        row.appendChild(left);
+
+        // 右侧按钮
+        var right = document.createElement('div');
+        right.style.cssText = 'display:flex;gap:4px;flex-shrink:0';
+        var editBtn = document.createElement('button');
+        editBtn.className = 'btn-xs btn-secondary';
+        editBtn.innerHTML = '<i class="fa-solid fa-pen"></i>';
+        editBtn.title = '编辑';
+        (function(fieldKey, fieldLabel, curUnique, curFilterable, curOpts) {
+          editBtn.onclick = function() { openEditFieldModal(fieldKey, fieldLabel, curUnique, curFilterable, curOpts, f.fieldType); };
+        })(f.key, f.label, unique, filterable, options);
+        right.appendChild(editBtn);
+        if (!f.isBuiltin) {
+          var delBtn = document.createElement('button');
+          delBtn.className = 'btn-xs btn-danger';
+          delBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+          (function(fieldId) { delBtn.onclick = function() { deleteCustomField(fieldId); }; })(f.id);
+          right.appendChild(delBtn);
+        }
+        row.appendChild(right);
+        container.appendChild(row);
+      });
+    }
+
+    async function addCustomField() {
+      var name = document.getElementById('newFieldName').value.trim();
+      if (!name) { showToast('请输入字段名称', 'error'); return; }
+      var type = document.getElementById('newFieldType').value;
+      var body = { field_name: name, field_type: type, target_type: 'engineers' };
+      if (type === 'select' && fieldOptions.length > 0) {
+        body.options = fieldOptions;
+      }
+      try {
+        var res = await fetch(API + '/api/admin/custom-fields', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) });
+        if (!res.ok) { var err = await res.json(); throw new Error(err.message || err.error || '添加失败'); }
+        showToast('字段添加成功');
+        document.getElementById('newFieldName').value = '';
+        document.getElementById('newFieldOptionInput').value = '';
+        fieldOptions = [];
+        renderOptionChips();
+        await loadCustomFields();
+        renderFieldConfigList();
+      } catch (e) { showToast('添加失败: ' + e.message, 'error'); }
+    }
+
+    async function deleteCustomField(id) {
+      if (!id) { showToast('无法删除此字段', 'error'); return; }
+      if (!confirm('确定要删除该自定义字段吗？')) return;
+      try {
+        var res = await fetch(API + '/api/admin/custom-fields/' + id, { method: 'DELETE', credentials: 'include' });
+        if (!res.ok) { var err = await res.json(); throw new Error(err.message || err.error || '删除失败'); }
+        showToast('字段已删除');
+        await loadCustomFields();
+        renderFieldConfigList();
+      } catch (e) { showToast('删除失败: ' + e.message, 'error'); }
+    }
+
+    // ========== 事件绑定 ==========
+    document.getElementById('searchInput').addEventListener('input', function() { clearTimeout(searchTimer); searchTimer = setTimeout(loadData, 300); });
+    document.getElementById('formModal').addEventListener('click', function(e) { if (e.target === this) closeModal('formModal'); });
+    document.getElementById('deleteModal').addEventListener('click', function(e) { if (e.target === this) closeModal('deleteModal'); });
+    document.getElementById('colSettingsModal').addEventListener('click', function(e) { if (e.target === this) closeModal('colSettingsModal'); });
+    document.getElementById('fieldConfigModal').addEventListener('click', function(e) { if (e.target === this) closeModal('fieldConfigModal'); });
+
+    // ========== 初始化==========
+    (async function init() {
+      // 先恢复侧边栏状态，避免 checkAuth 异步等待期间闪烁
+      restoreSidebar();
+      var user = await checkAuth(); if (!user) return;
+      // 管理员显示列设置、字段配置、新增按钮
+      if (user.role === 'admin') {
+        document.getElementById('colSettingsBtn').style.display = 'inline-flex';
+        document.getElementById('fieldConfigBtn').style.display = '';
+        document.getElementById('addEmployeeBtn').style.display = '';
+      }
+      setActiveNav(currentPage);
+      loadColOrder();
+      loadColWidths();
+      loadColVisibility();
+      renderTableHeader();
+      loadData();
+      loadCustomFields();
+      await loadFieldFilters();
+      // 字段筛选配置加载后重新渲染表头（显示过滤三角）
+      renderTableHeader();
+    })();
+  </script>
+</body>
+</html>
+

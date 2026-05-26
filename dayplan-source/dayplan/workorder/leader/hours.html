@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>工时统计 - 日报系统</title>
+  <link rel="stylesheet" href="../shared.css"/>
+  <link rel="stylesheet" href="../admin-layout.css"/>
+  <script src="../auth.js"></script>
+  <script src="../global.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    .sidebar-nav a.active { background: var(--blue-bg); color: var(--blue); font-weight: 700; }
+    .sidebar-user .user-role { color: var(--blue); }
+    .hours-wrap { padding: 20px 24px; overflow-x: hidden; }
+    .hours-title { font-size: 15px; font-weight: 700; color: var(--text2); margin-bottom: 12px; }
+    .filter-bar { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 12px; }
+    .filter-group { display: flex; flex-direction: column; gap: 4px; }
+    .filter-label { font-size: 11px; font-weight: 600; color: var(--text2); display: block; }
+    .filter-select {
+      padding: 7px 10px; font-size: 13px; font-weight: 500;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); outline: none; font-family: inherit; min-width: 100px; cursor: pointer;
+    }
+    .filter-select option { background: var(--bg2); color: var(--text); }
+    .filter-date {
+      padding: 7px 10px; font-size: 13px; font-weight: 500;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); outline: none; font-family: inherit; width: 130px; color-scheme: light;
+    }
+    .query-btn { padding: 7px 16px; font-size: 12px; font-weight: 700; border-radius: 6px; border: none; cursor: pointer; font-family: inherit; background: var(--text); color: var(--bg); }
+    .stat-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+    .stat-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+    .stat-num { font-size: 20px; font-weight: 800; color: var(--text); line-height: 1.1; margin-bottom: 3px; }
+    .stat-label { font-size: 11px; font-weight: 600; color: var(--text3); }
+    .chart-section { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+    .chart-title { font-size: 13px; font-weight: 700; color: var(--text2); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+    .chart-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 4px; background: var(--blue-bg); color: var(--blue); font-weight: 600; }
+    .bar-wrap { position: relative; }
+    .bar-area { display: flex; align-items: flex-end; gap: 2px; height: 110px; padding-top: 18px; }
+    .bar-item { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; min-width: 0; }
+    .bar-value { font-size: 8px; color: var(--text2); font-weight: 600; margin-bottom: 2px; white-space: nowrap; }
+    .bar-rect { width: 100%; background: linear-gradient(to top, var(--green), rgba(74,222,128,0.2)); border-radius: 2px 2px 0 0; min-height: 2px; }
+    .x-labels { display: flex; justify-content: space-between; padding-top: 4px; position: relative; }
+    .x-labels-rotate { padding-top: 50px; }
+    .x-label { flex: 1; text-align: center; font-size: 8px; color: var(--text3); font-weight: 500; position: relative; min-width: 0; }
+    .x-label-tick { position: absolute; bottom: 18px; left: 50%; width: 1px; height: 8px; background: var(--border); }
+    .x-label-text { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%) rotate(-45deg); transform-origin: left bottom; font-size: 8px; color: var(--text3); font-weight: 500; white-space: nowrap; }
+    .line-wrap { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+    .empty-text { padding: 20px 0; text-align: center; color: var(--text3); font-size: 13px; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <button class="sidebar-toggle" onclick="toggleSidebar()" title="折叠侧边栏"><i class="fa-solid fa-angles-left"></i></button>
+      <h2>日报系统</h2>
+      <div class="brand-sub">管理控制台</div>
+    </div>
+    <div class="sidebar-user">
+      <div class="avatar" id="userAvatar">?</div>
+      <div>
+        <div class="user-name" id="userDisplay">加载中..</div>
+        <div class="user-role" id="roleDisplay"></div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="overview.html" id="nav-overview"><i class="fa-solid fa-chart-pie"></i> 日报概览</a>
+      <a href="projects.html" id="nav-projects"><i class="fa-solid fa-building"></i> 项目看板</a>
+      <a href="team.html" id="nav-team"><i class="fa-solid fa-people-group"></i> 团队信息</a>
+      <a href="hours.html" id="nav-hours"><i class="fa-solid fa-chart-bar"></i> 工时统计</a>
+      <a href="distribution.html" id="nav-distribution"><i class="fa-solid fa-location-dot"></i> 人员分布</a>
+      <a href="messages.html" id="nav-messages"><i class="fa-solid fa-bullhorn"></i> 消息管理</a>
+    </nav>
+    <div class="sidebar-footer">
+      <button onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> 退出登录</button>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="content" style="padding:0">
+      <div class="hours-wrap">
+        <div class="hours-title">工时统计</div>
+        <div class="filter-bar">
+          <div class="filter-group">
+            <label class="filter-label">时间范围</label>
+            <select class="filter-select" id="periodSelect">
+              <option value="today">本日</option>
+              <option value="quarter">本季度</option>
+              <option value="year">本年度</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">开始日期</label>
+            <input type="date" class="filter-date" id="dateFrom">
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">结束日期</label>
+            <input type="date" class="filter-date" id="dateTo">
+          </div>
+          <div style="display:flex;gap:6px;align-items:flex-end">
+            <button class="query-btn" onclick="loadData()">查询</button>
+          </div>
+        </div>
+        <div id="loadingState" class="empty-text">加载中...</div>
+        <div id="emptyState" class="empty-text" style="display:none">暂无数据</div>
+        <div id="dataArea" style="display:none">
+          <div class="stat-cards">
+            <div class="stat-card"><div class="stat-num" id="statCard1">0</div><div class="stat-label" id="statLabel1">总工时</div></div>
+            <div class="stat-card"><div class="stat-num" id="statCard2">0</div><div class="stat-label" id="statLabel2">统计周期</div></div>
+            <div class="stat-card"><div class="stat-num" id="statCard3">-</div><div class="stat-label" id="statLabel3">人均工时</div></div>
+            <div class="stat-card"><div class="stat-num" id="statCard4">-</div><div class="stat-label" id="statLabel4">周期均工时</div></div>
+          </div>
+          <div class="chart-section" id="trendSection">
+            <div class="chart-title" id="trendTitle">
+              <span>工时趋势</span>
+              <span class="chart-badge" id="trendBadge">按日统计</span>
+            </div>
+            <div class="bar-wrap" id="trendChart"><div class="empty-text">暂无数据</div></div>
+            <div class="line-wrap" id="lineChartArea" style="display:none">
+              <div id="lineChart"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <script>
+    var currentPage = 'hours';
+    var period = 'today';
+
+    function showToast(msg, type) {
+      if (type === undefined) type = 'success';
+      var container = document.querySelector('.toast-container');
+      if (!container) { container = document.createElement('div'); container.className = 'toast-container'; document.body.appendChild(container); }
+      var toast = document.createElement('div'); toast.className = 'toast toast-' + type;
+      toast.textContent = msg; container.appendChild(toast);
+      setTimeout(function() { toast.style.opacity = '0'; setTimeout(function() { toast.remove(); }, 200); }, 3000);
+    }
+    function setActiveNav(page) { var el = document.getElementById('nav-' + page); if (el) el.classList.add('active'); }
+    function toggleSidebar() {
+      var sidebar = document.querySelector('.sidebar'); sidebar.classList.toggle('collapsed');
+      var icon = sidebar.querySelector('.sidebar-toggle i');
+      icon.className = sidebar.classList.contains('collapsed') ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left';
+      try { localStorage.setItem('sidebar-collapsed', sidebar.classList.contains('collapsed') ? '1' : '0'); } catch(e) {}
+    }
+    function restoreSidebar() { try { if (localStorage.getItem('sidebar-collapsed') === '1') document.querySelector('.sidebar').classList.add('collapsed'); } catch(e) {} }
+    function formatDate(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+
+    function getDefaultRange(p) {
+      var now = new Date();
+      switch (p) {
+        case 'today': { var s = formatDate(now); return { from: s, to: s }; }
+        case 'year': return { from: now.getFullYear()+'-01-01', to: now.getFullYear()+'-12-31' };
+        case 'quarter': {
+          var q = Math.floor(now.getMonth()/3)*3;
+          return { from: formatDate(new Date(now.getFullYear(),q,1)), to: formatDate(new Date(now.getFullYear(),q+3,0)) };
+        }
+        default: { var s=new Date(); s.setDate(s.getDate()-29); return { from: formatDate(s), to: formatDate(now) }; }
+      }
+    }
+
+    function fmtLabel(label, p) {
+      if (p === 'year') { var ps=label.split('-'); return parseInt(ps[1])+'月'; }
+      if (p === 'quarter') { var ps=label.split('-'); return ps[1]+'-'+ps[2]; }
+      if (label && label.length===10) return label.substring(5);
+      return label||'';
+    }
+
+    function getWeekKey(dateStr) {
+      var d = new Date(dateStr);
+      var day = d.getDay();
+      var diff = day === 0 ? -6 : 1 - day;
+      var mon = new Date(d); mon.setDate(d.getDate()+diff);
+      return formatDate(mon);
+    }
+
+    function groupByWeek(dailyData) {
+      var map = {};
+      dailyData.forEach(function(d) {
+        var wk = getWeekKey(d.date || d.label);
+        if (!map[wk]) map[wk] = { period_label: wk, total_hours: 0, engineer_count: 0 };
+        map[wk].total_hours += parseFloat(d.total_hours||0);
+        map[wk].engineer_count = Math.max(map[wk].engineer_count, d.engineer_count||0);
+      });
+      return Object.keys(map).sort().map(function(k) { return map[k]; });
+    }
+
+    function groupByMonth(dailyData) {
+      var map = {};
+      dailyData.forEach(function(d) {
+        var dt = d.date || d.label;
+        var mk = dt.substring(0,7);
+        if (!map[mk]) map[mk] = { period_label: mk, total_hours: 0, engineer_count: 0 };
+        map[mk].total_hours += parseFloat(d.total_hours||0);
+        map[mk].engineer_count = Math.max(map[mk].engineer_count, d.engineer_count||0);
+      });
+      return Object.keys(map).sort().map(function(k) { return map[k]; });
+    }
+
+    function fillGaps(data, dateFrom, dateTo, groupType) {
+      var map = {};
+      data.forEach(function(d) { var key = d.period_label || d.date || d.label || ''; if (key) map[key] = d; });
+      var result = [];
+      var d = new Date(dateFrom);
+      var end = new Date(dateTo);
+      while (d <= end) {
+        var key;
+        if (groupType === 'month') {
+          key = formatDate(d).substring(0,7);
+          d.setMonth(d.getMonth()+1);
+        } else if (groupType === 'week') {
+          var day=d.getDay(), diff=day===0?-6:1-day, mon=new Date(d);
+          mon.setDate(d.getDate()+diff); key=formatDate(mon);
+          d.setDate(d.getDate()+7);
+        } else {
+          key = formatDate(d);
+          d.setDate(d.getDate()+1);
+        }
+        if (map[key]) { result.push(map[key]); } else { result.push({ period_label: key, total_hours: 0, engineer_count: 0 }); }
+      }
+      return result;
+    }
+
+    function handlePeriodChange(value) {
+      period = value;
+      var r = getDefaultRange(value); document.getElementById('dateFrom').value = r.from; document.getElementById('dateTo').value = r.to;
+      loadData();
+    }
+
+    function renderBarChart(containerId, data, needRotate) {
+      var container = document.getElementById(containerId);
+      if (!data||!data.length) { container.innerHTML = '<div class="empty-text">暂无数据</div>'; return; }
+      var maxH = Math.max.apply(null, data.map(function(d){return d.total_hours;}), 1);
+      var bars = '<div class="bar-area">';
+      data.forEach(function(d) {
+        var pct = (d.total_hours/maxH)*100;
+        bars += '<div class="bar-item"><span class="bar-value">'+(d.total_hours.toFixed?d.total_hours.toFixed(1):d.total_hours)+'</span><div class="bar-rect" style="height:'+pct+'%"></div></div>';
+      });
+      bars += '</div>';
+      var lbs = '<div class="x-labels'+(needRotate?' x-labels-rotate':'')+'">';
+      data.forEach(function(d) {
+        var lbl = d.period_label||d.label||'';
+        if (needRotate) {
+          lbs += '<div class="x-label"><div class="x-label-tick"></div><span class="x-label-text">'+lbl+'</span></div>';
+        } else {
+          lbs += '<span class="x-label">'+lbl+'</span>';
+        }
+      });
+      lbs += '</div>';
+      container.innerHTML = bars+lbs;
+    }
+
+    function renderLineChart(containerId, data) {
+      var container = document.getElementById(containerId);
+      if (!data||data.length<2) { container.innerHTML = '<div style="padding:10px 0;text-align:center;color:var(--text3);font-size:12px">数据不足，无法展示折线图</div>'; return; }
+      var T = 0.3; // 弯曲张力 0~1，越大越弯
+      var W=800, H=200, PT=16, PB=24, PL=36, PR=16;
+      var plotW=W-PL-PR, plotH=H-PT-PB;
+      var maxV=Math.max.apply(null,data.map(function(d){return d.total_hours;}),1);
+      var pts = data.map(function(d,i){
+        return { x: PL+(i/(data.length-1))*plotW, y: PT+plotH-(d.total_hours/maxV)*plotH };
+      });
+      // 生成平滑曲线路径
+      function smoothPath(ptArr, close) {
+        var len = ptArr.length;
+        if (len<2) return '';
+        var s = 'M'+ptArr[0].x+','+ptArr[0].y;
+        for (var i=0;i<len-1;i++) {
+          var p0=i>0?ptArr[i-1]:ptArr[i], p1=ptArr[i], p2=ptArr[i+1], p3=i<len-2?ptArr[i+2]:ptArr[i+1];
+          var cp1x=p1.x+(p2.x-p0.x)*T, cp1y=p1.y+(p2.y-p0.y)*T;
+          var cp2x=p2.x-(p3.x-p1.x)*T, cp2y=p2.y-(p3.y-p1.y)*T;
+          s+='C'+cp1x.toFixed(1)+','+cp1y.toFixed(1)+' '+cp2x.toFixed(1)+','+cp2y.toFixed(1)+' '+p2.x.toFixed(1)+','+p2.y.toFixed(1);
+        }
+        if (close) s+='Z';
+        return s;
+      }
+      // 面积填充路径：底部 → 曲线 → 底部
+      var areaPath = 'M'+PL+','+(PT+plotH)+' ';
+      areaPath += smoothPath(pts, false).substring(1); // 去掉开头的 M
+      areaPath += ' L'+(W-PR)+','+(PT+plotH)+' Z';
+      // 渐变定义
+      var gradId = 'areaGrad_' + containerId.replace(/[^a-z]/g,'');
+      var svg='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;display:block">';
+      svg+='<defs><linearGradient id="'+gradId+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="rgba(74,222,128,0.15)"/><stop offset="100%" stop-color="rgba(74,222,128,0.01)"/></linearGradient></defs>';
+      // 网格线
+      for(var i=0;i<=4;i++){ var yy=PT+plotH-(i/4)*plotH; svg+='<line x1="'+PL+'" y1="'+yy+'" x2="'+(W-PR)+'" y2="'+yy+'" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>'; }
+      // 面积填充
+      svg+='<path fill="url(#'+gradId+')" d="'+areaPath+'"/>';
+      // 平滑折线（带发光阴影）
+      svg+='<path fill="none" stroke="rgba(74,222,128,0.2)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="'+smoothPath(pts, false)+'"/>';
+      svg+='<path fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="'+smoothPath(pts, false)+'"/>';
+      // 数据点圆
+      pts.forEach(function(p){
+        svg+='<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="3" fill="var(--green)" stroke="#111" stroke-width="1.5"/>';
+      });
+      // X 轴标签
+      var step=Math.max(1,Math.floor(data.length/10));
+      pts.forEach(function(p,i){
+        if(i%step!==0&&i!==data.length-1) return;
+        var lbl=(data[i].period_label||data[i].label||'').replace(/^\d{4}-/,'');
+        svg+='<text x="'+p.x.toFixed(1)+'" y="'+(H-4)+'" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.15)">'+lbl+'</text>';
+      });
+      svg+='</svg>';
+      container.innerHTML = svg;
+    }
+
+    async function loadData() {
+      var dateFrom = document.getElementById('dateFrom').value;
+      var dateTo = document.getElementById('dateTo').value;
+      document.getElementById('loadingState').style.display = '';
+      document.getElementById('emptyState').style.display = 'none';
+      document.getElementById('dataArea').style.display = 'none';
+      document.getElementById('lineChartArea').style.display = 'none';
+
+      try {
+        var trendData = null;
+        var groupType = 'day';
+
+        if (period === 'quarter') {
+          // 季度：按周统计
+          groupType = 'week';
+          document.getElementById('trendBadge').textContent = '按周统计';
+          // 判断是否自定义日期（与默认季度范围比较）
+          var def = getDefaultRange('quarter');
+          var isDefault = (dateFrom === def.from && dateTo === def.to);
+
+          if (isDefault) {
+            var res = await fetch(API + '/api/leader/hours/trend?period=quarter', { credentials: 'include' });
+            if (res.ok) { var j = await res.json(); trendData = j.data||j; }
+            if (trendData && trendData.trend) { trendData.trend = fillGaps(trendData.trend, dateFrom, dateTo, 'week'); }
+          } else {
+            // 自定义日期范围：取 daily 数据在前端按周分组
+            var p = new URLSearchParams(); p.set('date_from',dateFrom); p.set('date_to',dateTo);
+            var res = await fetch(API + '/api/leader/hours/daily?'+p.toString(), { credentials: 'include' });
+            if (res.ok) {
+              var j = await res.json(); var daily = (j.data||j).daily||[];
+              var grouped = groupByWeek(daily);
+              grouped = fillGaps(grouped, dateFrom, dateTo, 'week');
+              var gt = grouped.reduce(function(s,r){return s+parseFloat(r.total_hours||0);},0);
+              trendData = { trend: grouped, grand_total: gt, by_project:[], by_engineer:[] };
+            }
+          }
+        } else if (period === 'year') {
+          // 年度：按月统计
+          groupType = 'month';
+          document.getElementById('trendBadge').textContent = '按月统计';
+          var def = getDefaultRange('year');
+          var isDefault = (dateFrom === def.from && dateTo === def.to);
+
+          if (isDefault) {
+            var res = await fetch(API + '/api/leader/hours/trend?period=year', { credentials: 'include' });
+            if (res.ok) { var j = await res.json(); trendData = j.data||j; }
+            if (trendData && trendData.trend) { trendData.trend = fillGaps(trendData.trend, dateFrom, dateTo, 'month'); }
+          } else {
+            var p = new URLSearchParams(); p.set('date_from',dateFrom); p.set('date_to',dateTo);
+            var res = await fetch(API + '/api/leader/hours/daily?'+p.toString(), { credentials: 'include' });
+            if (res.ok) {
+              var j = await res.json(); var daily = (j.data||j).daily||[];
+              var grouped = groupByMonth(daily);
+              grouped = fillGaps(grouped, dateFrom, dateTo, 'month');
+              var gt = grouped.reduce(function(s,r){return s+parseFloat(r.total_hours||0);},0);
+              trendData = { trend: grouped, grand_total: gt, by_project:[], by_engineer:[] };
+            }
+          }
+        } else if (period === 'today') {
+          // 本日：按日统计，展示查询日期前后一周
+          var isDefault = (dateFrom === dateTo);
+          if (isDefault) {
+            // 前后一周
+            var d = new Date(dateFrom);
+            var f = new Date(d); f.setDate(f.getDate()-7);
+            var t = new Date(d); t.setDate(t.getDate()+7);
+            dateFrom = formatDate(f); dateTo = formatDate(t);
+          }
+          groupType = 'day';
+          document.getElementById('trendBadge').textContent = '按日统计';
+          var p = new URLSearchParams(); p.set('date_from',dateFrom); p.set('date_to',dateTo);
+          var res = await fetch(API + '/api/leader/hours/trend?period=day&'+p.toString(), { credentials: 'include' });
+          if (res.ok) { var j = await res.json(); trendData = j.data||j; }
+          if (trendData && trendData.trend) { trendData.trend = fillGaps(trendData.trend, dateFrom, dateTo, 'day'); }
+          // 覆盖 statCard 显示本日实际值（取 dateFrom=dateTo 时的今日数据）
+          if (isDefault) {
+            var todayStr = formatDate(new Date());
+            var tp = new URLSearchParams(); tp.set('date_from',todayStr); tp.set('date_to',todayStr);
+            var [tres, tr] = await Promise.all([
+              fetch(API + '/api/leader/hours/daily?'+tp.toString(), { credentials: 'include' }),
+              fetch(API + '/api/leader/today', { credentials: 'include' })
+            ]);
+            var todayGT = 0;
+            if (tres.ok) {
+              var tj = await tres.json(); var td = (tj.data||tj).daily||[];
+              todayGT = td.reduce(function(s,r){return s+parseFloat(r.total_hours||0);},0);
+            }
+            var submittedCount = 0, totalEngineers = 0;
+            if (tr.ok) {
+              var tj2 = await tr.json(); var td2 = tj2.data||{};
+              submittedCount = td2.submitted || 0;
+              totalEngineers = td2.total || 0;
+            }
+            document.getElementById('statLabel1').textContent = '总工时';
+            document.getElementById('statLabel2').textContent = '已提交';
+            document.getElementById('statLabel3').textContent = '人均工时';
+            document.getElementById('statLabel4').textContent = '工程师总数';
+            document.getElementById('statCard1').textContent = todayGT.toFixed(1);
+            document.getElementById('statCard2').textContent = submittedCount;
+            document.getElementById('statCard3').textContent = submittedCount>0?(todayGT/submittedCount).toFixed(1):'-';
+            document.getElementById('statCard4').textContent = totalEngineers;
+          }
+        }
+
+        document.getElementById('loadingState').style.display = 'none';
+
+        if (!trendData) { document.getElementById('emptyState').style.display = ''; return; }
+        document.getElementById('dataArea').style.display = '';
+
+        // 标准 stat card 更新（仅当不是 today 的默认模式，today 默认模式上面已经更新了）
+        if (!(period==='today' && document.getElementById('dateFrom').value===document.getElementById('dateTo').value)) {
+          var trend = trendData.trend||[];
+          var gt = trendData.grand_total||0;
+          var tLen = trend.length;
+          var totalPeople = trend.reduce(function(s,r){return s+parseInt(r.engineer_count||0);},0);
+
+          if (period==='quarter') {
+            document.getElementById('statLabel1').textContent = '总工时';
+            document.getElementById('statLabel2').textContent = '统计周数';
+            document.getElementById('statLabel3').textContent = '总人次';
+            document.getElementById('statLabel4').textContent = '周均工时';
+            document.getElementById('statCard1').textContent = gt.toFixed?gt.toFixed(1):gt;
+            document.getElementById('statCard2').textContent = tLen;
+            document.getElementById('statCard3').textContent = totalPeople;
+            document.getElementById('statCard4').textContent = tLen>0?(gt/tLen).toFixed(1):'-';
+          } else if (period==='year') {
+            document.getElementById('statLabel1').textContent = '总工时';
+            document.getElementById('statLabel2').textContent = '统计月数';
+            document.getElementById('statLabel3').textContent = '总人次';
+            document.getElementById('statLabel4').textContent = '月均工时';
+            document.getElementById('statCard1').textContent = gt.toFixed?gt.toFixed(1):gt;
+            document.getElementById('statCard2').textContent = tLen;
+            document.getElementById('statCard3').textContent = totalPeople;
+            document.getElementById('statCard4').textContent = tLen>0?(gt/tLen).toFixed(1):'-';
+          } else {
+            document.getElementById('statLabel1').textContent = '总工时';
+            document.getElementById('statLabel2').textContent = '统计天数';
+            document.getElementById('statLabel3').textContent = '总人次';
+            document.getElementById('statLabel4').textContent = '日均工时';
+            document.getElementById('statCard1').textContent = gt.toFixed?gt.toFixed(1):gt;
+            document.getElementById('statCard2').textContent = tLen;
+            document.getElementById('statCard3').textContent = totalPeople;
+            document.getElementById('statCard4').textContent = tLen>0?(gt/tLen).toFixed(1):'-';
+          }
+        }
+
+        var trend = trendData.trend||[];
+        var needRotate = trend.length > 12;
+        renderBarChart('trendChart', trend, needRotate);
+        if (trend.length >= 2) {
+          document.getElementById('lineChartArea').style.display = '';
+          renderLineChart('lineChart', trend);
+        } else {
+          document.getElementById('lineChartArea').style.display = 'none';
+        }
+
+      } catch(e) { document.getElementById('loadingState').style.display = 'none'; document.getElementById('emptyState').style.display = ''; }
+    }
+
+    (async function init() {
+      restoreSidebar();
+      var user = await checkAuth();
+      if (!user) return;
+      setActiveNav(currentPage);
+      var r = getDefaultRange('today');
+      document.getElementById('dateFrom').value = r.from;
+      document.getElementById('dateTo').value = r.to;
+      document.getElementById('periodSelect').addEventListener('change', function() { handlePeriodChange(this.value); });
+      await loadData();
+    })();
+  </script>
+</body>
+</html>

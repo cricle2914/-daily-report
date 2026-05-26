@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>人员分布 - 日报系统</title>
+  <link rel="stylesheet" href="../shared.css"/>
+  <link rel="stylesheet" href="../admin-layout.css"/>
+  <script src="../auth.js"></script>
+  <script src="../global.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+  <style>
+    .sidebar-nav a.active { background: var(--blue-bg); color: var(--blue); font-weight: 700; }
+    .sidebar-user .user-role { color: var(--blue); }
+    body { overflow: hidden; }
+    .main { display: flex; flex-direction: column; height: 100vh; }
+    .content { flex: 1; padding: 0; overflow: hidden; }
+    #mapChart { width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <button class="sidebar-toggle" onclick="toggleSidebar()" title="折叠侧边栏"><i class="fa-solid fa-angles-left"></i></button>
+      <h2>日报系统</h2>
+      <div class="brand-sub">管理控制台</div>
+    </div>
+    <div class="sidebar-user">
+      <div class="avatar" id="userAvatar">?</div>
+      <div>
+        <div class="user-name" id="userDisplay">加载中..</div>
+        <div class="user-role" id="roleDisplay"></div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="overview.html" id="nav-overview"><i class="fa-solid fa-chart-pie"></i> 日报概览</a>
+      <a href="projects.html" id="nav-projects"><i class="fa-solid fa-building"></i> 项目看板</a>
+      <a href="team.html" id="nav-team"><i class="fa-solid fa-people-group"></i> 团队信息</a>
+      <a href="hours.html" id="nav-hours"><i class="fa-solid fa-chart-bar"></i> 工时统计</a>
+      <a href="distribution.html" id="nav-distribution"><i class="fa-solid fa-location-dot"></i> 人员分布</a>
+      <a href="messages.html" id="nav-messages"><i class="fa-solid fa-bullhorn"></i> 消息管理</a>
+    </nav>
+    <div class="sidebar-footer">
+      <button onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> 退出登录</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="content">
+      <div id="mapChart"></div>
+    </div>
+  </main>
+
+  <script>
+    var currentPage = 'distribution';
+    var chart = null;
+
+    function setActiveNav(page) { var el = document.getElementById('nav-' + page); if (el) el.classList.add('active'); }
+    function toggleSidebar() {
+      var sidebar = document.querySelector('.sidebar');
+      sidebar.classList.toggle('collapsed');
+      var icon = sidebar.querySelector('.sidebar-toggle i');
+      var collapsed = sidebar.classList.contains('collapsed');
+      icon.className = collapsed ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left';
+      try { localStorage.setItem('sidebar-collapsed', collapsed ? '1' : '0'); } catch(e) {}
+    }
+    function restoreSidebar() { try { if (localStorage.getItem('sidebar-collapsed') === '1') document.querySelector('.sidebar').classList.add('collapsed'); } catch(e) {} }
+
+    async function loadData() {
+      var provinceData = {};
+
+      try {
+        // 调用新API：优先使用日报中的地点，没有日报则使用工程师的province
+        var res = await fetch(API + '/api/leader/distribution/stats', { credentials: 'include' });
+        if (res.ok) {
+          var data = await res.json();
+          // API 返回格式: { "山东省": 5, "北京市": 3, ... }
+          provinceData = data.data || data || {};
+        }
+      } catch(e) {
+        console.error('获取人员分布数据失败:', e);
+      }
+
+      renderMap(provinceData);
+    }
+
+    function renderMap(provinceData) {
+      var container = document.getElementById('mapChart');
+
+      fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json')
+        .then(function(res) { return res.json(); })
+        .then(function(geoJson) {
+          // 过滤：去掉九段线、非数值 adcode、LineString
+          geoJson.features = geoJson.features.filter(function(f) {
+            var adcode = String(f.properties.adcode || '');
+            if (!/^\d+$/.test(adcode)) return false;
+            if (f.geometry && f.geometry.type === 'LineString') return false;
+            return true;
+          });
+
+          // 处理几何：去掉南海诸岛（任何点纬度 < 18°N 的子多边形都删除）
+          geoJson.features.forEach(function(f) {
+            if (!f.geometry) return;
+            var geom = f.geometry;
+            if (geom.type === 'MultiPolygon') {
+              geom.coordinates = geom.coordinates.filter(function(polygon) {
+                var ring = polygon[0];
+                if (!ring || ring.length === 0) return false;
+                var minLat = 90;
+                for (var i = 0; i < ring.length; i++) { if (ring[i][1] < minLat) minLat = ring[i][1]; }
+                return minLat >= 18;
+              });
+              if (geom.coordinates.length === 0) f._remove = true;
+            } else if (geom.type === 'Polygon') {
+              var ring = geom.coordinates[0] || [];
+              var minLat = 90;
+              for (var i = 0; i < ring.length; i++) { if (ring[i][1] < minLat) minLat = ring[i][1]; }
+              if (minLat < 18) f._remove = true;
+            }
+          });
+
+          geoJson.features = geoJson.features.filter(function(f) { return !f._remove; });
+
+          // 海南省：去掉离主岛中心太远的子多边形（消除右下角方框）
+          geoJson.features.forEach(function(f) {
+            if (f.properties.adcode !== 460000) return;
+            if (!f.geometry || f.geometry.type !== 'MultiPolygon') return;
+            if (f.geometry.coordinates.length <= 1) return;
+            // 找主岛中心（顶点最多的子多边形 = 主岛）
+            var bestIdx = 0, bestLen = 0;
+            for (var i = 0; i < f.geometry.coordinates.length; i++) {
+              var ring = f.geometry.coordinates[i][0] || [];
+              if (ring.length > bestLen) { bestLen = ring.length; bestIdx = i; }
+            }
+            // 算主岛中心经纬度
+            var ring = f.geometry.coordinates[bestIdx][0];
+            var sumLng = 0, sumLat = 0;
+            for (var j = 0; j < ring.length; j++) { sumLng += ring[j][0]; sumLat += ring[j][1]; }
+            var centerLng = sumLng / ring.length;
+            var centerLat = sumLat / ring.length;
+            // 去掉距离主岛中心超过 3 度的子多边形
+            f.geometry.coordinates = f.geometry.coordinates.filter(function(poly, idx) {
+              if (idx === bestIdx) return true; // 主岛保留
+              var r = poly[0] || [];
+              var slng = 0, slat = 0;
+              for (var k = 0; k < r.length; k++) { slng += r[k][0]; slat += r[k][1]; }
+              var dist = Math.sqrt(Math.pow(slng/r.length - centerLng, 2) + Math.pow(slat/r.length - centerLat, 2));
+              return dist < 3; // 距离主岛 3 度以内的保留
+            });
+            if (f.geometry.coordinates.length === 1) f.geometry.type = 'Polygon';
+          });
+
+          echarts.registerMap('cn', geoJson);
+
+          if (!chart) {
+            chart = echarts.init(container);
+            // 侧边栏折叠时重新调整大小
+            new ResizeObserver(function() { chart.resize(); }).observe(container);
+            window.addEventListener('resize', function() { chart.resize(); });
+          }
+
+          var mapData = [];
+          for (var name in provinceData) {
+            mapData.push({ name: name, value: provinceData[name] });
+          }
+
+          // 颜色按人数深浅：少→深绿，多→亮绿
+          var maxVal = Math.max.apply(null, Object.values(provinceData)) || 10;
+          var colors = ['#0a2f1f', '#0d4f2e', '#16753d', '#1fa34d', '#2dd45e'];
+          mapData.forEach(function(d) {
+            var idx = Math.min(Math.floor((d.value / maxVal) * (colors.length - 1)), colors.length - 1);
+            d.itemStyle = { areaColor: colors[idx] };
+          });
+
+          var option = {
+            tooltip: {
+              trigger: 'item',
+              formatter: function(p) { return p.name + '<br/>人数: <strong>' + (p.value || 0) + '</strong>'; }
+            },
+            series: [{
+              type: 'map',
+              map: 'cn',
+              roam: false,
+              label: { show: false },
+              itemStyle: {
+                areaColor: '#1a1a1a',
+                borderColor: 'rgba(255,255,255,0.12)',
+                borderWidth: 1
+              },
+              emphasis: {
+                label: { show: true, color: '#fff' },
+                itemStyle: { areaColor: '#2dd45e' }
+              },
+              data: mapData
+            }]
+          };
+
+          chart.setOption(option);
+
+          // 呼吸效果：循环更新颜色亮度
+          var breatheColors = ['#0a2f1f', '#0d4f2e', '#16753d', '#1fa34d', '#2dd45e'];
+          var animFrame = 0;
+          if (window._breatheTimer) clearInterval(window._breatheTimer);
+          window._breatheTimer = setInterval(function() {
+            animFrame++;
+            var updated = mapData.map(function(d, i) {
+              var baseIdx = Math.min(Math.floor((d.value / maxVal) * (breatheColors.length - 1)), breatheColors.length - 1);
+              // 每人不同相位，用 sin 脉冲亮度 (0.6 ~ 1.0)
+              var phase = (i * 0.7 + animFrame * 0.05);
+              var brightness = 0.6 + 0.4 * (Math.sin(phase) + 1) / 2;
+              // 在基础色和亮色之间插值
+              var baseHex = breatheColors[baseIdx];
+              var r = parseInt(baseHex.slice(1,3), 16);
+              var g = parseInt(baseHex.slice(3,5), 16);
+              var b = parseInt(baseHex.slice(5,7), 16);
+              r = Math.min(255, Math.round(r * brightness));
+              g = Math.min(255, Math.round(g * (0.5 + brightness * 0.5)));
+              b = Math.min(255, Math.round(b * brightness));
+              return {
+                name: d.name,
+                value: d.value,
+                itemStyle: { areaColor: '#' + r.toString(16).padStart(2,'0') + g.toString(16).padStart(2,'0') + b.toString(16).padStart(2,'0') }
+              };
+            });
+            chart.setOption({ series: [{ data: updated }] });
+          }, 80);
+        });
+    }
+
+    (async function init() {
+      restoreSidebar();
+      var user = await checkAuth();
+      if (!user) return;
+      setActiveNav(currentPage);
+      await loadData();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>日报管理 - 日报系统</title>
+  <link rel="stylesheet" href="../shared.css"/>
+  <link rel="stylesheet" href="../admin-layout.css"/>
+  <script src="../auth.js"></script>
+  <script src="../global.js"></script>
+  <script>
+    if (typeof API === 'undefined') {
+      var SERVER_URL_KEY = 'workorder-server-url';
+      var DEFAULT_API = 'http://172.40.93.99:31663';
+      var API = (function() {
+        try {
+          var saved = localStorage.getItem(SERVER_URL_KEY);
+          if (saved) return saved.replace(/\/+$/, '');
+        } catch(e) {}
+        return DEFAULT_API;
+      })();
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    /* 页面专用样式 */
+    .detail-label { font-size: 11px; color: var(--text3); text-transform: uppercase; margin-bottom: 2px; letter-spacing: 0.3px; }
+    .detail-value { font-size: 13px; color: var(--text); margin-bottom: 14px; }
+    .detail-textarea { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px; font-size: 13px; color: var(--text); white-space: pre-wrap; min-height: 60px; }
+    .sidebar-group-label {
+      padding: 12px 12px 4px; font-size: 10px; font-weight: 600;
+      color: var(--text3); letter-spacing: 0.5px; text-transform: uppercase;
+    }
+    .sidebar.collapsed .sidebar-group-label { display: none; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <button class="sidebar-toggle" onclick="toggleSidebar()" title="折叠侧边栏"><i class="fa-solid fa-angles-left"></i></button>
+      <h2>日报系统</h2>
+      <div class="brand-sub">管理控制台</div>
+    </div>
+    <div class="sidebar-user">
+      <div class="avatar" id="userAvatar">?</div>
+      <div>
+        <div class="user-name" id="userDisplay">加载中..</div>
+        <div class="user-role" id="roleDisplay"></div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="engineers.html" id="nav-engineers"><i class="fa-solid fa-users"></i> 员工管理</a>
+      <a href="projects.html" id="nav-projects"><i class="fa-solid fa-diagram-project"></i> 项目管理</a>
+      <a href="reports.html" id="nav-reports"><i class="fa-solid fa-file-lines"></i> 日报管理</a>
+      <a href="hours.html" id="nav-hours"><i class="fa-solid fa-clock"></i> 工时统计</a>
+      <a href="accounts.html" id="nav-accounts"><i class="fa-solid fa-user-gear"></i> 账户管理</a>
+      <a href="email.html" id="nav-email"><i class="fa-solid fa-envelope"></i> 邮件管理</a>
+      <a href="messages.html" id="nav-messages"><i class="fa-solid fa-bullhorn"></i> 消息管理</a>
+      <a href="submit-report.html" id="nav-submit-report"><i class="fa-solid fa-pen-to-square"></i> 提交日报</a>
+    </nav>
+    <div class="sidebar-footer">
+      <button onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> 退出登录</button>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="topbar"></div>
+    <div class="filter-bar">
+      <input type="text" id="engineerSearch" placeholder="搜索工程师..." style="width:150px">
+      <input type="text" id="projectSearch" placeholder="搜索项目..." style="width:150px">
+      <input type="date" id="dateFrom" style="width:140px">
+      <input type="date" id="dateTo" style="width:140px">
+      <select id="statusFilter" style="width:120px">
+        <option value="">全部状态</option>
+        <option value="complete">完成</option>
+        <option value="ongoing">进行中</option>
+        <option value="blocked">受阻</option>
+      </select>
+      <button class="btn-primary" onclick="loadData()"><i class="fa-solid fa-search"></i> 查询</button>
+    </div>
+    <div class="content">
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>工程师</th>
+                <th>项目</th>
+                <th>进度</th>
+                <th>状态</th>
+                <th>提交时间</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <div id="emptyState" class="empty-state" style="display:none">
+          <i class="fa-solid fa-inbox"></i>
+          <p>暂无数据</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 详情 Modal -->
+  <div class="modal-overlay" id="detailModal" style="display:none">
+    <div class="modal" style="max-width:560px">
+      <div class="modal-header">
+        <span>日报详情</span>
+        <button onclick="closeModal('detailModal')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <div class="detail-label">日期</div>
+            <div class="detail-value" id="detailDate">-</div>
+          </div>
+          <div class="form-group">
+            <div class="detail-label">工程师</div>
+            <div class="detail-value" id="detailEngineer">-</div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <div class="detail-label">项目</div>
+            <div class="detail-value" id="detailProject">-</div>
+          </div>
+          <div class="form-group">
+            <div class="detail-label">计划标题</div>
+            <div class="detail-value" id="detailTitle">-</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="detail-label">任务内容</div>
+          <div class="detail-textarea" id="detailTasks">-</div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <div class="detail-label">进度 (%)</div>
+            <input type="range" id="detailProgress" min="0" max="100" style="width:100%" oninput="document.getElementById('detailProgressVal').textContent=this.value+'%'">
+            <span id="detailProgressVal" style="font-size:12px;color:var(--text2)">0%</span>
+          </div>
+          <div class="form-group">
+            <div class="detail-label">状态</div>
+            <select id="detailStatus">
+              <option value="in_progress">进行中</option>
+              <option value="completed">完成</option>
+              <option value="blocked">受阻</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="detail-label">问题</div>
+          <div class="detail-textarea" id="detailIssues">-</div>
+        </div>
+        <div class="form-group">
+          <div class="detail-label">下一步计划</div>
+          <div class="detail-textarea" id="detailNextPlan">-</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('detailModal')">关闭</button>
+        <button class="btn-primary" onclick="saveReportDetail()">保存修改</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var currentPage = 'reports';
+    var reports = [];
+    var engineers = [];
+    var projects = [];
+    var currentDetailId = null;
+
+    // ===== 列宽拖拽 =====
+    var COLUMNS = [
+      { key: 'date', label: '日期' },
+      { key: 'engineer', label: '工程师' },
+      { key: 'project', label: '项目' },
+      { key: 'progress', label: '进度' },
+      { key: 'status', label: '状态' },
+      { key: 'submitted_at', label: '提交时间' },
+      { key: 'actions', label: '操作' },
+    ];
+    var DEFAULT_COL_WIDTHS = {
+      date: 100, engineer: 80, project: 120, progress: 120,
+      status: 70, submitted_at: 140, actions: 80
+    };
+    var colWidths = {};
+    var colResizeState = null;
+
+    function loadColWidths() {
+      try { var saved = localStorage.getItem('reports-col-widths'); if (saved) colWidths = JSON.parse(saved); } catch(e) {}
+      Object.keys(DEFAULT_COL_WIDTHS).forEach(function(k) { if (colWidths[k] === undefined) colWidths[k] = DEFAULT_COL_WIDTHS[k]; });
+    }
+    function saveColWidths() {
+      try { localStorage.setItem('reports-col-widths', JSON.stringify(colWidths)); } catch(e) {}
+    }
+    function onColResizeStart(e, colKey) {
+      e.preventDefault();
+      var th = e.currentTarget.parentElement;
+      colResizeState = { key: colKey, startX: e.clientX, startW: th.offsetWidth, th: th };
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      e.currentTarget.classList.add('active');
+    }
+    document.addEventListener('mousemove', function(e) {
+      if (!colResizeState) return;
+      var diff = e.clientX - colResizeState.startX;
+      var newW = Math.max(60, colResizeState.startW + diff);
+      colResizeState.th.style.width = newW + 'px';
+      colWidths[colResizeState.key] = newW;
+    });
+    document.addEventListener('mouseup', function() {
+      if (!colResizeState) return;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      var active = document.querySelector('.col-resize-handle.active');
+      if (active) active.classList.remove('active');
+      colResizeState = null;
+      saveColWidths();
+    });
+    function initColResize() {
+      loadColWidths();
+      var ths = document.querySelectorAll('table thead th');
+      ths.forEach(function(th, idx) {
+        var col = COLUMNS[idx];
+        if (!col) return;
+        var w = colWidths[col.key];
+        if (w) { th.style.width = w + 'px'; th.style.minWidth = '60px'; }
+        th.style.position = 'relative';
+        var handle = document.createElement('div');
+        handle.className = 'col-resize-handle';
+        handle.addEventListener('mousedown', function(e) { onColResizeStart(e, col.key); });
+        th.appendChild(handle);
+      });
+    }
+
+    function showToast(msg, type) {
+      if (type === undefined) type = 'success';
+      var container = document.querySelector('.toast-container');
+      if (!container) { container = document.createElement('div'); container.className = 'toast-container'; document.body.appendChild(container); }
+      var toast = document.createElement('div'); toast.className = 'toast toast-' + type;
+      toast.textContent = msg; container.appendChild(toast);
+      setTimeout(function() { toast.style.opacity = '0'; setTimeout(function() { toast.remove(); }, 200); }, 3000);
+    }
+
+
+    function setActiveNav(page) { var link = document.getElementById('nav-' + page); if (link) link.classList.add('active'); }
+    function toggleSidebar() {
+      var sidebar = document.querySelector('.sidebar');
+      sidebar.classList.toggle('collapsed');
+      var icon = sidebar.querySelector('.sidebar-toggle i');
+      var collapsed = sidebar.classList.contains('collapsed');
+      icon.className = collapsed ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left';
+      try { localStorage.setItem('sidebar-collapsed', collapsed ? '1' : '0'); } catch(e) {}
+    }
+    function restoreSidebar() {
+      try {
+        var sidebar = document.querySelector('.sidebar');
+        var collapsed = localStorage.getItem('sidebar-collapsed') === '1';
+        if (collapsed) {
+          sidebar.classList.add('collapsed');
+        } else {
+          sidebar.classList.remove('collapsed');
+        }
+        var icon = sidebar.querySelector('.sidebar-toggle i');
+        icon.className = collapsed ? 'fa-solid fa-angles-right' : 'fa-solid fa-angles-left';
+      } catch(e) {}
+    }
+    
+
+    function formatDate(d) {
+      if (!d) return '-';
+      var date = new Date(d);
+      return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+    }
+
+    function formatDateTime(d) {
+      if (!d) return '-';
+      var date = new Date(d);
+      return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0') + ' ' + String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0');
+    }
+
+    function getStatusBadge(status) {
+      var map = {
+        'complete': '完成', 'completed': '完成', '已完成': '完成', '完成': '完成',
+        'ongoing': '进行中', 'in_progress': '进行中', '进行中': '进行中',
+        'blocked': '受阻', '受阻': '受阻',
+        'active': '进行中', 'paused': '暂停', '暂停': '暂停'
+      };
+      var label = map[status] || status || '-';
+      if (label === '完成') return '<span class="badge badge-green">完成</span>';
+      if (label === '进行中') return '<span class="badge badge-blue">进行中</span>';
+      if (label === '暂停') return '<span class="badge badge-amber">暂停</span>';
+      if (label === '受阻') return '<span class="badge badge-red">受阻</span>';
+      return '<span class="badge badge-blue">' + label + '</span>';
+    }
+
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+    // ===== 页面专用逻辑 =====
+    async function loadFilterOptions() {
+      try {
+        var engRes = await fetch(API + '/api/admin/engineers?status=active', { credentials: 'include' });
+        if (engRes.ok) {
+          var data = await engRes.json();
+          engineers = Array.isArray(data) ? data : (data.engineers || data.data || []);
+        }
+      } catch (e) {}
+      try {
+        var projRes = await fetch(API + '/api/admin/projects', { credentials: 'include' });
+        if (projRes.ok) {
+          var data = await projRes.json();
+          projects = Array.isArray(data) ? data : (data.projects || data.data || []);
+        }
+      } catch (e) {}
+    }
+
+    async function loadData() {
+      var engineerQ = document.getElementById('engineerSearch').value.trim().toLowerCase();
+      var projectQ = document.getElementById('projectSearch').value.trim().toLowerCase();
+      var dateFrom = document.getElementById('dateFrom').value;
+      var dateTo = document.getElementById('dateTo').value;
+      var status = document.getElementById('statusFilter').value;
+      var params = new URLSearchParams();
+      // 不选日期时默认当前月
+      if (!dateFrom) {
+        var now = new Date();
+        dateFrom = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-01';
+      }
+      if (!dateTo) {
+        var now = new Date();
+        dateTo = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+      }
+      params.set('date_from', dateFrom);
+      params.set('date_to', dateTo);
+      if (status) params.set('status', status);
+      try {
+        var res = await fetch(API + '/api/admin/reports?' + params.toString(), { credentials: 'include' });
+        if (!res.ok) throw new Error('请求失败');
+        var data = await res.json();
+        var inner = (data.data && Array.isArray(data.data)) ? data.data : (data.data || data);
+        reports = Array.isArray(inner) ? inner : (inner.reports || inner.data || []);
+        // 前端模糊过滤工程师和项目
+        if (engineerQ) { reports = reports.filter(function(r) { return (r.engineer_name || '').toLowerCase().indexOf(engineerQ) >= 0; }); }
+        if (projectQ) { reports = reports.filter(function(r) { return (r.project_name || '').toLowerCase().indexOf(projectQ) >= 0; }); }
+        renderTable();
+      } catch (e) {
+        showToast('加载失败: ' + e.message, 'error');
+      }
+    }
+
+    function renderTable() {
+      var tbody = document.getElementById('tableBody');
+      var empty = document.getElementById('emptyState');
+      tbody.innerHTML = '';
+      if (!reports || reports.length === 0) {
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+      reports.forEach(function(r) {
+        var tr = document.createElement('tr');
+        var progress = r.progress || r.progress_rate || 0;
+        tr.innerHTML =
+          '<td>' + formatDate(r.report_date) + '</td>' +
+          '<td>' + (r.engineer_name || '-') + '</td>' +
+          '<td>' + (r.project_name || '-') + '</td>' +
+          '<td><div style="display:flex;align-items:center;gap:8px"><div class="progress-bar" style="flex:1;max-width:120px"><div class="progress-fill" style="width:' + progress + '%"></div></div><span style="font-size:11px;color:var(--text2)">' + progress + '%</span></div></td>' +
+          '<td>' + getStatusBadge(r.status) + '</td>' +
+          '<td>' + formatDateTime(r.created_at || r.submitted_at) + '</td>' +
+          '<td><button class="btn-sm btn-secondary" onclick="openDetail(\'' + r.id + '\')"><i class="fa-solid fa-eye"></i> 查看</button></td>';
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function openDetail(id) {
+      currentDetailId = id;
+      try {
+        var res = await fetch(API + '/api/admin/reports/' + id, { credentials: 'include' });
+        if (!res.ok) throw new Error('获取详情失败');
+        var resJson = await res.json();
+        var r = resJson.data || resJson;
+        document.getElementById('detailDate').textContent = formatDate(r.report_date);
+        document.getElementById('detailEngineer').textContent = r.engineer_name || '-';
+        document.getElementById('detailProject').textContent = r.project_name || '-';
+        document.getElementById('detailTitle').textContent = r.title || r.plan_title || '-';
+        document.getElementById('detailTasks').textContent = r.tasks || r.content || '-';
+        var progress = r.progress || r.progress_rate || 0;
+        document.getElementById('detailProgress').value = progress;
+        document.getElementById('detailProgressVal').textContent = progress + '%';
+        document.getElementById('detailStatus').value = r.status || 'in_progress';
+        document.getElementById('detailIssues').textContent = r.issues || r.problems || '-';
+        document.getElementById('detailNextPlan').textContent = r.next_plan || '-';
+        document.getElementById('detailModal').style.display = 'flex';
+      } catch (e) {
+        showToast('加载详情失败: ' + e.message, 'error');
+      }
+    }
+
+    async function saveReportDetail() {
+      var body = {
+        progress: parseInt(document.getElementById('detailProgress').value),
+        status: document.getElementById('detailStatus').value
+      };
+      try {
+        var res = await fetch(API + '/api/admin/reports/' + currentDetailId, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) });
+        if (!res.ok) { var err = await res.json(); throw new Error(err.message || err.error || '保存失败'); }
+        showToast('修改已保存');
+        closeModal('detailModal');
+        loadData();
+      } catch (e) {
+        showToast('操作失败: ' + e.message, 'error');
+      }
+    }
+
+    document.getElementById('engineerSearch').addEventListener('keydown', function(e) { if (e.key === 'Enter') loadData(); });
+    document.getElementById('projectSearch').addEventListener('keydown', function(e) { if (e.key === 'Enter') loadData(); });
+    document.getElementById('dateFrom').addEventListener('change', function() { var btn = document.querySelector('.filter-bar .btn-primary'); if (btn) btn.style.borderColor = 'var(--green)'; });
+    document.getElementById('dateTo').addEventListener('change', function() { var btn = document.querySelector('.filter-bar .btn-primary'); if (btn) btn.style.borderColor = 'var(--green)'; });
+    document.getElementById('statusFilter').addEventListener('change', function() { var btn = document.querySelector('.filter-bar .btn-primary'); if (btn) btn.style.borderColor = 'var(--green)'; });
+    document.getElementById('detailModal').addEventListener('click', function(e) { if (e.target === this) closeModal('detailModal'); });
+
+    (async function init() {
+      restoreSidebar();
+      var user = await checkAuth();
+      if (!user) return;
+      setActiveNav(currentPage);
+      initColResize();
+      await loadFilterOptions();
+      loadData();
+    })();
+  </script>
+</body>
+</html>
